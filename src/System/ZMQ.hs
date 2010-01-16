@@ -87,18 +87,18 @@ close :: Socket -> IO ()
 close = throwErrnoIfMinus1_ "close" . c_zmq_close . sock
 
 setOption :: Socket -> SocketOption -> IO ()
-setOption s (HighWM o)      = setOpt s highWM o
-setOption s (LowWM o)       = setOpt s lowWM o
-setOption s (Swap o)        = setOpt s swap o
-setOption s (Affinity o)    = setOpt s affinity o
-setOption s (Identity o)    = withCString o $ setOpt s identity
-setOption s (Subscribe o)   = withCString o $ setOpt s subscribe
-setOption s (Unsubscribe o) = withCString o $ setOpt s unsubscribe
-setOption s (Rate o)        = setOpt s rate o
-setOption s (RecoveryIVL o) = setOpt s recoveryIVL o
-setOption s (McastLoop o)   = setOpt s mcastLoop o
-setOption s (SendBuf o)     = setOpt s sendBuf o
-setOption s (ReceiveBuf o)  = setOpt s receiveBuf o
+setOption s (HighWM o)      = setIntOpt s highWM o
+setOption s (LowWM o)       = setIntOpt s lowWM o
+setOption s (Swap o)        = setIntOpt s swap o
+setOption s (Affinity o)    = setIntOpt s affinity o
+setOption s (Identity o)    = setStrOpt s identity o
+setOption s (Subscribe o)   = setStrOpt s subscribe o
+setOption s (Unsubscribe o) = setStrOpt s unsubscribe o
+setOption s (Rate o)        = setIntOpt s rate o
+setOption s (RecoveryIVL o) = setIntOpt s recoveryIVL o
+setOption s (McastLoop o)   = setIntOpt s mcastLoop o
+setOption s (SendBuf o)     = setIntOpt s sendBuf o
+setOption s (ReceiveBuf o)  = setIntOpt s receiveBuf o
 
 bind :: Socket -> String -> IO ()
 bind (Socket s) str = throwErrnoIfMinus1_ "bind" $
@@ -163,12 +163,17 @@ messageInitSize s = do
 make :: Context -> ZMQSocketType -> IO ZMQSocket
 make (Context c) = throwErrnoIfNull "socket" . c_zmq_socket c . typeVal
 
-setOpt :: (Storable a) => Socket -> ZMQOption -> a -> IO ()
-setOpt (Socket s) (ZMQOption o) i = throwErrnoIfMinus1_ "setOpt" $
+setIntOpt :: (Storable a, Integral a) => Socket -> ZMQOption -> a -> IO ()
+setIntOpt (Socket s) (ZMQOption o) i = throwErrnoIfMinus1_ "setIntOpt" $
     withStablePtrOf i $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
                            (fromStablePtr ptr)
                            (fromIntegral . sizeOf $ i)
+
+setStrOpt :: Socket -> ZMQOption -> String -> IO ()
+setStrOpt (Socket s) (ZMQOption o) str = throwErrnoIfMinus1_ "setStrOpt" $
+    withCStringLen str $ \(cstr, len) ->
+        c_zmq_setsockopt s (fromIntegral o) (castPtr cstr) (fromIntegral len)
 
 st2cst :: SocketType -> ZMQSocketType
 st2cst P2P  = p2p
