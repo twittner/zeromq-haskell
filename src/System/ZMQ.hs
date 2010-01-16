@@ -46,9 +46,9 @@ import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
 
 type    Size    = Word
-newtype Context = Context { ctx  :: ZMQCtx }
-newtype Socket  = Socket  { sock :: ZMQSocket }
-newtype Message = Message { msg_ptr :: ZMQMsgPtr }
+newtype Context = Context { ctx    :: ZMQCtx }
+newtype Socket  = Socket  { sock   :: ZMQSocket }
+newtype Message = Message { msgPtr :: ZMQMsgPtr }
 
 data SocketType = P2P | Pub | Sub | Req | Rep | XReq | XRep | Up | Down
     deriving (Eq, Ord, Show)
@@ -115,16 +115,16 @@ send (Socket s) val fls = mapM_ sendChunk (LB.toChunks . encode $ val)
     sendChunk :: SB.ByteString -> IO ()
     sendChunk b = bracket (messageOf b) messageClose $ \m ->
         throwErrnoIfMinus1_ "sendChunk" $
-            c_zmq_send s (msg_ptr m) (combine fls)
+            c_zmq_send s (msgPtr m) (combine fls)
 
 flush :: Socket -> IO ()
 flush = throwErrnoIfMinus1_ "flush" . c_zmq_flush . sock
 
 receive :: Binary a => Socket -> [Flag] -> IO a
 receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
-    throwErrnoIfMinus1_ "receive" $ c_zmq_recv s (msg_ptr m) (combine fls)
-    data_ptr <- c_zmq_msg_data (msg_ptr m)
-    size     <- c_zmq_msg_size (msg_ptr m)
+    throwErrnoIfMinus1_ "receive" $ c_zmq_recv s (msgPtr m) (combine fls)
+    data_ptr <- c_zmq_msg_data (msgPtr m)
+    size     <- c_zmq_msg_size (msgPtr m)
     bstr     <- SB.packCStringLen (data_ptr, fromIntegral size)
     return $ decode (LB.fromChunks [bstr])
 
@@ -133,20 +133,17 @@ receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
 messageOf :: SB.ByteString -> IO Message
 messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do
     msg <- messageInitSize (fromIntegral len)
-    data_ptr <- c_zmq_msg_data (msg_ptr msg)
+    data_ptr <- c_zmq_msg_data (msgPtr msg)
     copyBytes data_ptr cstr len
     return msg
 
 messageClose :: Message -> IO ()
-messageClose m = throwErrnoIfMinus1_ "messageClose" $
-    c_zmq_msg_close (msg_ptr m)
-    -- free?
+messageClose = throwErrnoIfMinus1_ "messageClose" . c_zmq_msg_close . msgPtr
 
 messageInit :: IO Message
 messageInit = do
     ptr <- new (ZMQMsg nullPtr)
-    throwErrnoIfMinus1_ "messageInit" $
-        c_zmq_msg_init ptr
+    throwErrnoIfMinus1_ "messageInit" $ c_zmq_msg_init ptr
     return (Message ptr)
 
 messageInitSize :: Size -> IO Message
@@ -190,7 +187,7 @@ combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
 
 withStablePtrOf :: a -> (StablePtr a -> IO b) -> IO b
-withStablePtrOf x f = bracket (newStablePtr x) freeStablePtr f
+withStablePtrOf x = bracket (newStablePtr x) freeStablePtr
 
 fromStablePtr :: StablePtr a -> Ptr b
 fromStablePtr = castPtr . castStablePtrToPtr
