@@ -16,7 +16,8 @@ build-type:         Simple
 extra-source-files: README
 
 library
-  exposed-modules:  System.ZMQ.Base, System.ZMQ
+  exposed-modules:  System.ZMQ
+  other-modules:    System.ZMQ.Base
   ghc-options:      -Wall -O2
   extensions:       CPP,
                     ForeignFunctionInterface,

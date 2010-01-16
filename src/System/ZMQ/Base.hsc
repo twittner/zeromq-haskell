@@ -17,12 +17,12 @@ import Foreign.C.String
 
 #include <zmq.h>
 
-data Message a = Message { content :: Ptr a }
+data Message = Message { content :: !(Ptr ()) }
 
-instance Storable (Message a) where
-    alignment _       = #{alignment zmq_msg_t}
-    sizeOf    _       = #{size zmq_msg_t}
-    peek p            = Message <$> #{peek zmq_msg_t, content} p
+instance Storable Message where
+    alignment _        = #{alignment zmq_msg_t}
+    sizeOf    _        = #{size zmq_msg_t}
+    peek p             = Message <$> #{peek zmq_msg_t, content} p
     poke p (Message c) = #{poke zmq_msg_t, content} p c
 
 data Poll = Poll
@@ -47,18 +47,19 @@ instance Storable Poll where
         #{poke zmq_pollitem_t, events} p e
         #{poke zmq_pollitem_t, revents} p re
 
-type ZMQMsgPtr a  = Ptr (Message a)
-type ZMQFun       = FunPtr (Ptr () -> Ptr () -> IO ())
-type ZMQCtx       = Ptr ()
-type ZMQSocket    = Ptr ()
-type ZMQPollPtr   = Ptr Poll
-type ZMQStopWatch = Ptr ()
+usePoll :: CInt
+usePoll = #const ZMQ_POLL
+
+type ZMQMsgPtr  = Ptr Message
+type ZMQCtx     = Ptr ()
+type ZMQSocket  = Ptr ()
+type ZMQPollPtr = Ptr Poll
 
 #let alignment t = "%lu", (unsigned long)offsetof(struct {char x__; t (y__); }, y__)
 
-newtype CSocketType = CSocketType { typeVal :: CInt } deriving (Eq, Ord)
+newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
 
-#{enum CSocketType, CSocketType,
+#{enum ZMQSocketType, ZMQSocketType,
     p2p        = ZMQ_P2P,
     pub        = ZMQ_PUB,
     sub        = ZMQ_SUB,
@@ -70,9 +71,9 @@ newtype CSocketType = CSocketType { typeVal :: CInt } deriving (Eq, Ord)
     downstream = ZMQ_DOWNSTREAM
 }
 
-newtype OptionType = OptionType { optVal :: CInt } deriving (Eq, Ord)
+newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
 
-#{enum OptionType, OptionType,
+#{enum ZMQOption, ZMQOption,
     highWM      = ZMQ_HWM,
     lowWM       = ZMQ_LWM,
     swap        = ZMQ_SWAP,
@@ -87,9 +88,9 @@ newtype OptionType = OptionType { optVal :: CInt } deriving (Eq, Ord)
     receiveBuf  = ZMQ_RCVBUF
 }
 
-newtype CFlag = CFlag { flagVal :: CInt } deriving (Eq, Ord)
+newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 
-#{enum CFlag, CFlag,
+#{enum ZMQFlag, ZMQFlag,
     noBlock = ZMQ_NOBLOCK,
     noFlush = ZMQ_NOFLUSH
 }
@@ -105,33 +106,19 @@ foreign import ccall unsafe "zmq.h zmq_term"
 -- zmq_msg_t related
 
 foreign import ccall unsafe "zmq.h zmq_msg_init"
-    c_zmq_msg_init :: ZMQMsgPtr a -> IO CInt
+    c_zmq_msg_init :: ZMQMsgPtr -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_msg_init_size"
-    c_zmq_msg_init_size :: ZMQMsgPtr a -> CSize -> IO CInt
-
-foreign import ccall unsafe "zmq.h zmq_msg_init_data"
-    c_zmq_msg_init_data :: ZMQMsgPtr a
-                        -> Ptr ()  -- ^ msg
-                        -> CSize   -- ^ size
-                        -> ZMQFun  -- ^ free function
-                        -> Ptr ()  -- ^ hint
-                        -> IO CInt
+    c_zmq_msg_init_size :: ZMQMsgPtr -> CSize -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_msg_close"
-    c_zmq_msg_close :: ZMQMsgPtr a -> IO CInt
-
-foreign import ccall unsafe "zmq.h zmq_msg_move"
-    c_zmq_msg_move :: ZMQMsgPtr a -> ZMQMsgPtr a -> IO CInt
-
-foreign import ccall unsafe "zmq.h zmq_msg_copy"
-    c_zmq_msg_copy :: ZMQMsgPtr a -> ZMQMsgPtr a -> IO CInt
+    c_zmq_msg_close :: ZMQMsgPtr -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_msg_data"
-    c_zmq_msg_data :: ZMQMsgPtr a -> IO (Ptr a)
+    c_zmq_msg_data :: ZMQMsgPtr -> IO (Ptr a)
 
 foreign import ccall unsafe "zmq.h zmq_msg_size"
-    c_zmq_msg_size :: ZMQMsgPtr a -> IO CInt
+    c_zmq_msg_size :: ZMQMsgPtr -> IO CSize
 
 -- socket
 
@@ -143,9 +130,9 @@ foreign import ccall unsafe "zmq.h zmq_close"
 
 foreign import ccall unsafe "zmq.h zmq_setsockopt"
     c_zmq_setsockopt :: ZMQSocket
-                     -> CInt   -- ^ option
-                     -> Ptr () -- ^ option value
-                     -> CSize  -- ^ option value size
+                     -> CInt   -- option
+                     -> Ptr () -- option value
+                     -> CSize  -- option value size
                      -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_bind"
@@ -155,31 +142,16 @@ foreign import ccall unsafe "zmq.h zmq_connect"
     c_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_send"
-    c_zmq_send :: ZMQSocket -> ZMQMsgPtr a -> CInt -> IO CInt
+    c_zmq_send :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_flush"
     c_zmq_flush :: ZMQSocket -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_recv"
-    c_zmq_recv :: ZMQSocket -> ZMQMsgPtr a -> CInt -> IO CInt
+    c_zmq_recv :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
 -- poll
 
 foreign import ccall unsafe "zmq.h zmq_poll"
     c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
-
-
--- utility
-
-foreign import ccall unsafe "zmq.h zmq_strerror"
-    c_zmq_strerror :: CInt -> IO CString
-
-foreign import ccall unsafe "zmq.h zmq_stopwatch_start"
-    c_zmq_stopwatch_start :: IO ZMQStopWatch
-
-foreign import ccall unsafe "zmq.h zmq_stopwatch_stop"
-    c_zmq_stopwatch_stop :: ZMQStopWatch -> IO CULong
-
-foreign import ccall unsafe "zmq.h zmq_sleep"
-    c_zmq_sleep :: CInt -> IO ()
 
