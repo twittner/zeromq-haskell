@@ -17,13 +17,13 @@ import Foreign.C.String
 
 #include <zmq.h>
 
-data Message = Message { content :: !(Ptr ()) }
+data ZMQMsg = ZMQMsg { content :: !(Ptr ()) }
 
-instance Storable Message where
+instance Storable ZMQMsg where
     alignment _        = #{alignment zmq_msg_t}
     sizeOf    _        = #{size zmq_msg_t}
-    peek p             = Message <$> #{peek zmq_msg_t, content} p
-    poke p (Message c) = #{poke zmq_msg_t, content} p c
+    peek p             = ZMQMsg <$> #{peek zmq_msg_t, content} p
+    poke p (ZMQMsg c) = #{poke zmq_msg_t, content} p c
 
 data Poll = Poll
     { pSocket  :: ZMQSocket
@@ -50,7 +50,7 @@ instance Storable Poll where
 usePoll :: CInt
 usePoll = #const ZMQ_POLL
 
-type ZMQMsgPtr  = Ptr Message
+type ZMQMsgPtr  = Ptr ZMQMsg
 type ZMQCtx     = Ptr ()
 type ZMQSocket  = Ptr ()
 type ZMQPollPtr = Ptr Poll

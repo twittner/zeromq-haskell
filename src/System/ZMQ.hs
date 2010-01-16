@@ -48,6 +48,7 @@ import qualified Data.ByteString.Unsafe as UB
 type    Size    = Word
 newtype Context = Context { ctx  :: ZMQCtx }
 newtype Socket  = Socket  { sock :: ZMQSocket }
+newtype Message = Message { msg_ptr :: ZMQMsgPtr }
 
 data SocketType = P2P | Pub | Sub | Req | Rep | XReq | XRep | Up | Down
     deriving (Eq, Ord, Show)
@@ -112,53 +113,48 @@ send :: Binary a => Socket -> a -> [Flag] -> IO ()
 send (Socket s) val fls = mapM_ sendChunk (LB.toChunks . encode $ val)
  where
     sendChunk :: SB.ByteString -> IO ()
-    sendChunk b = bracket (messageOf b) messageClose $ \msg ->
-        withStablePtrOf msg $ \ptr ->
-            throwErrnoIfMinus1_ "sendChunk" $
-                c_zmq_send s (fromStablePtr ptr) (combine fls)
+    sendChunk b = bracket (messageOf b) messageClose $ \m ->
+        throwErrnoIfMinus1_ "sendChunk" $
+            c_zmq_send s (msg_ptr m) (combine fls)
 
 flush :: Socket -> IO ()
 flush = throwErrnoIfMinus1_ "flush" . c_zmq_flush . sock
 
 receive :: Binary a => Socket -> [Flag] -> IO a
-receive (Socket s) fls = bracket messageInit messageClose $ \msg ->
-    withStablePtrOf msg $ \ptr -> do
-        let cptr = fromStablePtr ptr
-        throwErrnoIfMinus1_ "receive" $ c_zmq_recv s cptr (combine fls)
-        data_ptr <- c_zmq_msg_data cptr
-        size     <- c_zmq_msg_size cptr
-        bstr     <- SB.packCStringLen (data_ptr, fromIntegral size)
-        return $ decode (LB.fromChunks [bstr])
+receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
+    throwErrnoIfMinus1_ "receive" $ c_zmq_recv s (msg_ptr m) (combine fls)
+    data_ptr <- c_zmq_msg_data (msg_ptr m)
+    size     <- c_zmq_msg_size (msg_ptr m)
+    bstr     <- SB.packCStringLen (data_ptr, fromIntegral size)
+    return $ decode (LB.fromChunks [bstr])
 
 -- internal helpers:
 
 messageOf :: SB.ByteString -> IO Message
 messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do
     msg <- messageInitSize (fromIntegral len)
-    withStablePtrOf msg $ \ptr -> do
-        data_ptr <- c_zmq_msg_data (fromStablePtr ptr)
-        copyBytes data_ptr cstr len
+    data_ptr <- c_zmq_msg_data (msg_ptr msg)
+    copyBytes data_ptr cstr len
     return msg
 
 messageClose :: Message -> IO ()
-messageClose m = withStablePtrOf m $ \ptr ->
-    throwErrnoIfMinus1_ "messageClose" $ c_zmq_msg_close (fromStablePtr ptr)
+messageClose m = throwErrnoIfMinus1_ "messageClose" $
+    c_zmq_msg_close (msg_ptr m)
+    -- free?
 
 messageInit :: IO Message
 messageInit = do
-    let msg = Message nullPtr
-    withStablePtrOf msg $ \ptr ->
-        throwErrnoIfMinus1_ "messageInit" $
-            c_zmq_msg_init (fromStablePtr ptr)
-    return msg
+    ptr <- new (ZMQMsg nullPtr)
+    throwErrnoIfMinus1_ "messageInit" $
+        c_zmq_msg_init ptr
+    return (Message ptr)
 
 messageInitSize :: Size -> IO Message
 messageInitSize s = do
-    let msg = Message nullPtr
-    withStablePtrOf msg $ \ptr ->
-        throwErrnoIfMinus1_ "messageInitSize" $
-            c_zmq_msg_init_size (fromStablePtr ptr) (fromIntegral s)
-    return msg
+    ptr <- new (ZMQMsg nullPtr)
+    throwErrnoIfMinus1_ "messageInitSize" $
+        c_zmq_msg_init_size ptr (fromIntegral s)
+    return (Message ptr)
 
 make :: Context -> ZMQSocketType -> IO ZMQSocket
 make (Context c) = throwErrnoIfNull "socket" . c_zmq_socket c . typeVal
