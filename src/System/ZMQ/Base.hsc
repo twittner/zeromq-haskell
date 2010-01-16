@@ -25,14 +25,14 @@ instance Storable ZMQMsg where
     peek p             = ZMQMsg <$> #{peek zmq_msg_t, content} p
     poke p (ZMQMsg c) = #{poke zmq_msg_t, content} p c
 
-data Poll = Poll
+data ZMQPoll = ZMQPoll
     { pSocket  :: ZMQSocket
     , pFd      :: CInt
     , pEvents  :: CShort
     , pRevents :: CShort
     }
 
-instance Storable Poll where
+instance Storable ZMQPoll where
     alignment _ = #{alignment zmq_pollitem_t}
     sizeOf    _ = #{size zmq_pollitem_t}
     peek p = do
@@ -40,8 +40,8 @@ instance Storable Poll where
         f  <- #{peek zmq_pollitem_t, fd} p
         e  <- #{peek zmq_pollitem_t, events} p
         re <- #{peek zmq_pollitem_t, revents} p
-        return $ Poll s f e re
-    poke p (Poll s f e re) = do
+        return $ ZMQPoll s f e re
+    poke p (ZMQPoll s f e re) = do
         #{poke zmq_pollitem_t, socket} p s
         #{poke zmq_pollitem_t, fd} p f
         #{poke zmq_pollitem_t, events} p e
@@ -53,7 +53,7 @@ usePoll = #const ZMQ_POLL
 type ZMQMsgPtr  = Ptr ZMQMsg
 type ZMQCtx     = Ptr ()
 type ZMQSocket  = Ptr ()
-type ZMQPollPtr = Ptr Poll
+type ZMQPollPtr = Ptr ZMQPoll
 
 #let alignment t = "%lu", (unsigned long)offsetof(struct {char x__; t (y__); }, y__)
 
@@ -93,6 +93,13 @@ newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 #{enum ZMQFlag, ZMQFlag,
     noBlock = ZMQ_NOBLOCK,
     noFlush = ZMQ_NOFLUSH
+}
+
+newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
+
+#{enum ZMQPollEvent, ZMQPollEvent,
+    pollIn  = ZMQ_POLLIN,
+    pollOut = ZMQ_POLLOUT
 }
 
 -- general initialization

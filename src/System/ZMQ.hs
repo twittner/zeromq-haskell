@@ -13,6 +13,7 @@ module System.ZMQ (
     Context,
     Socket,
     Message,
+    Poll(..),
     Flag(..),
     SocketType(..),
     SocketOption(..),
@@ -27,7 +28,9 @@ module System.ZMQ (
     connect,
     send,
     flush,
-    receive
+    receive,
+
+    poll
 
 ) where
 
@@ -40,11 +43,13 @@ import System.ZMQ.Base
 import Foreign
 import Foreign.C.Error
 import Foreign.C.String
-import Foreign.C.Types (CInt)
+import Foreign.C.Types (CInt, CShort)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
+import System.Posix.Types (Fd(..))
 
+type    Timeout = Int64
 type    Size    = Word
 newtype Context = Context { ctx    :: ZMQCtx }
 newtype Socket  = Socket  { sock   :: ZMQSocket }
@@ -68,14 +73,16 @@ data SocketOption =
   | ReceiveBuf  Word64
   deriving (Eq, Ord, Show)
 
-data Flag = NoBlock | NoFlush deriving (Eq, Ord, Show)
+data Flag  = NoBlock | NoFlush deriving (Eq, Ord, Show)
+data Event = In | Out | InOut deriving (Eq, Ord, Show)
+data Poll  = Sock Socket Event | FD Fd Event
 
 init :: Size -> Size -> Bool  -> IO Context
-init appThreads ioThreads poll = do
+init appThreads ioThreads doPoll = do
     c <- throwErrnoIfNull "init" $
          c_zmq_init (fromIntegral appThreads)
                     (fromIntegral ioThreads)
-                    (if poll then usePoll else 0)
+                    (if doPoll then usePoll else 0)
     return (Context c)
 
 term :: Context -> IO ()
@@ -127,6 +134,48 @@ receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
     size     <- c_zmq_msg_size (msgPtr m)
     bstr     <- SB.packCStringLen (data_ptr, fromIntegral size)
     return $ decode (LB.fromChunks [bstr])
+
+poll :: [Poll] -> [Event] -> Timeout -> IO [Poll]
+poll fds evs to = do
+    let len = length evs
+        ps  = map createZMQPoll fds
+    withArray ps $ \ptr -> do
+        throwErrnoIfMinus1_ "poll" $
+            c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
+        ps' <- peekArray len ptr
+        createPoll ps' []
+ where
+    createZMQPoll :: Poll -> ZMQPoll
+    createZMQPoll (Sock (Socket s) e) =
+        ZMQPoll s 0 (fromEvent e) 0
+    createZMQPoll (FD (Fd s) e) =
+        ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
+
+    createPoll :: [ZMQPoll] -> [Poll] -> IO [Poll]
+    createPoll []     fd = return fd
+    createPoll (p:pp) fd = do
+        let s = pSocket p; f = pFd p; r = pRevents p
+        if r /= 0
+            then if f /= 0
+                    then createPoll pp (FD (Fd f) (toEvent r):fd)
+                    else createPoll pp fd
+            else if s /= nullPtr
+                    then createPoll pp (Sock (Socket s) (toEvent r):fd)
+                    else createPoll pp fd
+
+    fromEvent :: Event -> CShort
+    fromEvent In    = fromIntegral . pollVal $ pollIn
+    fromEvent Out   = fromIntegral . pollVal $ pollOut
+    fromEvent InOut = fromEvent In .|. fromEvent Out
+
+    toEvent :: CShort -> Event
+    toEvent e =
+        let i = fromIntegral . pollVal $ pollIn
+            o = fromIntegral . pollVal $ pollOut
+        in
+            if  e .&. i .&. o /= 0
+                then InOut
+                else if  e .&. i /= 0 then In else Out
 
 -- internal helpers:
 
