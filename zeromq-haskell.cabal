@@ -20,8 +20,7 @@ library
   other-modules:    System.ZMQ.Base
   ghc-options:      -Wall -O2
   extensions:       CPP,
-                    ForeignFunctionInterface,
-                    TypeSynonymInstances
+                    ForeignFunctionInterface
   build-depends:    base >= 3 && < 5,
                     unix,
                     containers,
