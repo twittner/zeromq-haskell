@@ -1,3 +1,4 @@
+{-# LANGUAGE ExistentialQuantification #-}
 -- |
 -- Module      : System.ZMQ
 -- Copyright   : (c) 2010 Toralf Wittner
@@ -12,10 +13,20 @@ module System.ZMQ (
     Size,
     Context,
     Socket,
-    Poll(..),
     Flag(..),
-    SocketType(..),
     SocketOption(..),
+    Poll(..),
+    PollEvent(..),
+
+    P2P(..),
+    Pub(..),
+    Sub(..),
+    Req(..),
+    Rep(..),
+    XReq(..),
+    XRep(..),
+    Up(..),
+    Down(..),
 
     init,
     term,
@@ -23,6 +34,8 @@ module System.ZMQ (
     socket,
     close,
     setOption,
+    System.ZMQ.subscribe,
+    System.ZMQ.unsubscribe,
     bind,
     connect,
     send,
@@ -39,6 +52,7 @@ import Control.Exception
 import Data.Binary
 import Data.Int
 import System.ZMQ.Base
+import qualified System.ZMQ.Base as B
 import Foreign
 import Foreign.C.Error
 import Foreign.C.String
@@ -49,10 +63,10 @@ import qualified Data.ByteString.Unsafe as UB
 import System.Posix.Types (Fd(..))
 
 -- ^ A 0MQ context representation.
-newtype Context = Context { ctx    :: ZMQCtx }
+newtype Context = Context { ctx :: ZMQCtx }
 
 -- ^ A 0MQ Socket.
-newtype Socket = Socket  { sock   :: ZMQSocket }
+newtype Socket a = Socket { sock :: ZMQSocket }
 
 -- A 0MQ Message representation.
 newtype Message = Message { msgPtr :: ZMQMsgPtr }
@@ -60,19 +74,51 @@ newtype Message = Message { msgPtr :: ZMQMsgPtr }
 type Timeout = Int64
 type Size    = Word
 
--- ^ The type of 0MQ socket (cf. man zmq_socket)
-data SocketType =
-    P2P  -- ^ ZMQ_P2P
-  | Pub  -- ^ ZMQ_PUB
-  | Sub  -- ^ ZMQ_SUB
-  | Req  -- ^ ZMQ_REQ
-  | Rep  -- ^ ZMQ_REP
-  | XReq -- ^ ZMQ_XREQ
-  | XRep -- ^ ZMQ_XREP
-  | Up   -- ^ ZMQ_UPSTREAM
-  | Down -- ^ ZMQ_DOWNSTREAM
-  deriving (Eq, Ord, Show)
+-- Socket types:
 
+class SType a where
+    zmqSocketType :: a -> ZMQSocketType
+
+data P2P = P2P
+instance SType P2P where
+    zmqSocketType = const p2p
+
+data Pub = Pub
+instance SType Pub where
+    zmqSocketType = const pub
+
+data Sub = Sub
+instance SType Sub where
+    zmqSocketType = const sub
+
+data Req = Req
+instance SType Req where
+    zmqSocketType = const request
+
+data Rep = Rep
+instance SType Rep where
+    zmqSocketType = const response
+
+data XReq = Xreq
+instance SType XReq where
+    zmqSocketType = const xrequest
+
+data XRep = Xrep
+instance SType XRep where
+    zmqSocketType = const xresponse
+
+data Up = Up
+instance SType Up where
+    zmqSocketType = const upstream
+
+data Down = Down
+instance SType Down where
+    zmqSocketType = const downstream
+
+-- Subscribable:
+
+class SubsType a
+instance SubsType Sub
 
 -- ^ The option to set on 0MQ sockets (cf. man zmq_setsockopt)
 data SocketOption =
@@ -81,8 +127,6 @@ data SocketOption =
   | Swap        Int64  -- ^ ZMQ_SWAP
   | Affinity    Int64  -- ^ ZMQ_AFFINITY
   | Identity    String -- ^ ZMQ_IDENTITY
-  | Subscribe   String -- ^ ZMQ_SUBSCRIBE
-  | Unsubscribe String -- ^ ZMQ_UNSUBSCRIBE
   | Rate        Word64 -- ^ ZMQ_RATE
   | RecoveryIVL Word64 -- ^ ZMQ_RECOVERY_IVL
   | McastLoop   Word64 -- ^ ZMQ_MCAST_LOOP
@@ -107,8 +151,8 @@ data PollEvent =
 -- (either a 0MQ socket or a file descriptor) plus the type
 -- of event of wait for.
 data Poll =
-    Sock Socket PollEvent
-  | FDes Fd PollEvent
+    forall a. S (Socket a) PollEvent
+  | F Fd PollEvent
 
 -- ^ Initialize a 0MQ context (cf. zmq_init).
 init :: Size -> Size -> Bool -> IO Context
@@ -124,42 +168,53 @@ term :: Context -> IO ()
 term = throwErrnoIfMinus1_ "term" . c_zmq_term . ctx
 
 -- ^ Create a new 0MQ socket within the given context.
-socket :: Context -> SocketType -> IO Socket
-socket c st = Socket <$> make c (st2cst st)
+socket :: SType a => Context -> a -> IO (Socket a)
+socket (Context c) t =
+    let zt = typeVal . zmqSocketType $ t
+    in  Socket <$> throwErrnoIfNull "socket" (c_zmq_socket c zt)
 
 -- ^ Close a 0MQ socket.
-close :: Socket -> IO ()
+close :: Socket a -> IO ()
 close = throwErrnoIfMinus1_ "close" . c_zmq_close . sock
 
 -- ^ Set the given option on the socket. Please note that there are
 -- certain combatibility constraints w.r.t the socket type (cf. man
 -- zmq_setsockopt).
-setOption :: Socket -> SocketOption -> IO ()
+--
+-- Please note that subscribe/unsubscribe is handled with separate
+-- functions.
+setOption :: Socket a -> SocketOption -> IO ()
 setOption s (HighWM o)      = setIntOpt s highWM o
 setOption s (LowWM o)       = setIntOpt s lowWM o
 setOption s (Swap o)        = setIntOpt s swap o
 setOption s (Affinity o)    = setIntOpt s affinity o
 setOption s (Identity o)    = setStrOpt s identity o
-setOption s (Subscribe o)   = setStrOpt s subscribe o
-setOption s (Unsubscribe o) = setStrOpt s unsubscribe o
 setOption s (Rate o)        = setIntOpt s rate o
 setOption s (RecoveryIVL o) = setIntOpt s recoveryIVL o
 setOption s (McastLoop o)   = setIntOpt s mcastLoop o
 setOption s (SendBuf o)     = setIntOpt s sendBuf o
 setOption s (ReceiveBuf o)  = setIntOpt s receiveBuf o
 
+-- ^ Subscribe Socket to given subscription.
+subscribe :: SubsType a => Socket a -> String -> IO ()
+subscribe s = setStrOpt s B.subscribe
+
+-- ^ Unsubscribe Socket from given subscription.
+unsubscribe :: SubsType a => Socket a -> String -> IO ()
+unsubscribe s = setStrOpt s B.unsubscribe
+
 -- ^ Bind the socket to the given address (zmq_bind)
-bind :: Socket -> String -> IO ()
+bind :: Socket a -> String -> IO ()
 bind (Socket s) str = throwErrnoIfMinus1_ "bind" $
     withCString str (c_zmq_bind s)
 
 -- ^ Connect the socket to the given address (zmq_connect).
-connect :: Socket -> String -> IO ()
+connect :: Socket a -> String -> IO ()
 connect (Socket s) str = throwErrnoIfMinus1_ "connect" $
     withCString str (c_zmq_connect s)
 
 -- ^ Send the given 'Binary' over the socket (zmq_send).
-send :: Binary a => Socket -> a -> [Flag] -> IO ()
+send :: Binary b => Socket a -> b -> [Flag] -> IO ()
 send (Socket s) val fls = mapM_ sendChunk (LB.toChunks . encode $ val)
  where
     sendChunk :: SB.ByteString -> IO ()
@@ -168,11 +223,11 @@ send (Socket s) val fls = mapM_ sendChunk (LB.toChunks . encode $ val)
             c_zmq_send s (msgPtr m) (combine fls)
 
 -- ^ Flush the given socket (useful for 'send's with 'NoFlush').
-flush :: Socket -> IO ()
+flush :: Socket a -> IO ()
 flush = throwErrnoIfMinus1_ "flush" . c_zmq_flush . sock
 
 -- ^ Receive a 'Binary' from socket (zmq_recv).
-receive :: Binary a => Socket -> [Flag] -> IO a
+receive :: Binary b => Socket a -> [Flag] -> IO b
 receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
     throwErrnoIfMinus1_ "receive" $ c_zmq_recv s (msgPtr m) (combine fls)
     data_ptr <- c_zmq_msg_data (msgPtr m)
@@ -193,9 +248,9 @@ poll fds to = do
         createPoll ps' []
  where
     createZMQPoll :: Poll -> ZMQPoll
-    createZMQPoll (Sock (Socket s) e) =
+    createZMQPoll (S (Socket s) e) =
         ZMQPoll s 0 (fromEvent e) 0
-    createZMQPoll (FDes (Fd s) e) =
+    createZMQPoll (F (Fd s) e) =
         ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
 
     createPoll :: [ZMQPoll] -> [Poll] -> IO [Poll]
@@ -204,10 +259,10 @@ poll fds to = do
         let s = pSocket p; f = pFd p; r = pRevents p
         if r /= 0
             then if f /= 0
-                    then createPoll pp (FDes (Fd f) (toEvent r):fd)
+                    then createPoll pp (F (Fd f) (toEvent r):fd)
                     else createPoll pp fd
             else if s /= nullPtr
-                    then createPoll pp (Sock (Socket s) (toEvent r):fd)
+                    then createPoll pp (S (Socket s) (toEvent r):fd)
                     else createPoll pp fd
 
     fromEvent :: PollEvent -> CShort
@@ -216,13 +271,9 @@ poll fds to = do
     fromEvent InOut = fromEvent In .|. fromEvent Out
 
     toEvent :: CShort -> PollEvent
-    toEvent e =
-        let i = fromIntegral . pollVal $ pollIn
-            o = fromIntegral . pollVal $ pollOut
-        in
-            if  e .&. i .&. o /= 0
-                then InOut
-                else if  e .&. i /= 0 then In else Out
+    toEvent e | e == (fromIntegral . pollVal $ pollIn)  = In
+              | e == (fromIntegral . pollVal $ pollOut) = Out
+              | otherwise                                = InOut
 
 -- internal helpers:
 
@@ -249,31 +300,17 @@ messageInitSize s = do
         c_zmq_msg_init_size ptr (fromIntegral s)
     return (Message ptr)
 
-make :: Context -> ZMQSocketType -> IO ZMQSocket
-make (Context c) = throwErrnoIfNull "socket" . c_zmq_socket c . typeVal
-
-setIntOpt :: (Storable a, Integral a) => Socket -> ZMQOption -> a -> IO ()
+setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt (Socket s) (ZMQOption o) i = throwErrnoIfMinus1_ "setIntOpt" $
-    withStablePtrOf i $ \ptr ->
+    bracket (newStablePtr i) freeStablePtr $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
-                           (fromStablePtr ptr)
+                           (castStablePtrToPtr ptr)
                            (fromIntegral . sizeOf $ i)
 
-setStrOpt :: Socket -> ZMQOption -> String -> IO ()
+setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
 setStrOpt (Socket s) (ZMQOption o) str = throwErrnoIfMinus1_ "setStrOpt" $
     withCStringLen str $ \(cstr, len) ->
         c_zmq_setsockopt s (fromIntegral o) (castPtr cstr) (fromIntegral len)
-
-st2cst :: SocketType -> ZMQSocketType
-st2cst P2P  = p2p
-st2cst Pub  = pub
-st2cst Sub  = sub
-st2cst Req  = request
-st2cst Rep  = response
-st2cst XReq = xrequest
-st2cst XRep = xresponse
-st2cst Up   = upstream
-st2cst Down = downstream
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag NoBlock = noBlock
@@ -281,9 +318,3 @@ toZMQFlag NoFlush = noFlush
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
-
-withStablePtrOf :: a -> (StablePtr a -> IO b) -> IO b
-withStablePtrOf x = bracket (newStablePtr x) freeStablePtr
-
-fromStablePtr :: StablePtr a -> Ptr b
-fromStablePtr = castPtr . castStablePtrToPtr
