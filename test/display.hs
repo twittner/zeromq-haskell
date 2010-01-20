@@ -13,7 +13,7 @@ main = do
     let addr = head args
     c <- ZMQ.init 1 1 False
     s <- ZMQ.socket c ZMQ.Sub
-    ZMQ.setOption s (ZMQ.Subscribe "")
+    ZMQ.subscribe s ""
     ZMQ.connect s addr
     forever $ do
         line <- ZMQ.receive s []
