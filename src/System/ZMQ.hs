@@ -278,7 +278,9 @@ messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do
     return msg
 
 messageClose :: Message -> IO ()
-messageClose = throwErrnoIfMinus1_ "messageClose" . c_zmq_msg_close . msgPtr
+messageClose (Message ptr) = do
+    throwErrnoIfMinus1_ "messageClose" $ c_zmq_msg_close ptr
+    free ptr
 
 messageInit :: IO Message
 messageInit = do

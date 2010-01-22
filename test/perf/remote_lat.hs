@@ -23,6 +23,8 @@ main = do
     loop s rounds message
     end <- getCurrentTime
     print (diffUTCTime end start)
+    ZMQ.close s
+    ZMQ.term c
  where
     loop s r msg = unless (r <= 0) $ do
         ZMQ.send s msg []

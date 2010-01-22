@@ -11,13 +11,15 @@ main = do
     when (length args /= 3) $ do
         hPutStrLn stderr usage
         exitFailure
-    let bindTo  = args !! 0
-        msgSize = read $ args !! 1 :: Int
-        rounds  = read $ args !! 2
+    let bindTo = args !! 0
+        size   = read $ args !! 1
+        rounds = read $ args !! 2
     c <- ZMQ.init 1 1 False
     s <- ZMQ.socket c ZMQ.Rep
     ZMQ.bind s bindTo
-    loop s rounds msgSize
+    loop s rounds size
+    ZMQ.close s
+    ZMQ.term c
  where
     loop s r sz = unless (r <= 0) $ do
         msg <- ZMQ.receive s []
