@@ -3,6 +3,7 @@ import System.IO
 import System.Exit
 import System.Environment
 import qualified System.ZMQ as ZMQ
+import qualified Data.ByteString as SB
 
 main :: IO ()
 main = do
@@ -17,6 +18,6 @@ main = do
     ZMQ.connect s addr
     forever $ do
         line <- ZMQ.receive s []
-        putStrLn line
+        SB.putStrLn line
         hFlush stdout
 
