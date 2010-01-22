@@ -24,7 +24,6 @@ library
   build-depends:    base >= 3 && < 5,
                     unix,
                     containers,
-                    binary,
                     bytestring
   hs-source-dirs:   src
 

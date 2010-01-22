@@ -49,7 +49,6 @@ module System.ZMQ (
 import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
-import Data.Binary
 import Data.Int
 import System.ZMQ.Base
 import qualified System.ZMQ.Base as B
@@ -58,7 +57,6 @@ import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
 import qualified Data.ByteString as SB
-import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
 import System.Posix.Types (Fd(..))
 
@@ -213,27 +211,22 @@ connect :: Socket a -> String -> IO ()
 connect (Socket s) str = throwErrnoIfMinus1_ "connect" $
     withCString str (c_zmq_connect s)
 
--- ^ Send the given 'Binary' over the socket (zmq_send).
-send :: Binary b => Socket a -> b -> [Flag] -> IO ()
-send (Socket s) val fls = mapM_ sendChunk (LB.toChunks . encode $ val)
- where
-    sendChunk :: SB.ByteString -> IO ()
-    sendChunk b = bracket (messageOf b) messageClose $ \m ->
-        throwErrnoIfMinus1_ "sendChunk" $
-            c_zmq_send s (msgPtr m) (combine fls)
+-- ^ Send the given 'ByteString' over the socket (zmq_send).
+send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
+send (Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
+    throwErrnoIfMinus1_ "send" $ c_zmq_send s (msgPtr m) (combine fls)
 
 -- ^ Flush the given socket (useful for 'send's with 'NoFlush').
 flush :: Socket a -> IO ()
 flush = throwErrnoIfMinus1_ "flush" . c_zmq_flush . sock
 
--- ^ Receive a 'Binary' from socket (zmq_recv).
-receive :: Binary b => Socket a -> [Flag] -> IO b
+-- ^ Receive a 'ByteString' from socket (zmq_recv).
+receive :: Socket a -> [Flag] -> IO (SB.ByteString)
 receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
     throwErrnoIfMinus1_ "receive" $ c_zmq_recv s (msgPtr m) (combine fls)
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
-    bstr     <- SB.packCStringLen (data_ptr, fromIntegral size)
-    return $ decode (LB.fromChunks [bstr])
+    SB.packCStringLen (data_ptr, fromIntegral size)
 
 -- ^ Polls for events on the given 'Poll' descriptors. Returns the
 -- list of 'Poll' descriptors for which an event occured (cf. zmq_poll).
@@ -273,7 +266,7 @@ poll fds to = do
     toEvent :: CShort -> PollEvent
     toEvent e | e == (fromIntegral . pollVal $ pollIn)  = In
               | e == (fromIntegral . pollVal $ pollOut) = Out
-              | otherwise                                = InOut
+              | otherwise                               = InOut
 
 -- internal helpers:
 
