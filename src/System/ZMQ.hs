@@ -50,6 +50,7 @@ import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
 import Data.Int
+import Data.Maybe
 import System.ZMQ.Base
 import qualified System.ZMQ.Base as B
 import Foreign
@@ -249,24 +250,28 @@ poll fds to = do
     createPoll :: [ZMQPoll] -> [Poll] -> IO [Poll]
     createPoll []     fd = return fd
     createPoll (p:pp) fd = do
-        let s = pSocket p; f = pFd p; r = pRevents p
-        if r /= 0
-            then if f /= 0
-                    then createPoll pp (F (Fd f) (toEvent r):fd)
-                    else createPoll pp fd
-            else if s /= nullPtr
-                    then createPoll pp (S (Socket s) (toEvent r):fd)
-                    else createPoll pp fd
+        let s = pSocket p;
+            f = pFd p;
+            r = toEvent $ pRevents p
+        if isJust r
+            then createPoll pp (newPoll s f r:fd)
+            else createPoll pp fd
+
+    newPoll :: ZMQSocket -> CInt -> Maybe PollEvent -> Poll
+    newPoll s 0 r = S (Socket s) (fromJust r)
+    newPoll _ f r = F (Fd f) (fromJust r)
 
     fromEvent :: PollEvent -> CShort
     fromEvent In    = fromIntegral . pollVal $ pollIn
     fromEvent Out   = fromIntegral . pollVal $ pollOut
-    fromEvent InOut = fromEvent In .|. fromEvent Out
+    fromEvent InOut = fromIntegral . pollVal $ pollInOut
 
-    toEvent :: CShort -> PollEvent
-    toEvent e | e == (fromIntegral . pollVal $ pollIn)  = In
-              | e == (fromIntegral . pollVal $ pollOut) = Out
-              | otherwise                               = InOut
+    toEvent :: CShort -> Maybe PollEvent
+    toEvent e | e == (fromIntegral . pollVal $ pollIn)    = Just In
+              | e == (fromIntegral . pollVal $ pollOut)   = Just Out
+              | e == (fromIntegral . pollVal $ pollInOut) = Just InOut
+              | otherwise                                 = Nothing
+
 
 -- internal helpers:
 
@@ -313,3 +318,4 @@ toZMQFlag NoFlush = noFlush
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
+

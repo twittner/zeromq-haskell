@@ -98,8 +98,9 @@ newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
 
 #{enum ZMQPollEvent, ZMQPollEvent,
-    pollIn  = ZMQ_POLLIN,
-    pollOut = ZMQ_POLLOUT
+    pollIn    = ZMQ_POLLIN,
+    pollOut   = ZMQ_POLLOUT,
+    pollInOut = ZMQ_POLLIN | ZMQ_POLLOUT
 }
 
 -- general initialization
