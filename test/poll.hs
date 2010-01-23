@@ -27,5 +27,5 @@ main = do
         receive ss
 
 usage :: String
-usage = "usage: local_lat <bind-to>"
+usage = "usage: poll <bind-to>"
 

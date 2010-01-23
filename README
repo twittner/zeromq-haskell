@@ -1,1 +1,60 @@
-Haskell bindings to zeromq (http://zeromq.org).
+This library provides Haskell bindings to zeromq (http://zeromq.org).
+
+
+· Current status
+
+Version 0.1 - This software currently has *alpha* status, i.e. it had
+only seen very limited testing and changes to its API might happen.
+
+This software was developed and tested on Linux 2.6.31 with GHC-6.12.1
+using the current git HEAD of zeromq2 (http://github.com/sustrik/zeromq2).
+
+
+· Installation
+
+As usual for Haskell packages this software is installed best via Cabal
+(http://www.haskell.org/cabal). In addition to GHC it depends on 0MQ of course.
+
+
+· Usage
+
+The API mostly follows 0MQ's. Public functions are:
+
+- init
+- term
+- socket
+- close
+- setOption
+- subscribe
+- unsubscribe
+- bind
+- connect
+- send
+- flush
+- receive
+- poll
+
+One difference to 0MQ's API is that sockets are parameterized types, i.e. there
+is not one socket type but when creating a socket the desired socket type has
+to be specified, e.g. 'P2P' and the resulting socket is of type 'Socket P2P'.
+This additional type information is used to ensure that only options applicable
+to the socket type can be set, hence ZMQ_SUBSCRIBE and ZMQ_UNSUBSCRIBE which 
+only apply to ZMQ_SUB sockets have their own functions ('subscribe' and
+'unsubscribe') which can only be used with sockets of type 'Socket Sub'.
+
+Other differences are mostly for convenience. Also one does not deal directly
+with 0MQ messages, instead these are created internally as needed.
+
+
+· Examples
+
+The test folder contains some simple tests mostly mimicking the ones that come
+with 0MQ.
+
+
+· Bugs
+
+If you find any bugs or other shortcomings I would greatly appreciate a bug
+report, preferably via http://github.com/twittner/zeromq-haskell/issues or e-mail
+to toralf.wittner@gmail.com
+
