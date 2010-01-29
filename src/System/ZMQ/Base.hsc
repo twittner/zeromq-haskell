@@ -17,7 +17,7 @@ import Foreign.C.String
 
 #include <zmq.h>
 
-data ZMQMsg = ZMQMsg { content :: !(Ptr ()) }
+newtype ZMQMsg = ZMQMsg { content :: Ptr () }
 
 instance Storable ZMQMsg where
     alignment _        = #{alignment zmq_msg_t}
