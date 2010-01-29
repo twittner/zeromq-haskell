@@ -23,7 +23,7 @@ instance Storable ZMQMsg where
     alignment _        = #{alignment zmq_msg_t}
     sizeOf    _        = #{size zmq_msg_t}
     peek p             = ZMQMsg <$> #{peek zmq_msg_t, content} p
-    poke p (ZMQMsg c) = #{poke zmq_msg_t, content} p c
+    poke p (ZMQMsg c)  = #{poke zmq_msg_t, content} p c
 
 data ZMQPoll = ZMQPoll
     { pSocket  :: ZMQSocket
