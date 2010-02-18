@@ -348,7 +348,7 @@ flush = throwErrnoIfMinus1_ "flush" . c_zmq_flush . sock
 -- | Receive a 'ByteString' from socket (zmq_recv).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
 receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
-    throwErrnoIfMinus1_ "receive" $ c_zmq_recv s (msgPtr m) (combine fls)
+    throwErrnoIfMinus1Retry_ "receive" $ c_zmq_recv s (msgPtr m) (combine fls)
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)

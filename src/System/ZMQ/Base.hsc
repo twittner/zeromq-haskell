@@ -155,7 +155,7 @@ foreign import ccall unsafe "zmq.h zmq_send"
 foreign import ccall unsafe "zmq.h zmq_flush"
     c_zmq_flush :: ZMQSocket -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_recv"
+foreign import ccall safe "zmq.h zmq_recv"
     c_zmq_recv :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
 -- poll
