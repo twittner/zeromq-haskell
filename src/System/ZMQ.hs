@@ -43,6 +43,7 @@ module System.ZMQ (
     bind,
     connect,
     send,
+    send',
     flush,
     receive,
 
@@ -52,6 +53,7 @@ module System.ZMQ (
 
 import Prelude hiding (init)
 import Control.Applicative
+import Control.Monad (foldM_)
 import Control.Exception
 import Data.Int
 import Data.Maybe
@@ -62,6 +64,7 @@ import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
 import qualified Data.ByteString as SB
+import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
 import System.Posix.Types (Fd(..))
 
@@ -336,9 +339,16 @@ connect :: Socket a -> String -> IO ()
 connect (Socket s) str = throwErrnoIfMinus1_ "connect" $
     withCString str (c_zmq_connect s)
 
--- | Send the given 'ByteString' over the socket (zmq_send).
+-- | Send the given 'SB.ByteString' over the socket (zmq_send).
 send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
 send (Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
+    throwErrnoIfMinus1_ "send" $ c_zmq_send s (msgPtr m) (combine fls)
+
+-- | Send the given 'LB.ByteString' over the socket (zmq_send).
+--   This is operationally identical to @send socket (Strict.concat
+--   (Lazy.toChunks lbs)) flags@ but may be more efficient.
+send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
+send' (Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
     throwErrnoIfMinus1_ "send" $ c_zmq_send s (msgPtr m) (combine fls)
 
 -- | Flush the given socket (useful for 'send's with 'NoFlush').
@@ -405,6 +415,18 @@ messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do
     data_ptr <- c_zmq_msg_data (msgPtr msg)
     copyBytes data_ptr cstr len
     return msg
+
+messageOfLazy :: LB.ByteString -> IO Message
+messageOfLazy lbs = do
+    msg <- messageInitSize (fromIntegral len)
+    data_ptr <- c_zmq_msg_data (msgPtr msg)
+    let fn offset bs = UB.unsafeUseAsCStringLen bs $ \(cstr, str_len) -> do
+        copyBytes (data_ptr `plusPtr` offset) cstr str_len
+        return (offset + str_len)
+    foldM_ fn 0 (LB.toChunks lbs)
+    return msg
+ where
+    len = LB.length lbs
 
 messageClose :: Message -> IO ()
 messageClose (Message ptr) = do
