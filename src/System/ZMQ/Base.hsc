@@ -160,6 +160,6 @@ foreign import ccall safe "zmq.h zmq_recv"
 
 -- poll
 
-foreign import ccall unsafe "zmq.h zmq_poll"
+foreign import ccall safe "zmq.h zmq_poll"
     c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
 

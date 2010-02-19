@@ -370,7 +370,7 @@ poll fds to = do
     let len = length fds
         ps  = map createZMQPoll fds
     withArray ps $ \ptr -> do
-        throwErrnoIfMinus1_ "poll" $
+        throwErrnoIfMinus1Retry_ "poll" $
             c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
         ps' <- peekArray len ptr
         createPoll ps' []
