@@ -3,7 +3,7 @@ This library provides Haskell bindings to zeromq (http://zeromq.org).
 
 · Current status
 
-Version 0.1 - This software currently has *alpha* status, i.e. it had
+Version 0.2 - This software currently has *alpha* status, i.e. it had
 only seen very limited testing and changes to its API might happen.
 
 This software was developed and tested on Linux 2.6.31 with GHC-6.12.1
@@ -30,6 +30,7 @@ The API mostly follows 0MQ's. Public functions are:
 - bind
 - connect
 - send
+- send'
 - flush
 - receive
 - poll

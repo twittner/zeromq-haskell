@@ -349,7 +349,7 @@ send (Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
 --   (Lazy.toChunks lbs)) flags@ but may be more efficient.
 send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
 send' (Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
-    throwErrnoIfMinus1_ "send" $ c_zmq_send s (msgPtr m) (combine fls)
+    throwErrnoIfMinus1_ "send'" $ c_zmq_send s (msgPtr m) (combine fls)
 
 -- | Flush the given socket (useful for 'send's with 'NoFlush').
 flush :: Socket a -> IO ()
