@@ -2,7 +2,7 @@
 -- |
 -- Module      : System.ZMQ.Base
 -- Copyright   : (c) 2010 Toralf Wittner
--- License     : LGPL
+-- License     : MIT
 -- Maintainer  : toralf.wittner@gmail.com
 -- Stability   : experimental
 -- Portability : non-portable

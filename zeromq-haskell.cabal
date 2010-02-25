@@ -3,7 +3,7 @@ version:            0.2
 synopsis:           bindings to zeromq 
 description:        Bindings to zeromq (http://zeromq.org)
 category:           System, FFI
-license:            LGPL
+license:            MIT
 license-file:       LICENSE
 author:             Toralf Wittner
 maintainer:         toralf.wittner@gmail.com
