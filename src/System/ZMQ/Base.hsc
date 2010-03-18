@@ -91,8 +91,7 @@ newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
 newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQFlag, ZMQFlag,
-    noBlock = ZMQ_NOBLOCK,
-    noFlush = ZMQ_NOFLUSH
+    noBlock = ZMQ_NOBLOCK
 }
 
 newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
@@ -151,9 +150,6 @@ foreign import ccall unsafe "zmq.h zmq_connect"
 
 foreign import ccall unsafe "zmq.h zmq_send"
     c_zmq_send :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
-
-foreign import ccall unsafe "zmq.h zmq_flush"
-    c_zmq_flush :: ZMQSocket -> IO CInt
 
 foreign import ccall safe "zmq.h zmq_recv"
     c_zmq_recv :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt

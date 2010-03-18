@@ -44,7 +44,6 @@ module System.ZMQ (
     connect,
     send,
     send',
-    flush,
     receive,
 
     poll
@@ -253,17 +252,7 @@ data SocketOption =
 -- [@NoBlock@] Send operation should be performed in non-blocking mode.
 -- If it cannot be performed immediatley an error will be thrown (errno
 -- is set to EAGAIN).
---
--- [@NoFlush@] 'send' should not flush the message downstream immediately,
--- instead it should batch messages send with 'NoFlush' and really send them
--- only when 'flush' is invoked. zmq_send(3) states: \"This is an optimisation
--- for cases where several messages are sent in a single business transaction.
--- However, the effect is measurable only in extremely high-perf scenarios
--- (million messages a second or so). If that's not your case, use standard
--- flushing send instead.\"
-data Flag =
-    NoBlock -- ^ ZMQ_NOBLOCK
-  | NoFlush -- ^ ZMQ_NOFLUSH
+data Flag = NoBlock -- ^ ZMQ_NOBLOCK
   deriving (Eq, Ord, Show)
 
 -- | The events to wait for in poll (cf. man zmq_poll)
@@ -350,10 +339,6 @@ send (Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
 send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
 send' (Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
     throwErrnoIfMinus1_ "send'" $ c_zmq_send s (msgPtr m) (combine fls)
-
--- | Flush the given socket (useful for 'send's with 'NoFlush').
-flush :: Socket a -> IO ()
-flush = throwErrnoIfMinus1_ "flush" . c_zmq_flush . sock
 
 -- | Receive a 'ByteString' from socket (zmq_recv).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
@@ -460,7 +445,6 @@ setStrOpt (Socket s) (ZMQOption o) str = throwErrnoIfMinus1_ "setStrOpt" $
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag NoBlock = noBlock
-toZMQFlag NoFlush = noFlush
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
