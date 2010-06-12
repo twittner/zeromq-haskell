@@ -12,7 +12,7 @@ main = do
         hPutStrLn stderr "usage: display <address>"
         exitFailure
     let addr = head args
-    c <- ZMQ.init 1 1 False
+    c <- ZMQ.init 1
     s <- ZMQ.socket c ZMQ.Sub
     ZMQ.subscribe s ""
     ZMQ.connect s addr

@@ -16,7 +16,7 @@ main = do
         exitFailure
     let addr = args !! 0
         name = SB.append (SB.fromString $ args !! 1) ": "
-    c <- ZMQ.init 1 1 False
+    c <- ZMQ.init 1
     s <- ZMQ.socket c ZMQ.Pub
     ZMQ.connect s addr
     forever $ do

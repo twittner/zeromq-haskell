@@ -12,7 +12,7 @@ main = do
     when (length args /= 1) $ do
         hPutStrLn stderr usage
         exitFailure
-    c <- ZMQ.init 1 1 True
+    c <- ZMQ.init 1
     s <- ZMQ.socket c ZMQ.Rep
     let bindTo = head args
         toPoll = [ZMQ.S s ZMQ.In]

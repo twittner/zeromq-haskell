@@ -3,10 +3,10 @@ This library provides Haskell bindings to zeromq (http://zeromq.org).
 
 · Current status
 
-Version 0.2.x - This software currently has *alpha* status, i.e. it had
+Version 0.3.x - This software currently has *alpha* status, i.e. it had
 only seen very limited testing and changes to its API might happen.
 
-This software was developed and tested on Linux 2.6.31 with GHC-6.12.1
+This software was developed and tested on Linux 2.6.32 with GHC-6.12.3
 using the current git HEAD of zeromq2 (http://github.com/sustrik/zeromq2).
 
 

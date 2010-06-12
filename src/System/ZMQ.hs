@@ -22,7 +22,7 @@ module System.ZMQ (
     Poll(..),
     PollEvent(..),
 
-    P2P(..),
+    Pair(..),
     Pub(..),
     Sub(..),
     Req(..),
@@ -86,10 +86,10 @@ class SType a where
 
 -- | Socket to communicate with a single peer. Allows for only a
 -- single connect or a single bind. There's no message routing
--- or message filtering involved. /Compatible peer sockets/: 'P2P'.
-data P2P = P2P
-instance SType P2P where
-    zmqSocketType = const p2p
+-- or message filtering involved. /Compatible peer sockets/: 'Pair'.
+data Pair = Pair
+instance SType Pair where
+    zmqSocketType = const pair
 
 -- | Socket to distribute data. 'receive' function is not
 -- implemented for this socket type. Messages are distributed in
@@ -172,13 +172,6 @@ instance SubsType Sub
 --     of the pipe.
 --     /Default/: 0
 --
---     [@LowWM@] Low watermark makes sense only if high watermark is
---     defined (i.e. is non-zero).  When the emergency state is
---     reached when messages overflow the pipe, the emergency lasts
---     at most till the size of the pipe decreases to low watermark.
---     Normal state is resumed at that point.
---     /Default/: 0
---
 --     [@Swap@] Swap allows the pipe to exceed high watermark. However,
 --     the data are written to the disk rather than held in the memory.
 --     Until high watermark is exceeded there is no disk activity involved
@@ -236,7 +229,6 @@ instance SubsType Sub
 --
 data SocketOption =
     HighWM      Int64  -- ^ ZMQ_HWM
-  | LowWM       Int64  -- ^ ZMQ_LWM
   | Swap        Int64  -- ^ ZMQ_SWAP
   | Affinity    Int64  -- ^ ZMQ_AFFINITY
   | Identity    String -- ^ ZMQ_IDENTITY
@@ -270,12 +262,9 @@ data Poll =
   | F Fd PollEvent
 
 -- | Initialize a 0MQ context (cf. zmq_init for details).
-init :: Size -> Size -> Bool -> IO Context
-init appThreads ioThreads doPoll = do
-    c <- throwErrnoIfNull "init" $
-         c_zmq_init (fromIntegral appThreads)
-                    (fromIntegral ioThreads)
-                    (if doPoll then usePoll else 0)
+init :: Size -> IO Context
+init ioThreads = do
+    c <- throwErrnoIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
     return (Context c)
 
 -- | Terminate 0MQ context (cf. zmq_term).
@@ -300,7 +289,6 @@ close = throwErrnoIfMinus1_ "close" . c_zmq_close . sock
 -- functions.
 setOption :: Socket a -> SocketOption -> IO ()
 setOption s (HighWM o)      = setIntOpt s highWM o
-setOption s (LowWM o)       = setIntOpt s lowWM o
 setOption s (Swap o)        = setIntOpt s swap o
 setOption s (Affinity o)    = setIntOpt s affinity o
 setOption s (Identity o)    = setStrOpt s identity o

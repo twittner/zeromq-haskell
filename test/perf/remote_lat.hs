@@ -16,7 +16,7 @@ main = do
         size    = read $ args !! 1
         rounds  = read $ args !! 2
         message = SB.replicate size 0x65
-    c <- ZMQ.init 1 1 False
+    c <- ZMQ.init 1
     s <- ZMQ.socket c ZMQ.Req
     ZMQ.connect s connTo
     start <- getCurrentTime

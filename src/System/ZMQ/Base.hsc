@@ -47,9 +47,6 @@ instance Storable ZMQPoll where
         #{poke zmq_pollitem_t, events} p e
         #{poke zmq_pollitem_t, revents} p re
 
-usePoll :: CInt
-usePoll = #const ZMQ_POLL
-
 type ZMQMsgPtr  = Ptr ZMQMsg
 type ZMQCtx     = Ptr ()
 type ZMQSocket  = Ptr ()
@@ -60,7 +57,7 @@ type ZMQPollPtr = Ptr ZMQPoll
 newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQSocketType, ZMQSocketType,
-    p2p        = ZMQ_P2P,
+    pair       = ZMQ_PAIR,
     pub        = ZMQ_PUB,
     sub        = ZMQ_SUB,
     request    = ZMQ_REQ,
@@ -75,7 +72,6 @@ newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQOption, ZMQOption,
     highWM      = ZMQ_HWM,
-    lowWM       = ZMQ_LWM,
     swap        = ZMQ_SWAP,
     affinity    = ZMQ_AFFINITY,
     identity    = ZMQ_IDENTITY,
@@ -105,7 +101,7 @@ newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
 -- general initialization
 
 foreign import ccall unsafe "zmq.h zmq_init"
-    c_zmq_init :: CInt -> CInt -> CInt -> IO ZMQCtx
+    c_zmq_init :: CInt -> IO ZMQCtx
 
 foreign import ccall unsafe "zmq.h zmq_term"
     c_zmq_term :: ZMQCtx -> IO CInt
