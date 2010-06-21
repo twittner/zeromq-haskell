@@ -22,6 +22,8 @@ module System.ZMQ (
     Poll(..),
     PollEvent(..),
 
+    SType,
+    SubsType,
     Pair(..),
     Pub(..),
     Sub(..),
