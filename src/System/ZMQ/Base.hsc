@@ -98,6 +98,14 @@ newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
     pollInOut = ZMQ_POLLIN | ZMQ_POLLOUT
 }
 
+newtype ZMQDevice = ZMQDevice { deviceType :: CInt } deriving (Eq, Ord)
+
+#{enum ZMQDevice, ZMQDevice,
+    deviceStreamer  = ZMQ_STREAMER,
+    deviceForwarder = ZMQ_FORWARDER,
+    deviceQueue     = ZMQ_QUEUE
+}
+
 -- general initialization
 
 foreign import ccall unsafe "zmq.h zmq_init"
@@ -155,3 +163,7 @@ foreign import ccall safe "zmq.h zmq_recv"
 foreign import ccall safe "zmq.h zmq_poll"
     c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
 
+-- device
+
+foreign import ccall safe "zmq.h zmq_device"
+    c_zmq_device :: CInt -> ZMQSocket -> ZMQSocket -> IO CInt

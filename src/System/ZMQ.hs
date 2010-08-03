@@ -21,6 +21,7 @@ module System.ZMQ (
     SocketOption(..),
     Poll(..),
     PollEvent(..),
+    Device(..),
 
     SType,
     SubsType,
@@ -48,7 +49,9 @@ module System.ZMQ (
     send',
     receive,
 
-    poll
+    poll,
+
+    device
 
 ) where
 
@@ -263,6 +266,13 @@ data Poll =
     forall a. S (Socket a) PollEvent
   | F Fd PollEvent
 
+-- | Type representing ZeroMQ devices, as used with zmq_device
+data Device =
+    Streamer  -- ^ ZMQ_STREAMER
+  | Forwarder -- ^ ZMQ_FORWARDER
+  | Queue     -- ^ ZMQ_QUEUE
+  deriving (Eq, Ord, Show)
+
 -- | Initialize a 0MQ context (cf. zmq_init for details).
 init :: Size -> IO Context
 init ioThreads = do
@@ -380,6 +390,19 @@ poll fds to = do
               | e == (fromIntegral . pollVal $ pollOut)   = Just Out
               | e == (fromIntegral . pollVal $ pollInOut) = Just InOut
               | otherwise                                 = Nothing
+
+-- | Launch a ZeroMQ device (zmq_device).
+--
+-- Please note that this call never returns.
+device :: Device -> Socket a -> Socket b -> IO ()
+device device' (Socket insocket) (Socket outsocket) =
+    throwErrnoIfMinus1_ "device" $
+        c_zmq_device (fromDevice device') insocket outsocket
+ where
+    fromDevice :: Device -> CInt
+    fromDevice Streamer  = fromIntegral . deviceType $ deviceStreamer
+    fromDevice Forwarder = fromIntegral . deviceType $ deviceForwarder
+    fromDevice Queue     = fromIntegral . deviceType $ deviceQueue
 
 
 -- internal helpers:
