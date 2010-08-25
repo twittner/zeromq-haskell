@@ -88,6 +88,7 @@ newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQFlag, ZMQFlag,
     noBlock = ZMQ_NOBLOCK
+  , sndMore = ZMQ_SNDMORE
 }
 
 newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
@@ -167,3 +168,4 @@ foreign import ccall safe "zmq.h zmq_poll"
 
 foreign import ccall safe "zmq.h zmq_device"
     c_zmq_device :: CInt -> ZMQSocket -> ZMQSocket -> IO CInt
+

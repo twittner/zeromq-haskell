@@ -250,6 +250,7 @@ data SocketOption =
 -- If it cannot be performed immediatley an error will be thrown (errno
 -- is set to EAGAIN).
 data Flag = NoBlock -- ^ ZMQ_NOBLOCK
+          | SndMore -- ^ ZMQ_SNDMORE
   deriving (Eq, Ord, Show)
 
 -- | The events to wait for in poll (cf. man zmq_poll)
@@ -458,6 +459,7 @@ setStrOpt (Socket s) (ZMQOption o) str = throwErrnoIfMinus1_ "setStrOpt" $
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag NoBlock = noBlock
+toZMQFlag SndMore = sndMore
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
