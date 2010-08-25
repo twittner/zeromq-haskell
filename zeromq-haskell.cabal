@@ -13,7 +13,7 @@ stability:          experimental
 tested-With:        GHC == 6.12.1
 cabal-version:      >= 1.6.0
 build-type:         Simple
-extra-source-files: README, test/*.hs, test/perf/*.hs
+extra-source-files: README, AUTHORS, test/*.hs, test/perf/*.hs
 
 library
   exposed-modules:  System.ZMQ
