@@ -1,0 +1,5 @@
+Toralf Wittner      original implementation
+David Himmelstrup   added send'
+Nicolas Trangez     added support for zmq_device and "queue" test app
+Ville Tirronen      added support for ZMG_SNDMORE
+

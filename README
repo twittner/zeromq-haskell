@@ -3,11 +3,11 @@ This library provides Haskell bindings to zeromq (http://zeromq.org).
 
 · Current status
 
-Version 0.3.x - This software currently has *alpha* status, i.e. it had
-only seen very limited testing and changes to its API might happen.
+Version 0.4 - This software currently has *beta* status, i.e. it had
+seen limited testing. Changes to its API may still happen.
 
-This software was developed and tested on Linux 2.6.32 with GHC-6.12.3
-using the current git HEAD of zeromq2 (http://github.com/sustrik/zeromq2).
+This software was developed and tested on Linux 2.6.35 with GHC-6.12.3
+using zeromq-2.0.8.
 
 
 · Installation
@@ -36,7 +36,7 @@ The API mostly follows 0MQ's. Public functions are:
 
 One difference to 0MQ's API is that sockets are parameterized types, i.e. there
 is not one socket type but when creating a socket the desired socket type has
-to be specified, e.g. 'P2P' and the resulting socket is of type 'Socket P2P'.
+to be specified, e.g. 'Pair' and the resulting socket is of type 'Socket Pair'.
 This additional type information is used to ensure that only options applicable
 to the socket type can be set, hence ZMQ_SUBSCRIBE and ZMQ_UNSUBSCRIBE which 
 only apply to ZMQ_SUB sockets have their own functions ('subscribe' and

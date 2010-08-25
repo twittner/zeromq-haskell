@@ -64,6 +64,8 @@ newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
     response   = ZMQ_REP,
     xrequest   = ZMQ_XREQ,
     xresponse  = ZMQ_XREP,
+    pull       = ZMQ_PULL,
+    push       = ZMQ_PUSH,
     upstream   = ZMQ_UPSTREAM,
     downstream = ZMQ_DOWNSTREAM
 }

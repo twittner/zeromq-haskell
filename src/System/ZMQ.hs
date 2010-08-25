@@ -32,6 +32,8 @@ module System.ZMQ (
     Rep(..),
     XReq(..),
     XRep(..),
+    Pull(..),
+    Push(..),
     Up(..),
     Down(..),
 
@@ -147,6 +149,29 @@ data XRep = Xrep
 instance SType XRep where
     zmqSocketType = const xresponse
 
+-- | A socket of type ZMQ_PULL is used by a pipeline node to receive
+-- messages from upstream pipeline nodes. Messages are fair-queued from
+-- among all connected upstream nodes. The zmq_send() function is not
+-- implemented for this socket type.
+data Pull = Pull
+instance SType Pull where
+    zmqSocketType = const pull
+
+-- | A socket of type ZMQ_PUSH is used by a pipeline node to send messages
+-- to downstream pipeline nodes. Messages are load-balanced to all connected
+-- downstream nodes. The zmq_recv() function is not implemented for this
+-- socket type.
+--
+-- When a ZMQ_PUSH socket enters an exceptional state due to having reached
+-- the high water mark for all downstream nodes, or if there are no
+-- downstream nodes at all, then any zmq_send(3) operations on the socket
+-- shall block until the exceptional state ends or at least one downstream
+-- node becomes available for sending; messages are not discarded.
+data Push = Push
+instance SType Push where
+    zmqSocketType = const push
+
+{-# DEPRECATED Up "Use Pull instead." #-}
 -- | Socket to receive messages from up the stream. Messages are
 -- fair-queued from among all the connected peers. Send function is not
 -- implemented for this socket type. /Compatible peer sockets/: 'Down'.
@@ -154,6 +179,7 @@ data Up = Up
 instance SType Up where
     zmqSocketType = const upstream
 
+{-# DEPRECATED Down "Use Push instead." #-}
 -- | Socket to send messages down stream. Messages are load-balanced
 -- among all the connected peers. Send function is not implemented for
 -- this socket type. /Compatible peer sockets/: 'Up'.
