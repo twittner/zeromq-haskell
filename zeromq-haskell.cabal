@@ -7,10 +7,10 @@ license:            MIT
 license-file:       LICENSE
 author:             Toralf Wittner
 maintainer:         toralf.wittner@gmail.com
-copyright:          Copyright (c) 2010 Toralf Wittner, David Himmelstrup
+copyright:          Copyright (c) 2010 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
-tested-With:        GHC == 6.12.1
+tested-With:        GHC == 6.12.3
 cabal-version:      >= 1.6.0
 build-type:         Simple
 extra-source-files: README, AUTHORS, test/*.hs, test/perf/*.hs
