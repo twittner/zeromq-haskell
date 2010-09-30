@@ -1,5 +1,5 @@
 name:               zeromq-haskell
-version:            0.4
+version:            0.4.1
 synopsis:           bindings to zeromq 
 description:        Bindings to zeromq (http://zeromq.org)
 category:           System, FFI
@@ -13,7 +13,7 @@ stability:          experimental
 tested-With:        GHC == 6.12.3
 cabal-version:      >= 1.6.0
 build-type:         Simple
-extra-source-files: README, AUTHORS, test/*.hs, test/perf/*.hs
+extra-source-files: README.md, AUTHORS, test/*.hs, test/perf/*.hs
 
 library
   exposed-modules:  System.ZMQ
