@@ -83,7 +83,8 @@ newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
     recoveryIVL = ZMQ_RECOVERY_IVL,
     mcastLoop   = ZMQ_MCAST_LOOP,
     sendBuf     = ZMQ_SNDBUF,
-    receiveBuf  = ZMQ_RCVBUF
+    receiveBuf  = ZMQ_RCVBUF,
+    receiveMore = ZMQ_RCVMORE 
 }
 
 newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
@@ -98,6 +99,7 @@ newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
 #{enum ZMQPollEvent, ZMQPollEvent,
     pollIn    = ZMQ_POLLIN,
     pollOut   = ZMQ_POLLOUT,
+    pollerr   = ZMQ_POLLERR,
     pollInOut = ZMQ_POLLIN | ZMQ_POLLOUT
 }
 
@@ -147,6 +149,13 @@ foreign import ccall unsafe "zmq.h zmq_setsockopt"
                      -> CInt   -- option
                      -> Ptr () -- option value
                      -> CSize  -- option value size
+                     -> IO CInt
+
+foreign import ccall unsafe "zmq.h zmq_getsockopt"
+    c_zmq_getsockopt :: ZMQSocket
+                     -> CInt       -- option
+                     -> Ptr ()     -- option value
+                     -> Ptr CSize  -- option value size ptr
                      -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_bind"

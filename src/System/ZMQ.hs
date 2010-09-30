@@ -39,10 +39,10 @@ module System.ZMQ (
 
     init,
     term,
-
     socket,
     close,
     setOption,
+    getOption,
     System.ZMQ.subscribe,
     System.ZMQ.unsubscribe,
     bind,
@@ -50,9 +50,8 @@ module System.ZMQ (
     send,
     send',
     receive,
-
+    moreToReceive,
     poll,
-
     device
 
 ) where
@@ -68,7 +67,7 @@ import qualified System.ZMQ.Base as B
 import Foreign
 import Foreign.C.Error
 import Foreign.C.String
-import Foreign.C.Types (CInt, CShort)
+import Foreign.C.Types (CInt, CShort, CSize)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
@@ -281,9 +280,10 @@ data Flag = NoBlock -- ^ ZMQ_NOBLOCK
 
 -- | The events to wait for in poll (cf. man zmq_poll)
 data PollEvent =
-    In    -- ^ ZMQ_POLLIN (incoming messages)
-  | Out   -- ^ ZMQ_POLLOUT (outgoing messages, i.e. at least 1 byte can be written)
-  | InOut -- ^ ZMQ_POLLIN | ZMQ_POLLOUT
+    In     -- ^ ZMQ_POLLIN (incoming messages)
+  | Out    -- ^ ZMQ_POLLOUT (outgoing messages, i.e. at least 1 byte can be written)
+  | InOut  -- ^ ZMQ_POLLIN | ZMQ_POLLOUT
+  | Native -- ^ ZMQ_POLLERR
   deriving (Eq, Ord, Show)
 
 -- | Type representing a descriptor, poll is waiting for
@@ -337,6 +337,21 @@ setOption s (McastLoop o)   = setIntOpt s mcastLoop o
 setOption s (SendBuf o)     = setIntOpt s sendBuf o
 setOption s (ReceiveBuf o)  = setIntOpt s receiveBuf o
 
+-- | Get the given socket option by passing in some dummy value of
+-- that option. The actual value will be returned. Please note that
+-- there are certain combatibility constraints w.r.t the socket
+-- type (cf. man zmq_setsockopt).
+getOption :: Socket a -> SocketOption -> IO SocketOption
+getOption s (HighWM _)      = HighWM <$> getIntOpt s highWM
+getOption s (Swap _)        = Swap <$> getIntOpt s swap
+getOption s (Affinity _)    = Affinity <$> getIntOpt s affinity
+getOption s (Identity _)    = Identity <$> getStrOpt s identity
+getOption s (Rate _)        = Rate <$> getIntOpt s rate
+getOption s (RecoveryIVL _) = RecoveryIVL <$> getIntOpt s recoveryIVL
+getOption s (McastLoop _)   = McastLoop <$> getIntOpt s mcastLoop
+getOption s (SendBuf _)     = SendBuf <$> getIntOpt s sendBuf
+getOption s (ReceiveBuf _)  = ReceiveBuf <$> getIntOpt s receiveBuf
+
 -- | Subscribe Socket to given subscription.
 subscribe :: SubsType a => Socket a -> String -> IO ()
 subscribe s = setStrOpt s B.subscribe
@@ -344,6 +359,12 @@ subscribe s = setStrOpt s B.subscribe
 -- | Unsubscribe Socket from given subscription.
 unsubscribe :: SubsType a => Socket a -> String -> IO ()
 unsubscribe s = setStrOpt s B.unsubscribe
+
+-- | Equivalent of ZMQ_RCVMORE, i.e. returns True if a multi-part
+-- message currently being read has more parts to follow, otherwise
+-- False.
+moreToReceive :: Socket a -> IO Bool
+moreToReceive s = getBoolOpt s receiveMore
 
 -- | Bind the socket to the given address (zmq_bind)
 bind :: Socket a -> String -> IO ()
@@ -408,14 +429,16 @@ poll fds to = do
     newPoll _ f r = F (Fd f) (fromJust r)
 
     fromEvent :: PollEvent -> CShort
-    fromEvent In    = fromIntegral . pollVal $ pollIn
-    fromEvent Out   = fromIntegral . pollVal $ pollOut
-    fromEvent InOut = fromIntegral . pollVal $ pollInOut
+    fromEvent In     = fromIntegral . pollVal $ pollIn
+    fromEvent Out    = fromIntegral . pollVal $ pollOut
+    fromEvent InOut  = fromIntegral . pollVal $ pollInOut
+    fromEvent Native = fromIntegral . pollVal $ pollerr
 
     toEvent :: CShort -> Maybe PollEvent
     toEvent e | e == (fromIntegral . pollVal $ pollIn)    = Just In
               | e == (fromIntegral . pollVal $ pollOut)   = Just Out
               | e == (fromIntegral . pollVal $ pollInOut) = Just InOut
+              | e == (fromIntegral . pollVal $ pollerr)   = Just Native
               | otherwise                                 = Nothing
 
 -- | Launch a ZeroMQ device (zmq_device).
@@ -472,16 +495,38 @@ messageInitSize s = do
     return (Message ptr)
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
-setIntOpt (Socket s) (ZMQOption o) i = throwErrnoIfMinus1_ "setIntOpt" $
-    bracket (newStablePtr i) freeStablePtr $ \ptr ->
+setIntOpt (Socket s) (ZMQOption o) i =
+    throwErrnoIfMinus1_ "setIntOpt" $ with i $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
-                           (castStablePtrToPtr ptr)
+                           (castPtr ptr)
                            (fromIntegral . sizeOf $ i)
 
 setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
 setStrOpt (Socket s) (ZMQOption o) str = throwErrnoIfMinus1_ "setStrOpt" $
     withCStringLen str $ \(cstr, len) ->
-        c_zmq_setsockopt s (fromIntegral o) (castPtr cstr) (fromIntegral len)
+        c_zmq_setsockopt s (fromIntegral o)
+                           (castPtr cstr)
+                           (fromIntegral len)
+
+getBoolOpt :: Socket a -> ZMQOption -> IO Bool
+getBoolOpt s o = ((1 :: Int64) ==) <$> getIntOpt s o
+
+getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> IO b
+getIntOpt (Socket s) (ZMQOption o) = do
+    let i = 0
+    bracket (new i) free $ \iptr ->
+        bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
+            throwErrnoIfMinus1_ "integralOpt" $
+                c_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
+            peek iptr
+
+getStrOpt :: Socket a -> ZMQOption -> IO String
+getStrOpt (Socket s) (ZMQOption o) =
+    bracket (mallocBytes 255) free $ \bPtr ->
+    bracket (new (255 :: CSize)) free $ \sPtr -> do
+        throwErrnoIfMinus1_ "getStrOpt" $
+            c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
+        peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag NoBlock = noBlock
