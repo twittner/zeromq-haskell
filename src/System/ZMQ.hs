@@ -258,15 +258,21 @@ instance SubsType Sub
 --     /Default/: 0
 --
 data SocketOption =
-    HighWM      Int64  -- ^ ZMQ_HWM
-  | Swap        Int64  -- ^ ZMQ_SWAP
-  | Affinity    Int64  -- ^ ZMQ_AFFINITY
-  | Identity    String -- ^ ZMQ_IDENTITY
-  | Rate        Word64 -- ^ ZMQ_RATE
-  | RecoveryIVL Word64 -- ^ ZMQ_RECOVERY_IVL
-  | McastLoop   Word64 -- ^ ZMQ_MCAST_LOOP
-  | SendBuf     Word64 -- ^ ZMQ_SNDBUF
-  | ReceiveBuf  Word64 -- ^ ZMQ_RCVBUF
+    HighWM          Word64 -- ^ ZMQ_HWM
+  | Swap            Int64  -- ^ ZMQ_SWAP
+  | Affinity        Word64 -- ^ ZMQ_AFFINITY
+  | Identity        String -- ^ ZMQ_IDENTITY
+  | Rate            Int64  -- ^ ZMQ_RATE
+  | RecoveryIVL     Int64  -- ^ ZMQ_RECOVERY_IVL
+  | RecoveryIVLMsec Int64  -- ^ ZMQ_RECOVERY_IVL_MSEC
+  | McastLoop       Int64  -- ^ ZMQ_MCAST_LOOP
+  | SendBuf         Word64 -- ^ ZMQ_SNDBUF
+  | ReceiveBuf      Word64 -- ^ ZMQ_RCVBUF
+  | FD              CInt   -- ^ ZMQ_FD
+  | Events          Word32 -- ^ ZMQ_EVENTS
+  | Linger          CInt   -- ^ ZMQ_LINGER
+  | ReconnectIVL    CInt   -- ^ ZMQ_RECONNECT_IVL
+  | Backlog         CInt   -- ^ ZMQ_BACKLOG
   deriving (Eq, Ord, Show)
 
 -- | Flags to apply on send operations (cf. man zmq_send)
@@ -288,7 +294,7 @@ data PollEvent =
 
 -- | Type representing a descriptor, poll is waiting for
 -- (either a 0MQ socket or a file descriptor) plus the type
--- of event of wait for.
+-- of event to wait for.
 data Poll =
     forall a. S (Socket a) PollEvent
   | F Fd PollEvent
@@ -327,30 +333,42 @@ close = throwErrnoIfMinus1_ "close" . c_zmq_close . sock
 -- Please note that subscribe/unsubscribe is handled with separate
 -- functions.
 setOption :: Socket a -> SocketOption -> IO ()
-setOption s (HighWM o)      = setIntOpt s highWM o
-setOption s (Swap o)        = setIntOpt s swap o
-setOption s (Affinity o)    = setIntOpt s affinity o
-setOption s (Identity o)    = setStrOpt s identity o
-setOption s (Rate o)        = setIntOpt s rate o
-setOption s (RecoveryIVL o) = setIntOpt s recoveryIVL o
-setOption s (McastLoop o)   = setIntOpt s mcastLoop o
-setOption s (SendBuf o)     = setIntOpt s sendBuf o
-setOption s (ReceiveBuf o)  = setIntOpt s receiveBuf o
+setOption s (HighWM o)          = setIntOpt s highWM o
+setOption s (Swap o)            = setIntOpt s swap o
+setOption s (Affinity o)        = setIntOpt s affinity o
+setOption s (Identity o)        = setStrOpt s identity o
+setOption s (Rate o)            = setIntOpt s rate o
+setOption s (RecoveryIVL o)     = setIntOpt s recoveryIVL o
+setOption s (RecoveryIVLMsec o) = setIntOpt s recoveryIVLMsec o
+setOption s (McastLoop o)       = setIntOpt s mcastLoop o
+setOption s (SendBuf o)         = setIntOpt s sendBuf o
+setOption s (ReceiveBuf o)      = setIntOpt s receiveBuf o
+setOption s (FD o)              = setIntOpt s filedesc o
+setOption s (Events o)          = setIntOpt s events o
+setOption s (Linger o)          = setIntOpt s linger o
+setOption s (ReconnectIVL o)    = setIntOpt s reconnectIVL o
+setOption s (Backlog o)         = setIntOpt s backlog o
 
 -- | Get the given socket option by passing in some dummy value of
 -- that option. The actual value will be returned. Please note that
 -- there are certain combatibility constraints w.r.t the socket
 -- type (cf. man zmq_setsockopt).
 getOption :: Socket a -> SocketOption -> IO SocketOption
-getOption s (HighWM _)      = HighWM <$> getIntOpt s highWM
-getOption s (Swap _)        = Swap <$> getIntOpt s swap
-getOption s (Affinity _)    = Affinity <$> getIntOpt s affinity
-getOption s (Identity _)    = Identity <$> getStrOpt s identity
-getOption s (Rate _)        = Rate <$> getIntOpt s rate
-getOption s (RecoveryIVL _) = RecoveryIVL <$> getIntOpt s recoveryIVL
-getOption s (McastLoop _)   = McastLoop <$> getIntOpt s mcastLoop
-getOption s (SendBuf _)     = SendBuf <$> getIntOpt s sendBuf
-getOption s (ReceiveBuf _)  = ReceiveBuf <$> getIntOpt s receiveBuf
+getOption s (HighWM _)          = HighWM <$> getIntOpt s highWM
+getOption s (Swap _)            = Swap <$> getIntOpt s swap
+getOption s (Affinity _)        = Affinity <$> getIntOpt s affinity
+getOption s (Identity _)        = Identity <$> getStrOpt s identity
+getOption s (Rate _)            = Rate <$> getIntOpt s rate
+getOption s (RecoveryIVL _)     = RecoveryIVL <$> getIntOpt s recoveryIVL
+getOption s (RecoveryIVLMsec _) = RecoveryIVLMsec <$> getIntOpt s recoveryIVLMsec
+getOption s (McastLoop _)       = McastLoop <$> getIntOpt s mcastLoop
+getOption s (SendBuf _)         = SendBuf <$> getIntOpt s sendBuf
+getOption s (ReceiveBuf _)      = ReceiveBuf <$> getIntOpt s receiveBuf
+getOption s (FD _)              = FD <$> getIntOpt s filedesc
+getOption s (Events _)          = Events <$> getIntOpt s events
+getOption s (Linger _)          = Linger <$> getIntOpt s linger
+getOption s (ReconnectIVL _)    = ReconnectIVL <$> getIntOpt s reconnectIVL
+getOption s (Backlog _)         = Backlog <$> getIntOpt s backlog
 
 -- | Subscribe Socket to given subscription.
 subscribe :: SubsType a => Socket a -> String -> IO ()

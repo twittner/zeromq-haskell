@@ -6,7 +6,7 @@
 -- Maintainer  : toralf.wittner@gmail.com
 -- Stability   : experimental
 -- Portability : non-portable
--- 
+--
 
 module System.ZMQ.Base where
 
@@ -60,6 +60,8 @@ newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
     pair       = ZMQ_PAIR,
     pub        = ZMQ_PUB,
     sub        = ZMQ_SUB,
+    xpub       = ZMQ_XPUB,
+    xsub       = ZMQ_XSUB,
     request    = ZMQ_REQ,
     response   = ZMQ_REP,
     xrequest   = ZMQ_XREQ,
@@ -73,18 +75,24 @@ newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
 newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQOption, ZMQOption,
-    highWM      = ZMQ_HWM,
-    swap        = ZMQ_SWAP,
-    affinity    = ZMQ_AFFINITY,
-    identity    = ZMQ_IDENTITY,
-    subscribe   = ZMQ_SUBSCRIBE,
-    unsubscribe = ZMQ_UNSUBSCRIBE,
-    rate        = ZMQ_RATE,
-    recoveryIVL = ZMQ_RECOVERY_IVL,
-    mcastLoop   = ZMQ_MCAST_LOOP,
-    sendBuf     = ZMQ_SNDBUF,
-    receiveBuf  = ZMQ_RCVBUF,
-    receiveMore = ZMQ_RCVMORE 
+    highWM          = ZMQ_HWM,
+    swap            = ZMQ_SWAP,
+    affinity        = ZMQ_AFFINITY,
+    identity        = ZMQ_IDENTITY,
+    subscribe       = ZMQ_SUBSCRIBE,
+    unsubscribe     = ZMQ_UNSUBSCRIBE,
+    rate            = ZMQ_RATE,
+    recoveryIVL     = ZMQ_RECOVERY_IVL,
+    recoveryIVLMsec = ZMQ_RECOVERY_IVL_MSEC,
+    mcastLoop       = ZMQ_MCAST_LOOP,
+    sendBuf         = ZMQ_SNDBUF,
+    receiveBuf      = ZMQ_RCVBUF,
+    receiveMore     = ZMQ_RCVMORE,
+    filedesc        = ZMQ_FD,
+    events          = ZMQ_EVENTS,
+    linger          = ZMQ_LINGER,
+    reconnectIVL    = ZMQ_RECONNECT_IVL,
+    backlog         = ZMQ_BACKLOG
 }
 
 newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
