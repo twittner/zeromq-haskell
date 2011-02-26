@@ -10,6 +10,7 @@ module System.ZMQ.IO
     , Socket
     , Flag(..)
     , SocketOption(..)
+    , Device(..)
 
     , SType
     , SubsType
@@ -32,12 +33,14 @@ module System.ZMQ.IO
     , getOption
     , subscribe
     , unsubscribe
+    , socket
     , bind
     , connect
     , send
     , send'
     , receive
     , moreToReceive
+    , device
     ) where
 
 import Prelude hiding (init)
