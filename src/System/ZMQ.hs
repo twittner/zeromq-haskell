@@ -442,7 +442,7 @@ poll fds to = do
 -- Please note that this call never returns.
 device :: Device -> Socket a -> Socket b -> IO ()
 device device' (Socket insocket) (Socket outsocket) =
-    throwErrnoIfMinus1_ "device" $
+    throwErrnoIfMinus1Retry_ "device" $
         c_zmq_device (fromDevice device') insocket outsocket
  where
     fromDevice :: Device -> CInt
