@@ -10,6 +10,8 @@ module System.ZMQ.IO
     , Socket
     , Flag(..)
     , SocketOption(..)
+    , Poll(..)
+    , PollEvent(..)
     , Device(..)
 
     , SType
@@ -40,6 +42,7 @@ module System.ZMQ.IO
     , send'
     , receive
     , moreToReceive
+    , poll
     , device
     ) where
 
