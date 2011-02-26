@@ -1,0 +1,108 @@
+{-# LANGUAGE DoAndIfThenElse #-}
+-- |
+-- Module: System.ZMQ.IO
+--  
+-- A variant of the System.ZMQ module which registers with the GHC IO
+-- manager to allow better multithreaded scaling.
+
+module System.ZMQ.IO
+    ( Context
+    , Socket
+    , Flag(..)
+    , SocketOption(..)
+
+    , SType
+    , SubsType
+    , Pair(..)
+    , Pub(..)
+    , Sub(..)
+    , Req(..)
+    , Rep(..)
+    , XReq(..)
+    , XRep(..)
+    , Pull(..)
+    , Push(..)
+    , Up(..)
+    , Down(..)
+
+    , init
+    , term
+    , close
+    , setOption
+    , getOption
+    , subscribe
+    , unsubscribe
+    , bind
+    , connect
+    , send
+    , send'
+    , receive
+    , moreToReceive
+    ) where
+
+import Prelude hiding (init)
+import Control.Exception
+
+import System.Posix.Types (Fd(..))
+import GHC.Conc (threadWaitRead, threadWaitWrite)
+
+import Data.Bits ((.&.))
+import Data.Word (Word32)
+
+import Foreign.C.Error (eAGAIN, throwErrno, getErrno)
+import Foreign.C.Types (CInt)
+
+import qualified Data.ByteString as SB
+import qualified Data.ByteString.Lazy as LB
+
+import System.ZMQ hiding (send, send', receive)
+import System.ZMQ.Internal hiding (sock)
+import System.ZMQ.Base hiding (subscribe, unsubscribe, events)
+
+retry :: String -> (Socket a -> IO ()) -> Socket a -> IO CInt -> IO ()
+retry msg wait sock act = do ret <- act
+                             errno <- getErrno
+                             if ret == -1 then
+                                 if errno == eAGAIN then
+                                     do wait sock
+                                        retry msg wait sock act
+                                 else
+                                     throwErrno msg
+                             else
+                                 return ()
+
+testEvent :: Word32 -> ZMQPollEvent -> Bool
+testEvent e f = (toInteger e) .&. (toInteger . pollVal $ f) /= 0
+
+wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
+wait' w f s = do (FD fd) <- getOption s (FD undefined)
+                 w (Fd fd)
+                 (Events events) <- getOption s (Events undefined)
+                 if testEvent events f then
+                     return ()
+                 else
+                     wait' w f s
+
+waitRead, waitWrite :: Socket a -> IO ()
+waitRead = wait' threadWaitRead pollIn
+waitWrite = wait' threadWaitWrite pollOut
+
+-- | Send the given 'SB.ByteString' over the socket (zmq_send).
+send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
+send sock@(Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
+    retry "send" waitWrite sock $ c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
+
+-- | Send the given 'LB.ByteString' over the socket (zmq_send).
+--   This is operationally identical to @send socket (Strict.concat
+--   (Lazy.toChunks lbs)) flags@ but may be more efficient.
+send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
+send' sock@(Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
+    retry "send'" waitWrite sock $ c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
+
+-- | Receive a 'ByteString' from socket (zmq_recv).
+receive :: Socket a -> [Flag] -> IO (SB.ByteString)
+receive sock@(Socket s) fls = bracket messageInit messageClose $ \m -> do
+    retry "receive" waitRead sock $ c_zmq_recv_unsafe s (msgPtr m) (combine (NoBlock : fls))
+    data_ptr <- c_zmq_msg_data (msgPtr m)
+    size     <- c_zmq_msg_size (msgPtr m)
+    SB.packCStringLen (data_ptr, fromIntegral size)

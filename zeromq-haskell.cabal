@@ -16,7 +16,7 @@ build-type:         Simple
 extra-source-files: README.md, AUTHORS, test/*.hs, test/perf/*.hs
 
 library
-  exposed-modules:  System.ZMQ
+  exposed-modules:  System.ZMQ, System.ZMQ.IO
   other-modules:    System.ZMQ.Base, System.ZMQ.Internal
   ghc-options:      -Wall -O2
   extensions:       CPP,
