@@ -47,7 +47,6 @@ import System.Posix.Types (Fd(..))
 import GHC.Conc (threadWaitRead, threadWaitWrite)
 
 import Data.Bits ((.&.))
-import Data.Word (Word32)
 
 import Foreign.C.Error (eAGAIN, throwErrno, getErrno)
 import Foreign.C.Types (CInt)
@@ -71,17 +70,15 @@ retry msg wait sock act = do ret <- act
                              else
                                  return ()
 
-testEvent :: Word32 -> ZMQPollEvent -> Bool
-testEvent e f = (toInteger e) .&. (toInteger . pollVal $ f) /= 0
-
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do (FD fd) <- getOption s (FD undefined)
                  w (Fd fd)
                  (Events events) <- getOption s (Events undefined)
-                 if testEvent events f then
+                 if testev events then
                      return ()
                  else
                      wait' w f s
+    where testev e = (toInteger e) .&. (toInteger . pollVal $ f) /= 0
 
 waitRead, waitWrite :: Socket a -> IO ()
 waitRead = wait' threadWaitRead pollIn
