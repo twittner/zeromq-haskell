@@ -55,7 +55,7 @@ import GHC.Conc (threadWaitRead, threadWaitWrite)
 
 import Data.Bits ((.&.))
 
-import Foreign.C.Error (eAGAIN, throwErrno, getErrno)
+import Foreign.C.Error (throwErrnoIfMinus1RetryMayBlock_)
 import Foreign.C.Types (CInt)
 
 import qualified Data.ByteString as SB
@@ -65,17 +65,8 @@ import System.ZMQ hiding (send, send', receive)
 import System.ZMQ.Internal hiding (sock)
 import System.ZMQ.Base hiding (subscribe, unsubscribe, events)
 
-retry :: String -> (Socket a -> IO ()) -> Socket a -> IO CInt -> IO ()
-retry msg wait sock act = do ret <- act
-                             errno <- getErrno
-                             if ret == -1 then
-                                 if errno == eAGAIN then
-                                     do wait sock
-                                        retry msg wait sock act
-                                 else
-                                     throwErrno msg
-                             else
-                                 return ()
+retry :: String -> IO () -> IO CInt -> IO ()
+retry msg wait act = throwErrnoIfMinus1RetryMayBlock_ msg act wait
 
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do (FD fd) <- getOption s (FD undefined)
@@ -91,19 +82,22 @@ waitWrite = wait' threadWaitWrite pollOut
 -- | Send the given 'SB.ByteString' over the socket (zmq_send).
 send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
 send sock@(Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
-    retry "send" waitWrite sock $ c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
+    retry "send" (waitWrite sock) $
+          c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
 
 -- | Send the given 'LB.ByteString' over the socket (zmq_send).
 --   This is operationally identical to @send socket (Strict.concat
 --   (Lazy.toChunks lbs)) flags@ but may be more efficient.
 send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
 send' sock@(Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
-    retry "send'" waitWrite sock $ c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
+    retry "send'" (waitWrite sock) $
+          c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
 
 -- | Receive a 'ByteString' from socket (zmq_recv).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
 receive sock@(Socket s) fls = bracket messageInit messageClose $ \m -> do
-    retry "receive" waitRead sock $ c_zmq_recv_unsafe s (msgPtr m) (combine (NoBlock : fls))
+    retry "receive" (waitRead sock) $
+          c_zmq_recv_unsafe s (msgPtr m) (combine (NoBlock : fls))
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
