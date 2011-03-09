@@ -48,6 +48,7 @@ module System.ZMQ.IO
 
 import Prelude hiding (init)
 import Control.Exception
+import Control.Monad (unless)
 
 import System.Posix.Types (Fd(..))
 import GHC.Conc (threadWaitRead, threadWaitWrite)
@@ -80,10 +81,7 @@ wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do (FD fd) <- getOption s (FD undefined)
                  w (Fd fd)
                  (Events events) <- getOption s (Events undefined)
-                 if testev events then
-                     return ()
-                 else
-                     wait' w f s
+                 unless (testev events) $ wait' w f s
     where testev e = (toInteger e) .&. (toInteger . pollVal $ f) /= 0
 
 waitRead, waitWrite :: Socket a -> IO ()
