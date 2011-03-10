@@ -73,7 +73,7 @@ wait' w f s = do (FD fd) <- getOption s (FD undefined)
                  w (Fd fd)
                  (Events events) <- getOption s (Events undefined)
                  unless (testev events) $ wait' w f s
-    where testev e = (toInteger e) .&. (toInteger . pollVal $ f) /= 0
+    where testev e = e .&. fromIntegral (pollVal f) /= 0
 
 waitRead, waitWrite :: Socket a -> IO ()
 waitRead = wait' threadWaitRead pollIn
