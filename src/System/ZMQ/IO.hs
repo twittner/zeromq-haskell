@@ -1,4 +1,3 @@
-{-# LANGUAGE DoAndIfThenElse #-}
 -- |
 -- Module: System.ZMQ.IO
 --  
