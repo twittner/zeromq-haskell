@@ -63,7 +63,7 @@ import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 
 import System.ZMQ hiding (send, send', receive)
-import System.ZMQ.Internal hiding (sock)
+import System.ZMQ.Internal
 import System.ZMQ.Base hiding (subscribe, unsubscribe, events)
 
 retry :: String -> IO () -> IO CInt -> IO ()
@@ -82,7 +82,8 @@ waitWrite = wait' threadWaitWrite pollOut
 
 -- | Send the given 'SB.ByteString' over the socket (zmq_send).
 send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
-send sock@(Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
+send sock val fls = bracket (messageOf val) messageClose $ \m ->
+  withSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
           c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
 
@@ -90,13 +91,15 @@ send sock@(Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
 --   This is operationally identical to @send socket (Strict.concat
 --   (Lazy.toChunks lbs)) flags@ but may be more efficient.
 send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
-send' sock@(Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
+send' sock val fls = bracket (messageOfLazy val) messageClose $ \m ->
+  withSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
           c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
 
 -- | Receive a 'ByteString' from socket (zmq_recv).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
-receive sock@(Socket s) fls = bracket messageInit messageClose $ \m -> do
+receive sock fls = bracket messageInit messageClose $ \m ->
+  withSocket "receive" sock $ \s -> do
     retry "receive" (waitRead sock) $
           c_zmq_recv_unsafe s (msgPtr m) (combine (NoBlock : fls))
     data_ptr <- c_zmq_msg_data (msgPtr m)

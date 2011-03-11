@@ -63,6 +63,8 @@ module System.ZMQ (
 import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
+import Control.Monad (unless, when)
+import Data.IORef (readIORef, writeIORef)
 import Data.Int
 import Data.Maybe
 import System.ZMQ.Base
@@ -74,6 +76,7 @@ import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
+import System.Mem.Weak (addFinalizer)
 import System.Posix.Types (Fd(..))
 
 -- Socket types:
@@ -311,13 +314,22 @@ with ioThreads act =
 
 -- | Create a new 0MQ socket within the given context.
 socket :: SType a => Context -> a -> IO (Socket a)
-socket (Context c) t =
-    let zt = typeVal . zmqSocketType $ t
-    in  Socket <$> throwErrnoIfNull "socket" (c_zmq_socket c zt)
+socket (Context c) t = do
+  let zt = typeVal . zmqSocketType $ t
+  s <- throwErrnoIfNull "socket" (c_zmq_socket c zt)
+  sock@(Socket _ status) <- mkSocket s
+  addFinalizer sock $ do
+    alive <- readIORef status
+    unless alive $ c_zmq_close s >> return ()
+  return sock
 
 -- | Close a 0MQ socket.
 close :: Socket a -> IO ()
-close = throwErrnoIfMinus1_ "close" . c_zmq_close . sock
+close sock@(Socket _ status) = withSocket "close" sock $ \s -> do
+  alive <- readIORef status
+  when alive $ do
+    writeIORef status False
+    throwErrnoIfMinus1_ "close" . c_zmq_close $ s
 
 -- | Set the given option on the socket. Please note that there are
 -- certain combatibility constraints w.r.t the socket type (cf. man
@@ -379,29 +391,32 @@ moreToReceive s = getBoolOpt s receiveMore
 
 -- | Bind the socket to the given address (zmq_bind)
 bind :: Socket a -> String -> IO ()
-bind (Socket s) str = throwErrnoIfMinus1_ "bind" $
-    withCString str (c_zmq_bind s)
+bind sock str = withSocket "bind" sock $
+    throwErrnoIfMinus1_ "bind" . withCString str . c_zmq_bind
 
 -- | Connect the socket to the given address (zmq_connect).
 connect :: Socket a -> String -> IO ()
-connect (Socket s) str = throwErrnoIfMinus1_ "connect" $
-    withCString str (c_zmq_connect s)
+connect sock str = withSocket "connect" sock $
+    throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
 
 -- | Send the given 'SB.ByteString' over the socket (zmq_send).
 send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
-send (Socket s) val fls = bracket (messageOf val) messageClose $ \m ->
+send sock val fls = bracket (messageOf val) messageClose $ \m ->
+    withSocket "send" sock $ \s ->
     throwErrnoIfMinus1_ "send" $ c_zmq_send s (msgPtr m) (combine fls)
 
 -- | Send the given 'LB.ByteString' over the socket (zmq_send).
 --   This is operationally identical to @send socket (Strict.concat
 --   (Lazy.toChunks lbs)) flags@ but may be more efficient.
 send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
-send' (Socket s) val fls = bracket (messageOfLazy val) messageClose $ \m ->
+send' sock val fls = bracket (messageOfLazy val) messageClose $ \m ->
+    withSocket "send" sock $ \s ->
     throwErrnoIfMinus1_ "send'" $ c_zmq_send s (msgPtr m) (combine fls)
 
 -- | Receive a 'ByteString' from socket (zmq_recv).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
-receive (Socket s) fls = bracket messageInit messageClose $ \m -> do
+receive sock fls = bracket messageInit messageClose $ \m ->
+  withSocket "receive" sock $ \s -> do
     throwErrnoIfMinus1Retry_ "receive" $ c_zmq_recv s (msgPtr m) (combine fls)
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
@@ -420,24 +435,28 @@ poll fds to = do
         createPoll ps' []
  where
     createZMQPoll :: Poll -> ZMQPoll
-    createZMQPoll (S (Socket s) e) =
+    createZMQPoll (S (Socket s _) e) =
         ZMQPoll s 0 (fromEvent e) 0
     createZMQPoll (F (Fd s) e) =
         ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
 
     createPoll :: [ZMQPoll] -> [Poll] -> IO [Poll]
-    createPoll []     fd = return fd
-    createPoll (p:pp) fd = do
+    createPoll []     pfds = return pfds
+    createPoll (p:pp) pfds = do
         let s = pSocket p;
             f = pFd p;
             r = toEvent $ pRevents p
         if isJust r
-            then createPoll pp (newPoll s f r:fd)
-            else createPoll pp fd
+            then do
+              pfd <- newPoll s f r
+              createPoll pp (pfd:pfds)
+            else createPoll pp pfds
 
-    newPoll :: ZMQSocket -> CInt -> Maybe PollEvent -> Poll
-    newPoll s 0 r = S (Socket s) (fromJust r)
-    newPoll _ f r = F (Fd f) (fromJust r)
+    newPoll :: ZMQSocket -> CInt -> Maybe PollEvent -> IO Poll
+    newPoll s 0 r = do
+                sock <- mkSocket s
+                return $ S sock (fromJust r)
+    newPoll _ f r = return $ F (Fd f) (fromJust r)
 
     fromEvent :: PollEvent -> CShort
     fromEvent In     = fromIntegral . pollVal $ pollIn
@@ -456,7 +475,9 @@ poll fds to = do
 --
 -- Please note that this call never returns.
 device :: Device -> Socket a -> Socket b -> IO ()
-device device' (Socket insocket) (Socket outsocket) =
+device device' insock outsock =
+  withSocket "device" insock $ \insocket ->
+  withSocket "device" outsock $ \outsocket ->
     throwErrnoIfMinus1Retry_ "device" $
         c_zmq_device (fromDevice device') insocket outsocket
  where

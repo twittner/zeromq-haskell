@@ -18,11 +18,14 @@ module System.ZMQ.Internal
     , getStrOpt
     , toZMQFlag
     , combine
+    , mkSocket
+    , withSocket
     ) where
 
 import Control.Applicative
 import Control.Monad (foldM_)
 import Control.Exception
+import Data.IORef (IORef)
 
 import Foreign
 import Foreign.C.Error
@@ -32,6 +35,7 @@ import Foreign.C.Types (CInt, CSize)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
+import Data.IORef (newIORef)
 
 import System.ZMQ.Base
 
@@ -51,12 +55,22 @@ data Flag = NoBlock -- ^ ZMQ_NOBLOCK
 newtype Context = Context { ctx :: ZMQCtx }
 
 -- | A 0MQ Socket.
-newtype Socket a = Socket { sock :: ZMQSocket }
+data Socket a = Socket {
+      _socket :: ZMQSocket
+    , _sockLive :: IORef Bool
+    }
 
 -- A 0MQ Message representation.
 newtype Message = Message { msgPtr :: ZMQMsgPtr }
 
 -- internal helpers:
+
+withSocket :: String -> Socket a -> (ZMQSocket -> IO b) -> IO b
+withSocket _func (Socket sock _state) act = act sock
+{-# INLINE withSocket #-}
+
+mkSocket :: ZMQSocket -> IO (Socket a)
+mkSocket s = Socket s <$> newIORef True
 
 messageOf :: SB.ByteString -> IO Message
 messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do
@@ -96,15 +110,15 @@ messageInitSize s = do
     return (Message ptr)
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
-setIntOpt (Socket s) (ZMQOption o) i =
+setIntOpt sock (ZMQOption o) i = withSocket "setIntOpt" sock $ \s ->
     throwErrnoIfMinus1_ "setIntOpt" $ with i $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr ptr)
                            (fromIntegral . sizeOf $ i)
 
 setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
-setStrOpt (Socket s) (ZMQOption o) str = throwErrnoIfMinus1_ "setStrOpt" $
-    withCStringLen str $ \(cstr, len) ->
+setStrOpt sock (ZMQOption o) str = withSocket "setStrOpt" sock $ \s ->
+  throwErrnoIfMinus1_ "setStrOpt" $ withCStringLen str $ \(cstr, len) ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr cstr)
                            (fromIntegral len)
@@ -113,7 +127,7 @@ getBoolOpt :: Socket a -> ZMQOption -> IO Bool
 getBoolOpt s o = ((1 :: Int64) ==) <$> getIntOpt s o
 
 getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> IO b
-getIntOpt (Socket s) (ZMQOption o) = do
+getIntOpt sock (ZMQOption o) = withSocket "getIntOpt" sock $ \s -> do
     let i = 0
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
@@ -122,7 +136,7 @@ getIntOpt (Socket s) (ZMQOption o) = do
             peek iptr
 
 getStrOpt :: Socket a -> ZMQOption -> IO String
-getStrOpt (Socket s) (ZMQOption o) =
+getStrOpt sock (ZMQOption o) = withSocket "getStrOpt" sock $ \s ->
     bracket (mallocBytes 255) free $ \bPtr ->
     bracket (new (255 :: CSize)) free $ \sPtr -> do
         throwErrnoIfMinus1_ "getStrOpt" $
@@ -135,4 +149,3 @@ toZMQFlag SndMore = sndMore
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
-
