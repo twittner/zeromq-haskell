@@ -20,6 +20,7 @@ module System.ZMQ (
     Flag(..),
     SocketOption(..),
     Poll(..),
+    Timeout,
     PollEvent(..),
     Device(..),
 
@@ -37,8 +38,7 @@ module System.ZMQ (
     Up(..),
     Down(..),
 
-    init,
-    term,
+    with,
     socket,
     close,
     setOption,
@@ -52,7 +52,11 @@ module System.ZMQ (
     receive,
     moreToReceive,
     poll,
-    device
+    device,
+
+    -- * Low-level functions
+    init,
+    term
 
 ) where
 
@@ -64,7 +68,7 @@ import Data.Maybe
 import System.ZMQ.Base
 import qualified System.ZMQ.Base as B
 import System.ZMQ.Internal
-import Foreign
+import Foreign hiding (with)
 import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
@@ -284,15 +288,26 @@ data Device =
   | Queue     -- ^ ZMQ_QUEUE
   deriving (Eq, Ord, Show)
 
--- | Initialize a 0MQ context (cf. zmq_init for details).
+-- | Initialize a 0MQ context (cf. zmq_init for details).  You should
+-- normally prefer to use 'with' instead.
 init :: Size -> IO Context
 init ioThreads = do
     c <- throwErrnoIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
     return (Context c)
 
--- | Terminate 0MQ context (cf. zmq_term).
+-- | Terminate a 0MQ context (cf. zmq_term).  You should normally
+-- prefer to use 'with' instead.
 term :: Context -> IO ()
 term = throwErrnoIfMinus1_ "term" . c_zmq_term . ctx
+
+-- | Run an action with a 0MQ context.  The 'Context' supplied to your
+-- action will /not/ be valid after the action either returns or
+-- throws an exception.
+with :: Size -> (Context -> IO a) -> IO a
+with ioThreads act =
+  bracket (throwErrnoIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
+          (throwErrnoIfMinus1_ "c_zmq_term" . c_zmq_term)
+          (act . Context)
 
 -- | Create a new 0MQ socket within the given context.
 socket :: SType a => Context -> a -> IO (Socket a)
@@ -449,5 +464,3 @@ device device' (Socket insocket) (Socket outsocket) =
     fromDevice Streamer  = fromIntegral . deviceType $ deviceStreamer
     fromDevice Forwarder = fromIntegral . deviceType $ deviceForwarder
     fromDevice Queue     = fromIntegral . deviceType $ deviceQueue
-
-

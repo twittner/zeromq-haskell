@@ -27,8 +27,7 @@ module System.ZMQ.IO
     , Up(..)
     , Down(..)
 
-    , init
-    , term
+    , with
     , close
     , setOption
     , getOption
@@ -43,6 +42,9 @@ module System.ZMQ.IO
     , moreToReceive
     , poll
     , device
+    -- * Low-level functions
+    , init
+    , term
     ) where
 
 import Prelude hiding (init)
