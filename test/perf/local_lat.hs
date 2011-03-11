@@ -14,12 +14,11 @@ main = do
     let bindTo = args !! 0
         size   = read $ args !! 1
         rounds = read $ args !! 2
-    c <- ZMQ.init 1
-    s <- ZMQ.socket c ZMQ.Rep
-    ZMQ.bind s bindTo
-    loop s rounds size
-    ZMQ.close s
-    ZMQ.term c
+    ZMQ.with 1 $ \c -> do
+      s <- ZMQ.socket c ZMQ.Rep
+      ZMQ.bind s bindTo
+      loop s rounds size
+      ZMQ.close s
  where
     loop s r sz = unless (r <= 0) $ do
         msg <- ZMQ.receive s []

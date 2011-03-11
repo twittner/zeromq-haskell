@@ -16,13 +16,12 @@ main = do
         size    = read $ args !! 1
         count   = read $ args !! 2
         message = SB.replicate size 0x65
-    c <- ZMQ.init 1
-    s <- ZMQ.socket c ZMQ.Pub
-    ZMQ.connect s connTo
-    replicateM_ count $ ZMQ.send s message []
-    threadDelay 10000000
-    ZMQ.close s
-    ZMQ.term c
+    ZMQ.with 1 $ \c -> do
+      s <- ZMQ.socket c ZMQ.Pub
+      ZMQ.connect s connTo
+      replicateM_ count $ ZMQ.send s message []
+      threadDelay 10000000
+      ZMQ.close s
 
 usage :: String
 usage = "usage: remote_thr <connect-to> <message-size> <message-count>"

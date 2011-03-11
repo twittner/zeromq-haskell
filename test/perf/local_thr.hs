@@ -16,17 +16,16 @@ main = do
     let bindTo = args !! 0
         size   = read $ args !! 1 :: Int
         count  = read $ args !! 2 :: Int
-    c <- ZMQ.init 1
-    s <- ZMQ.socket c ZMQ.Sub
-    ZMQ.subscribe s ""
-    ZMQ.bind s bindTo
-    receive s size
-    start <- getCurrentTime
-    loop s (count - 1) size
-    end <- getCurrentTime
-    printStat start end size count
-    ZMQ.close s
-    ZMQ.term c
+    ZMQ.with 1 $ \c -> do
+      s <- ZMQ.socket c ZMQ.Sub
+      ZMQ.subscribe s ""
+      ZMQ.bind s bindTo
+      receive s size
+      start <- getCurrentTime
+      loop s (count - 1) size
+      end <- getCurrentTime
+      printStat start end size count
+      ZMQ.close s
  where
     receive s sz = do
         msg <- ZMQ.receive s []

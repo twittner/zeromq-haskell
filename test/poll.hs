@@ -12,12 +12,12 @@ main = do
     when (length args /= 1) $ do
         hPutStrLn stderr usage
         exitFailure
-    c <- ZMQ.init 1
-    s <- ZMQ.socket c ZMQ.Rep
-    let bindTo = head args
-        toPoll = [ZMQ.S s ZMQ.In]
-    ZMQ.bind s bindTo
-    forever $
+    ZMQ.with 1 $ \c -> do
+      s <- ZMQ.socket c ZMQ.Rep
+      let bindTo = head args
+          toPoll = [ZMQ.S s ZMQ.In]
+      ZMQ.bind s bindTo
+      forever $
         ZMQ.poll toPoll 1000000 >>= receive
  where
     receive []               = return ()

@@ -12,11 +12,11 @@ main = do
         hPutStrLn stderr "usage: display <address>"
         exitFailure
     let addr = head args
-    c <- ZMQ.init 1
-    s <- ZMQ.socket c ZMQ.Sub
-    ZMQ.subscribe s ""
-    ZMQ.connect s addr
-    forever $ do
+    ZMQ.with 1 $ \c -> do
+      s <- ZMQ.socket c ZMQ.Sub
+      ZMQ.subscribe s ""
+      ZMQ.connect s addr
+      forever $ do
         line <- ZMQ.receive s []
         SB.putStrLn line
         hFlush stdout
