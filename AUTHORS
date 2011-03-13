@@ -2,4 +2,6 @@ Toralf Wittner      original implementation
 David Himmelstrup   added send'
 Nicolas Trangez     added support for zmq_device and "queue" test app
 Ville Tirronen      added support for ZMG_SNDMORE
+Jeremy Fitzhardinge integrated with GHC's I/O manager
+Bryan O'Sullivan    added resource wrappers, socket finalizer
 

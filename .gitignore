@@ -2,4 +2,5 @@
 *.hi
 *.o
 dist/
+tags
 
