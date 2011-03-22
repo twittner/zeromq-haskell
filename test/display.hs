@@ -8,14 +8,13 @@ import qualified Data.ByteString as SB
 main :: IO ()
 main = do
     args <- getArgs
-    when (length args /= 1) $ do
-        hPutStrLn stderr "usage: display <address>"
+    when (length args < 1) $ do
+        hPutStrLn stderr "usage: display <address> [<address>, ...]"
         exitFailure
-    let addr = head args
     ZMQ.with 1 $ \c -> do
       s <- ZMQ.socket c ZMQ.Sub
       ZMQ.subscribe s ""
-      ZMQ.connect s addr
+      mapM (ZMQ.connect s) args
       forever $ do
         line <- ZMQ.receive s []
         SB.putStrLn line
