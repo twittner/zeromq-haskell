@@ -40,8 +40,6 @@ module System.ZMQ (
 
     withContext,
     withSocket,
-    socket,
-    close,
     setOption,
     getOption,
     System.ZMQ.subscribe,
@@ -57,7 +55,9 @@ module System.ZMQ (
 
     -- * Low-level functions
     init,
-    term
+    term,
+    socket,
+    close,
 
 ) where
 
@@ -316,11 +316,13 @@ withContext ioThreads act =
           (act . Context)
 
 -- | Run an action with a 0MQ socket. The socket will be closed after running
--- the supplied action even in case an error occurs.
+-- the supplied action even if an error occurs. The socket supplied to your
+-- action will /not/ be valid after the action terminates.
 withSocket :: SType a => Context -> a -> (Socket a -> IO b) -> IO b
 withSocket c t = bracket (socket c t) close
 
--- | Create a new 0MQ socket within the given context.
+-- | Create a new 0MQ socket within the given context. 'withSocket' provides
+-- automatic socket closing and may be safer to use.
 socket :: SType a => Context -> a -> IO (Socket a)
 socket (Context c) t = do
   let zt = typeVal . zmqSocketType $ t
@@ -331,7 +333,8 @@ socket (Context c) t = do
     when alive $ c_zmq_close s >> return () -- socket has not been closed yet
   return sock
 
--- | Close a 0MQ socket.
+-- | Close a 0MQ socket. 'withSocket' provides automatic socket closing and may
+-- be safer to use.
 close :: Socket a -> IO ()
 close sock@(Socket _ status) = onSocket "close" sock $ \s -> do
   alive <- atomicModifyIORef status (\b -> (False, b))
