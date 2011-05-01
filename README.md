@@ -3,10 +3,12 @@ This library provides Haskell bindings to zeromq (http://zeromq.org).
 Current status
 --------------
 
-Version 0.5.0 - This software currently has *beta* status, i.e. it had
-seen limited testing. Changes to its API may still happen.
+Version 0.6.0 - This software currently has *beta* status, i.e. it had
+seen limited testing. This version renames "with" to "withContext" and
+introduces a new "withSocket" resource wrapper. The API is otherwise
+identical to 0.5.0
 
-This software requires zeromq version 2.1.0.
+This software requires zeromq version 2.1.x.
 
 Installation
 ------------
