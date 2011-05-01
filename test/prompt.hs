@@ -16,10 +16,10 @@ main = do
         exitFailure
     let addr = args !! 0
         name = SB.append (SB.fromString $ args !! 1) ": "
-    ZMQ.with 1 $ \c -> do
-      s <- ZMQ.socket c ZMQ.Pub
-      ZMQ.bind s addr
-      forever $ do
-        line <- SB.fromString <$> getLine
-        ZMQ.send s (SB.append name line) []
+    ZMQ.withContext 1 $ \c ->
+        ZMQ.withSocket c ZMQ.Pub $ \s -> do
+            ZMQ.bind s addr
+            forever $ do
+                line <- SB.fromString <$> getLine
+                ZMQ.send s (SB.append name line) []
 

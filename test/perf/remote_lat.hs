@@ -16,15 +16,14 @@ main = do
         size    = read $ args !! 1
         rounds  = read $ args !! 2
         message = SB.replicate size 0x65
-    ZMQ.with 1 $ \c -> do
-      s <- ZMQ.socket c ZMQ.Req
-      ZMQ.connect s connTo
-      start <- getCurrentTime
-      loop s rounds message
-      end <- getCurrentTime
-      print (diffUTCTime end start)
-      ZMQ.close s
- where
+    ZMQ.withContext 1 $ \c ->
+        ZMQ.withSocket c ZMQ.Req $ \s -> do
+            ZMQ.connect s connTo
+            start <- getCurrentTime
+            loop s rounds message
+            end <- getCurrentTime
+            print (diffUTCTime end start)
+  where
     loop s r msg = unless (r <= 0) $ do
         ZMQ.send s msg []
         msg' <- ZMQ.receive s []

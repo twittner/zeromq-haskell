@@ -14,12 +14,11 @@ main = do
     let bindTo = args !! 0
         size   = read $ args !! 1
         rounds = read $ args !! 2
-    ZMQ.with 1 $ \c -> do
-      s <- ZMQ.socket c ZMQ.Rep
-      ZMQ.bind s bindTo
-      loop s rounds size
-      ZMQ.close s
- where
+    ZMQ.withContext 1 $ \c ->
+        ZMQ.withSocket c ZMQ.Rep $ \s -> do
+            ZMQ.bind s bindTo
+            loop s rounds size
+  where
     loop s r sz = unless (r <= 0) $ do
         msg <- ZMQ.receive s []
         when (SB.length msg /= sz) $

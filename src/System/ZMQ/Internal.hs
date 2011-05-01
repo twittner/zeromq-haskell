@@ -19,7 +19,7 @@ module System.ZMQ.Internal
     , toZMQFlag
     , combine
     , mkSocket
-    , withSocket
+    , onSocket
     ) where
 
 import Control.Applicative
@@ -65,9 +65,9 @@ newtype Message = Message { msgPtr :: ZMQMsgPtr }
 
 -- internal helpers:
 
-withSocket :: String -> Socket a -> (ZMQSocket -> IO b) -> IO b
-withSocket _func (Socket sock _state) act = act sock
-{-# INLINE withSocket #-}
+onSocket :: String -> Socket a -> (ZMQSocket -> IO b) -> IO b
+onSocket _func (Socket sock _state) act = act sock
+{-# INLINE onSocket #-}
 
 mkSocket :: ZMQSocket -> IO (Socket a)
 mkSocket s = Socket s <$> newIORef True
@@ -110,14 +110,14 @@ messageInitSize s = do
     return (Message ptr)
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
-setIntOpt sock (ZMQOption o) i = withSocket "setIntOpt" sock $ \s ->
+setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
     throwErrnoIfMinus1_ "setIntOpt" $ with i $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr ptr)
                            (fromIntegral . sizeOf $ i)
 
 setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
-setStrOpt sock (ZMQOption o) str = withSocket "setStrOpt" sock $ \s ->
+setStrOpt sock (ZMQOption o) str = onSocket "setStrOpt" sock $ \s ->
   throwErrnoIfMinus1_ "setStrOpt" $ withCStringLen str $ \(cstr, len) ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr cstr)
@@ -127,7 +127,7 @@ getBoolOpt :: Socket a -> ZMQOption -> IO Bool
 getBoolOpt s o = ((1 :: Int64) ==) <$> getIntOpt s o
 
 getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> IO b
-getIntOpt sock (ZMQOption o) = withSocket "getIntOpt" sock $ \s -> do
+getIntOpt sock (ZMQOption o) = onSocket "getIntOpt" sock $ \s -> do
     let i = 0
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
@@ -136,7 +136,7 @@ getIntOpt sock (ZMQOption o) = withSocket "getIntOpt" sock $ \s -> do
             peek iptr
 
 getStrOpt :: Socket a -> ZMQOption -> IO String
-getStrOpt sock (ZMQOption o) = withSocket "getStrOpt" sock $ \s ->
+getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
     bracket (mallocBytes 255) free $ \bPtr ->
     bracket (new (255 :: CSize)) free $ \sPtr -> do
         throwErrnoIfMinus1_ "getStrOpt" $

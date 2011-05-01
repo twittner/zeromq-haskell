@@ -38,7 +38,8 @@ module System.ZMQ (
     Up(..),
     Down(..),
 
-    with,
+    withContext,
+    withSocket,
     socket,
     close,
     setOption,
@@ -64,7 +65,7 @@ import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
 import Control.Monad (unless, when)
-import Data.IORef (readIORef, writeIORef)
+import Data.IORef (atomicModifyIORef)
 import Data.Int
 import Data.Maybe
 import System.ZMQ.Base
@@ -308,11 +309,16 @@ term = throwErrnoIfMinus1_ "term" . c_zmq_term . ctx
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
 -- throws an exception.
-with :: Size -> (Context -> IO a) -> IO a
-with ioThreads act =
+withContext :: Size -> (Context -> IO a) -> IO a
+withContext ioThreads act =
   bracket (throwErrnoIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
           (throwErrnoIfMinus1_ "c_zmq_term" . c_zmq_term)
           (act . Context)
+
+-- | Run an action with a 0MQ socket. The socket will be closed after running
+-- the supplied action even in case an error occurs.
+withSocket :: SType a => Context -> a -> (Socket a -> IO b) -> IO b
+withSocket c t = bracket (socket c t) close
 
 -- | Create a new 0MQ socket within the given context.
 socket :: SType a => Context -> a -> IO (Socket a)
@@ -321,17 +327,15 @@ socket (Context c) t = do
   s <- throwErrnoIfNull "socket" (c_zmq_socket c zt)
   sock@(Socket _ status) <- mkSocket s
   addFinalizer sock $ do
-    alive <- readIORef status
-    unless alive $ c_zmq_close s >> return ()
+    alive <- atomicModifyIORef status (\b -> (False, b))
+    when alive $ c_zmq_close s >> return () -- socket has not been closed yet
   return sock
 
 -- | Close a 0MQ socket.
 close :: Socket a -> IO ()
-close sock@(Socket _ status) = withSocket "close" sock $ \s -> do
-  alive <- readIORef status
-  when alive $ do
-    writeIORef status False
-    throwErrnoIfMinus1_ "close" . c_zmq_close $ s
+close sock@(Socket _ status) = onSocket "close" sock $ \s -> do
+  alive <- atomicModifyIORef status (\b -> (False, b))
+  when alive $ throwErrnoIfMinus1_ "close" . c_zmq_close $ s
 
 -- | Set the given option on the socket. Please note that there are
 -- certain combatibility constraints w.r.t the socket type (cf. man
@@ -393,18 +397,18 @@ moreToReceive s = getBoolOpt s receiveMore
 
 -- | Bind the socket to the given address (zmq_bind)
 bind :: Socket a -> String -> IO ()
-bind sock str = withSocket "bind" sock $
+bind sock str = onSocket "bind" sock $
     throwErrnoIfMinus1_ "bind" . withCString str . c_zmq_bind
 
 -- | Connect the socket to the given address (zmq_connect).
 connect :: Socket a -> String -> IO ()
-connect sock str = withSocket "connect" sock $
+connect sock str = onSocket "connect" sock $
     throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
 
 -- | Send the given 'SB.ByteString' over the socket (zmq_send).
 send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
 send sock val fls = bracket (messageOf val) messageClose $ \m ->
-  withSocket "send" sock $ \s ->
+  onSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
           c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
 
@@ -413,14 +417,14 @@ send sock val fls = bracket (messageOf val) messageClose $ \m ->
 --   (Lazy.toChunks lbs)) flags@ but may be more efficient.
 send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
 send' sock val fls = bracket (messageOfLazy val) messageClose $ \m ->
-  withSocket "send'" sock $ \s ->
+  onSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
           c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
 
 -- | Receive a 'ByteString' from socket (zmq_recv).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
 receive sock fls = bracket messageInit messageClose $ \m ->
-  withSocket "receive" sock $ \s -> do
+  onSocket "receive" sock $ \s -> do
     retry "receive" (waitRead sock) $
           c_zmq_recv_unsafe s (msgPtr m) (combine (NoBlock : fls))
     data_ptr <- c_zmq_msg_data (msgPtr m)
@@ -495,8 +499,8 @@ waitWrite = wait' threadWaitWrite pollOut
 -- Please note that this call never returns.
 device :: Device -> Socket a -> Socket b -> IO ()
 device device' insock outsock =
-  withSocket "device" insock $ \insocket ->
-  withSocket "device" outsock $ \outsocket ->
+  onSocket "device" insock $ \insocket ->
+  onSocket "device" outsock $ \outsocket ->
     throwErrnoIfMinus1Retry_ "device" $
         c_zmq_device (fromDevice device') insocket outsocket
  where
