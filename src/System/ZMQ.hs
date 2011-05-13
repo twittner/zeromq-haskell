@@ -64,7 +64,7 @@ module System.ZMQ (
 import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, when, zipWithM)
+import Control.Monad (unless, when)
 import Data.IORef (atomicModifyIORef)
 import Data.Int
 import Data.Maybe
@@ -437,7 +437,7 @@ receive sock fls = bracket messageInit messageClose $ \m ->
 -- | Polls for events on the given 'Poll' descriptors. The input is a
 -- pair of (`Poll`, token) pairs. Returns the list of tokens for which
 -- an event occured (cf. zmq_poll).
-poll :: [(Poll, a)] -> Timeout -> IO [a]
+poll :: [(Poll, a)] -> Timeout -> IO [(Poll, a)]
 poll polls to = do
     let len = length polls
         zpolls  = map (createZMQPoll . fst) polls
@@ -445,20 +445,13 @@ poll polls to = do
         throwErrnoIfMinus1Retry_ "poll" $
             c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
         zpolls' <- peekArray len ptr        
-        catMaybes <$> zipWithM createPoll zpolls' (map snd polls)
+        return $ map snd $ filter (isJust . toEvent . pRevents . fst) $ zip zpolls' polls
  where
     createZMQPoll :: Poll -> ZMQPoll
     createZMQPoll (S (Socket s _) e) =
         ZMQPoll s 0 (fromEvent e) 0
     createZMQPoll (F (Fd s) e) =
         ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
-
-    createPoll :: ZMQPoll -> a -> IO (Maybe a)
-    createPoll zpoll token = do
-      let r = toEvent $ pRevents zpoll
-      return $ case r of
-        Nothing -> Nothing
-        Just _ -> Just token
 
     fromEvent :: PollEvent -> CShort
     fromEvent In     = fromIntegral . pollVal $ pollIn
