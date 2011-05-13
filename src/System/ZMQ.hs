@@ -64,7 +64,7 @@ module System.ZMQ (
 import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, when)
+import Control.Monad (unless, when, zipWithM)
 import Data.IORef (atomicModifyIORef)
 import Data.Int
 import Data.Maybe
@@ -434,17 +434,18 @@ receive sock fls = bracket messageInit messageClose $ \m ->
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
 
--- | Polls for events on the given 'Poll' descriptors. Returns the
--- list of 'Poll' descriptors for which an event occured (cf. zmq_poll).
-poll :: [Poll] -> Timeout -> IO [Poll]
-poll fds to = do
-    let len = length fds
-        ps  = map createZMQPoll fds
-    withArray ps $ \ptr -> do
+-- | Polls for events on the given 'Poll' descriptors. The input is a
+-- pair of (`Poll`, token) pairs. Returns the list of tokens for which
+-- an event occured (cf. zmq_poll).
+poll :: [(Poll, a)] -> Timeout -> IO [a]
+poll polls to = do
+    let len = length polls
+        zpolls  = map (createZMQPoll . fst) polls
+    withArray zpolls $ \ptr -> do
         throwErrnoIfMinus1Retry_ "poll" $
             c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
-        ps' <- peekArray len ptr
-        createPoll ps' []
+        zpolls' <- peekArray len ptr        
+        catMaybes <$> zipWithM createPoll zpolls' (map snd polls)
  where
     createZMQPoll :: Poll -> ZMQPoll
     createZMQPoll (S (Socket s _) e) =
@@ -452,23 +453,12 @@ poll fds to = do
     createZMQPoll (F (Fd s) e) =
         ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
 
-    createPoll :: [ZMQPoll] -> [Poll] -> IO [Poll]
-    createPoll []     pfds = return pfds
-    createPoll (p:pp) pfds = do
-        let s = pSocket p;
-            f = pFd p;
-            r = toEvent $ pRevents p
-        if isJust r
-            then do
-              pfd <- newPoll s f r
-              createPoll pp (pfd:pfds)
-            else createPoll pp pfds
-
-    newPoll :: ZMQSocket -> CInt -> Maybe PollEvent -> IO Poll
-    newPoll s 0 r = do
-                sock <- mkSocket s
-                return $ S sock (fromJust r)
-    newPoll _ f r = return $ F (Fd f) (fromJust r)
+    createPoll :: ZMQPoll -> a -> IO (Maybe a)
+    createPoll zpoll token = do
+      let r = toEvent $ pRevents zpoll
+      return $ case r of
+        Nothing -> Nothing
+        Just _ -> Just token
 
     fromEvent :: PollEvent -> CShort
     fromEvent In     = fromIntegral . pollVal $ pollIn
