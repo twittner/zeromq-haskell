@@ -67,7 +67,6 @@ import Control.Exception
 import Control.Monad (unless, when)
 import Data.IORef (atomicModifyIORef)
 import Data.Int
-import Data.Maybe
 import System.ZMQ.Base
 import qualified System.ZMQ.Base as B
 import System.ZMQ.Internal
@@ -278,6 +277,7 @@ data PollEvent =
   | Out    -- ^ ZMQ_POLLOUT (outgoing messages, i.e. at least 1 byte can be written)
   | InOut  -- ^ ZMQ_POLLIN | ZMQ_POLLOUT
   | Native -- ^ ZMQ_POLLERR
+  | None
   deriving (Eq, Ord, Show)
 
 -- | Type representing a descriptor, poll is waiting for
@@ -435,7 +435,9 @@ receive sock fls = bracket messageInit messageClose $ \m ->
     SB.packCStringLen (data_ptr, fromIntegral size)
 
 -- | Polls for events on the given 'Poll' descriptors. Returns the
--- list of 'Poll' descriptors for which an event occured (cf. zmq_poll).
+-- same list of 'Poll' descriptors with an "updated" 'PollEvent' field
+-- (cf. zmq_poll). Sockets which have seen no activity have 'None' in
+-- their 'PollEvent' field.
 poll :: [Poll] -> Timeout -> IO [Poll]
 poll fds to = do
     let len = length fds
@@ -444,7 +446,7 @@ poll fds to = do
         throwErrnoIfMinus1Retry_ "poll" $
             c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
         ps' <- peekArray len ptr
-        createPoll ps' []
+        return $ map createPoll (zip ps' fds)
  where
     createZMQPoll :: Poll -> ZMQPoll
     createZMQPoll (S (Socket s _) e) =
@@ -452,29 +454,18 @@ poll fds to = do
     createZMQPoll (F (Fd s) e) =
         ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
 
-    createPoll :: [ZMQPoll] -> [Poll] -> IO [Poll]
-    createPoll []     pfds = return pfds
-    createPoll (p:pp) pfds = do
-        let s = pSocket p;
-            f = pFd p;
-            r = toEvent $ pRevents p
-        if isJust r
-            then do
-              pfd <- newPoll s f r
-              createPoll pp (pfd:pfds)
-            else createPoll pp pfds
-
-    newPoll :: ZMQSocket -> CInt -> Maybe PollEvent -> IO Poll
-    newPoll s 0 r = do
-                sock <- mkSocket s
-                return $ S sock (fromJust r)
-    newPoll _ f r = return $ F (Fd f) (fromJust r)
+    createPoll :: (ZMQPoll, Poll) -> Poll
+    createPoll (zp, S (Socket s t) _) =
+        maybe (S (Socket s t) None) (S (Socket s t)) (toEvent . pRevents $ zp)
+    createPoll (zp, F fd _) =
+        maybe (F fd None) (F fd) (toEvent . pRevents $ zp)
 
     fromEvent :: PollEvent -> CShort
     fromEvent In     = fromIntegral . pollVal $ pollIn
     fromEvent Out    = fromIntegral . pollVal $ pollOut
     fromEvent InOut  = fromIntegral . pollVal $ pollInOut
     fromEvent Native = fromIntegral . pollVal $ pollerr
+    fromEvent None   = 0
 
     toEvent :: CShort -> Maybe PollEvent
     toEvent e | e == (fromIntegral . pollVal $ pollIn)    = Just In
