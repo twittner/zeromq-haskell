@@ -1,5 +1,5 @@
 name:               zeromq-haskell
-version:            0.6.0
+version:            0.7.0
 synopsis:           bindings to zeromq
 description:        Bindings to zeromq (http://zeromq.org)
 category:           System, FFI
@@ -28,5 +28,8 @@ library
                     bytestring
   hs-source-dirs:   src
   includes:         zmq.h
-  extra-libraries:  zmq
+  if os(freebsd)
+    extra-libraries:  zmq, pthread
+  else
+    extra-libraries:  zmq
 
