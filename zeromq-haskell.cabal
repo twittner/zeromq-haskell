@@ -1,5 +1,5 @@
 name:               zeromq-haskell
-version:            0.7.0
+version:            0.7.1
 synopsis:           bindings to zeromq
 description:        Bindings to zeromq (http://zeromq.org)
 category:           System, FFI
@@ -23,7 +23,6 @@ library
                     ForeignFunctionInterface,
                     ExistentialQuantification
   build-depends:    base >= 3 && < 5,
-                    unix,
                     containers,
                     bytestring
   hs-source-dirs:   src

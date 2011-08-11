@@ -3,8 +3,16 @@ This library provides Haskell bindings to zeromq (http://zeromq.org).
 Current status
 --------------
 
-Version 0.6.0 - This software currently has *beta* status, i.e. it had
-seen limited testing. This version renames "with" to "withContext" and
+This software currently has *beta* status, i.e. it had seen limited testing.
+
+Version 0.7.1 - Removes unix dependency
+
+Verison 0.7.0 - Changes semantics of poll to return a list of the same
+length as it's parameter to allow identification of Sockets by index.
+PollEvent gets another constructor None to denote the absence of polling
+events.
+
+Version 0.6.0 - This version renames "with" to "withContext" and
 introduces a new "withSocket" resource wrapper. The API is otherwise
 identical to 0.5.0
 
