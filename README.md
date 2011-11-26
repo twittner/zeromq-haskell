@@ -5,6 +5,9 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
+Version 0.8.0 - zeromq-haskell can now be compiled either against 0MQ 2.x
+(default) or 0MQ 3.x.
+
 Version 0.7.1 - Removes unix dependency
 
 Verison 0.7.0 - Changes semantics of poll to return a list of the same
@@ -23,6 +26,10 @@ Installation
 
 As usual for Haskell packages this software is installed best via Cabal
 (http://www.haskell.org/cabal). In addition to GHC it depends on 0MQ of course.
+Please note that by default zeromq-haskell attempts to compile against 0MQ 2.x.
+If instead you want to use 0MQ 3.x, then provide the following flags to Cabal:
+
+    --flags="-zmq2 zmq3"
 
 Notes
 -----

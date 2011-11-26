@@ -1,7 +1,6 @@
 name:               zeromq-haskell
-version:            0.7.1
+version:            0.8
 synopsis:           bindings to zeromq
-description:        Bindings to zeromq (http://zeromq.org)
 category:           System, FFI
 license:            MIT
 license-file:       LICENSE
@@ -10,25 +9,52 @@ maintainer:         toralf.wittner@gmail.com
 copyright:          Copyright (c) 2011 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
-tested-With:        GHC == 7.0.2
+tested-With:        GHC == 7.0.3
 cabal-version:      >= 1.6.0
 build-type:         Simple
 extra-source-files: README.md, AUTHORS, test/*.hs, test/perf/*.hs
+description:
+    The 0MQ lightweight messaging kernel is a library which extends
+    the standard socket interfaces with features traditionally provided
+    by specialised messaging middleware products. 0MQ sockets provide
+    an abstraction of asynchronous message queues, multiple messaging
+    patterns, message filtering (subscriptions), seamless access to
+    multiple transport protocols and more.
+
+    This library provides the Haskell language binding to 0MQ and
+    support 0MQ 2.x as well as 3.x (use -fzmq2 or -fzmq3 to select
+    between the two).
+
+flag zmq2
+    description: Compile with 0MQ 2.x
+    default: True
+
+flag zmq3
+    description: Compile with 0MQ 3.x
+    default: False
 
 library
-  exposed-modules:  System.ZMQ
-  other-modules:    System.ZMQ.Base, System.ZMQ.Internal
-  ghc-options:      -Wall -O2
-  extensions:       CPP,
-                    ForeignFunctionInterface,
-                    ExistentialQuantification
-  build-depends:    base >= 3 && < 5,
-                    containers,
-                    bytestring
-  hs-source-dirs:   src
-  includes:         zmq.h
-  if os(freebsd)
-    extra-libraries:  zmq, pthread
-  else
-    extra-libraries:  zmq
+    hs-source-dirs:       src
+    exposed-modules:      System.ZMQ
+    other-modules:        System.ZMQ.Base
+                        , System.ZMQ.Internal
+    includes:             zmq.h
+    ghc-options:          -Wall -O2
+    extensions:           CPP
+                        , ForeignFunctionInterface
+                        , ExistentialQuantification
+    build-depends:        base >= 3 && < 5
+                        , containers
+                        , bytestring
+
+    if flag(zmq2)
+        cpp-options:      -DZMQ2
+
+    if flag(zmq3)
+        cpp-options:      -DZMQ3
+
+    if os(freebsd)
+        extra-libraries:  zmq, pthread
+    else
+        extra-libraries:  zmq
 

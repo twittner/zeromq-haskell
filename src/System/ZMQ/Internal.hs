@@ -11,11 +11,17 @@ module System.ZMQ.Internal
     , messageClose
     , messageInit
     , messageInitSize
+    , setBoolOpt
     , setIntOpt
     , setStrOpt
     , getBoolOpt
     , getIntOpt
     , getStrOpt
+
+#ifdef ZMQ3
+    , getIntMsgOpt
+#endif
+
     , toZMQFlag
     , combine
     , mkSocket
@@ -47,7 +53,7 @@ type Size    = Word
 -- [@NoBlock@] Send operation should be performed in non-blocking mode.
 -- If it cannot be performed immediatley an error will be thrown (errno
 -- is set to EAGAIN).
-data Flag = NoBlock -- ^ ZMQ_NOBLOCK
+data Flag = NoBlock -- ^ ZMQ_NOBLOCK (0MQ-2.x), ZMQ_DONTWAIT (0MQ-3.x)
           | SndMore -- ^ ZMQ_SNDMORE
   deriving (Eq, Ord, Show)
 
@@ -56,7 +62,7 @@ newtype Context = Context { ctx :: ZMQCtx }
 
 -- | A 0MQ Socket.
 data Socket a = Socket {
-      _socket :: ZMQSocket
+      _socket   :: ZMQSocket
     , _sockLive :: IORef Bool
     }
 
@@ -109,6 +115,10 @@ messageInitSize s = do
         c_zmq_msg_init_size ptr (fromIntegral s)
     return (Message ptr)
 
+setBoolOpt :: Socket a -> ZMQOption -> Bool -> IO ()
+setBoolOpt sock opt True  = setIntOpt sock opt (1 :: Int64)
+setBoolOpt sock opt False = setIntOpt sock opt (0 :: Int64)
+
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
     throwErrnoIfMinus1_ "setIntOpt" $ with i $ \ptr ->
@@ -131,7 +141,7 @@ getIntOpt sock (ZMQOption o) = onSocket "getIntOpt" sock $ \s -> do
     let i = 0
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwErrnoIfMinus1_ "integralOpt" $
+            throwErrnoIfMinus1_ "getIntOpt" $
                 c_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 
@@ -142,6 +152,17 @@ getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
         throwErrnoIfMinus1_ "getStrOpt" $
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
+
+#ifdef ZMQ3
+getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> IO a
+getIntMsgOpt (Message m) (ZMQMsgOption o) = do
+    let i = 0
+    bracket (new i) free $ \iptr ->
+        bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
+            throwErrnoIfMinus1_ "getIntMsgOpt" $
+                c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
+            peek iptr
+#endif
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag NoBlock = noBlock

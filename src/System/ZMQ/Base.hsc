@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
 -- |
 -- Module      : System.ZMQ.Base
--- Copyright   : (c) 2010 Toralf Wittner
+-- Copyright   : (c) 2010-2011 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : toralf.wittner@gmail.com
 -- Stability   : experimental
@@ -10,20 +10,31 @@
 
 module System.ZMQ.Base where
 
-import Control.Applicative
 import Foreign
 import Foreign.C.Types
 import Foreign.C.String
+import Control.Applicative
 
 #include <zmq.h>
+
+zmqVersion :: (Int, Int, Int)
+zmqVersion = ( #const ZMQ_VERSION_MAJOR
+             , #const ZMQ_VERSION_MINOR
+             , #const ZMQ_VERSION_PATCH )
 
 newtype ZMQMsg = ZMQMsg { content :: Ptr () }
 
 instance Storable ZMQMsg where
     alignment _        = #{alignment zmq_msg_t}
     sizeOf    _        = #{size zmq_msg_t}
+#ifdef ZMQ2
     peek p             = ZMQMsg <$> #{peek zmq_msg_t, content} p
     poke p (ZMQMsg c)  = #{poke zmq_msg_t, content} p c
+#endif
+#ifdef ZMQ3
+    peek p             = ZMQMsg <$> #{peek zmq_msg_t, _} p
+    poke p (ZMQMsg c)  = #{poke zmq_msg_t, _} p c
+#endif
 
 data ZMQPoll = ZMQPoll
     { pSocket  :: ZMQSocket
@@ -56,51 +67,81 @@ type ZMQPollPtr = Ptr ZMQPoll
 
 newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
 
-#{enum ZMQSocketType, ZMQSocketType,
-    pair       = ZMQ_PAIR,
-    pub        = ZMQ_PUB,
-    sub        = ZMQ_SUB,
-    xpub       = ZMQ_XPUB,
-    xsub       = ZMQ_XSUB,
-    request    = ZMQ_REQ,
-    response   = ZMQ_REP,
-    xrequest   = ZMQ_XREQ,
-    xresponse  = ZMQ_XREP,
-    pull       = ZMQ_PULL,
-    push       = ZMQ_PUSH,
-    upstream   = ZMQ_UPSTREAM,
-    downstream = ZMQ_DOWNSTREAM
+#{enum ZMQSocketType, ZMQSocketType
+  , pair       = ZMQ_PAIR
+  , pub        = ZMQ_PUB
+  , sub        = ZMQ_SUB
+  , xpub       = ZMQ_XPUB
+  , xsub       = ZMQ_XSUB
+  , request    = ZMQ_REQ
+  , response   = ZMQ_REP
+  , xrequest   = ZMQ_XREQ
+  , xresponse  = ZMQ_XREP
+  , pull       = ZMQ_PULL
+  , push       = ZMQ_PUSH
+#ifdef ZMQ2
+  , upstream   = ZMQ_UPSTREAM
+  , downstream = ZMQ_DOWNSTREAM
+#endif
 }
 
 newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
 
-#{enum ZMQOption, ZMQOption,
-    highWM          = ZMQ_HWM,
-    swap            = ZMQ_SWAP,
-    affinity        = ZMQ_AFFINITY,
-    identity        = ZMQ_IDENTITY,
-    subscribe       = ZMQ_SUBSCRIBE,
-    unsubscribe     = ZMQ_UNSUBSCRIBE,
-    rate            = ZMQ_RATE,
-    recoveryIVL     = ZMQ_RECOVERY_IVL,
-    recoveryIVLMsec = ZMQ_RECOVERY_IVL_MSEC,
-    mcastLoop       = ZMQ_MCAST_LOOP,
-    sendBuf         = ZMQ_SNDBUF,
-    receiveBuf      = ZMQ_RCVBUF,
-    receiveMore     = ZMQ_RCVMORE,
-    filedesc        = ZMQ_FD,
-    events          = ZMQ_EVENTS,
-    linger          = ZMQ_LINGER,
-    reconnectIVL    = ZMQ_RECONNECT_IVL,
-    backlog         = ZMQ_BACKLOG
+#{enum ZMQOption, ZMQOption
+  , affinity        = ZMQ_AFFINITY
+  , backlog         = ZMQ_BACKLOG
+  , events          = ZMQ_EVENTS
+  , filedesc        = ZMQ_FD
+  , identity        = ZMQ_IDENTITY
+  , linger          = ZMQ_LINGER
+  , rate            = ZMQ_RATE
+  , receiveBuf      = ZMQ_RCVBUF
+  , receiveMore     = ZMQ_RCVMORE
+  , reconnectIVL    = ZMQ_RECONNECT_IVL
+  , reconnectIVLMax = ZMQ_RECONNECT_IVL_MAX
+  , recoveryIVL     = ZMQ_RECOVERY_IVL
+  , sendBuf         = ZMQ_SNDBUF
+  , subscribe       = ZMQ_SUBSCRIBE
+  , unsubscribe     = ZMQ_UNSUBSCRIBE
+#ifdef ZMQ2
+  , highWM          = ZMQ_HWM
+  , mcastLoop       = ZMQ_MCAST_LOOP
+  , recoveryIVLMsec = ZMQ_RECOVERY_IVL_MSEC
+  , swap            = ZMQ_SWAP
+#endif
+#ifdef ZMQ3
+  , ipv4Only        = ZMQ_IPV4ONLY
+  , maxMessageSize  = ZMQ_MAXMSGSIZE
+  , mcastHops       = ZMQ_MULTICAST_HOPS
+  , receiveHighWM   = ZMQ_RCVHWM
+  , receiveTimeout  = ZMQ_RCVTIMEO
+  , sendHighWM      = ZMQ_SNDHWM
+  , sendTimeout     = ZMQ_SNDTIMEO
+#endif
 }
+
+#ifdef ZMQ3
+newtype ZMQMsgOption = ZMQMsgOption { msgOptVal :: CInt } deriving (Eq, Ord)
+
+#{enum ZMQMsgOption, ZMQMsgOption
+  , more = ZMQ_MORE
+}
+#endif
 
 newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 
-#{enum ZMQFlag, ZMQFlag,
-    noBlock = ZMQ_NOBLOCK
+#ifdef ZMQ2
+#{enum ZMQFlag, ZMQFlag
+  , noBlock = ZMQ_NOBLOCK
   , sndMore = ZMQ_SNDMORE
 }
+#endif
+#ifdef ZMQ3
+#{enum ZMQFlag, ZMQFlag
+  , noBlock = ZMQ_DONTWAIT
+  , sndMore = ZMQ_SNDMORE
+}
+#endif
 
 newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
 
@@ -111,6 +152,8 @@ newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
     pollInOut = ZMQ_POLLIN | ZMQ_POLLOUT
 }
 
+
+#ifdef ZMQ2
 newtype ZMQDevice = ZMQDevice { deviceType :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQDevice, ZMQDevice,
@@ -118,6 +161,10 @@ newtype ZMQDevice = ZMQDevice { deviceType :: CInt } deriving (Eq, Ord)
     deviceForwarder = ZMQ_FORWARDER,
     deviceQueue     = ZMQ_QUEUE
 }
+
+foreign import ccall safe "zmq.h zmq_device"
+    c_zmq_device :: CInt -> ZMQSocket -> ZMQSocket -> IO CInt
+#endif
 
 -- general initialization
 
@@ -172,22 +219,31 @@ foreign import ccall unsafe "zmq.h zmq_bind"
 foreign import ccall unsafe "zmq.h zmq_connect"
     c_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
+
+#ifdef ZMQ2
 foreign import ccall unsafe "zmq.h zmq_send"
     c_zmq_send :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall safe "zmq.h zmq_recv"
+foreign import ccall unsafe "zmq.h zmq_recv"
+    c_zmq_recv :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+#endif
+#ifdef ZMQ3
+foreign import ccall unsafe "zmq.h zmq_sendmsg"
+    c_zmq_send :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+
+foreign import ccall unsafe "zmq.h zmq_recvmsg"
     c_zmq_recv :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_recv"
-    c_zmq_recv_unsafe :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+foreign import ccall unsafe "zmq.h zmq_getmsgopt"
+    c_zmq_getmsgopt :: ZMQMsgPtr
+                    -> CInt      -- option
+                    -> Ptr ()    -- option value
+                    -> Ptr CSize -- option value size ptr
+                    -> IO CInt
+#endif
 
 -- poll
 
 foreign import ccall safe "zmq.h zmq_poll"
     c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
-
--- device
-
-foreign import ccall safe "zmq.h zmq_device"
-    c_zmq_device :: CInt -> ZMQSocket -> ZMQSocket -> IO CInt
 
