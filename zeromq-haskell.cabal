@@ -1,5 +1,5 @@
 name:               zeromq-haskell
-version:            0.8
+version:            0.8.1
 synopsis:           bindings to zeromq
 category:           System, FFI
 license:            MIT
@@ -22,7 +22,7 @@ description:
     multiple transport protocols and more.
 
     This library provides the Haskell language binding to 0MQ and
-    support 0MQ 2.x as well as 3.x (use -fzmq2 or -fzmq3 to select
+    supports 0MQ 2.x as well as 3.x (use -fzmq2 or -fzmq3 to select
     between the two).
 
 flag zmq2

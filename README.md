@@ -5,6 +5,9 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
+Version 0.8.1 - zmqVersion has been renamed to version and reports the
+runtime version of 0MQ, instead of the compile time version macros.
+
 Version 0.8.0 - zeromq-haskell can now be compiled either against 0MQ 2.x
 (default) or 0MQ 3.x.
 
