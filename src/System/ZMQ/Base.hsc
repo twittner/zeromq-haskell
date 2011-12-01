@@ -17,10 +17,18 @@ import Control.Applicative
 
 #include <zmq.h>
 
-zmqVersion :: (Int, Int, Int)
-zmqVersion = ( #const ZMQ_VERSION_MAJOR
-             , #const ZMQ_VERSION_MINOR
-             , #const ZMQ_VERSION_PATCH )
+-- Ensure Cabal flag matches compile time version of 0MQ
+#ifdef ZMQ2
+#if ZMQ_VERSION_MAJOR != 2
+    ERROR__ZMQ2_Flag_does_not_match_0MQ_Version
+#endif
+#endif
+
+#ifdef ZMQ3
+#if ZMQ_VERSION_MAJOR != 3
+    ERROR__ZMQ3_Flag_does_not_match_0MQ_Version
+#endif
+#endif
 
 newtype ZMQMsg = ZMQMsg { content :: Ptr () }
 
@@ -167,6 +175,9 @@ foreign import ccall safe "zmq.h zmq_device"
 #endif
 
 -- general initialization
+
+foreign import ccall unsafe "zmq.h zmq_version"
+    c_zmq_version :: Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
 
 foreign import ccall unsafe "zmq.h zmq_init"
     c_zmq_init :: CInt -> IO ZMQCtx

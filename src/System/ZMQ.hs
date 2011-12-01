@@ -61,7 +61,7 @@ module System.ZMQ (
   , receive
   , moreToReceive
   , poll
-  , System.ZMQ.zmqVersion
+  , version
 
     -- * Low-level functions
   , init
@@ -81,7 +81,7 @@ import Control.Applicative
 import Control.Exception
 import Control.Monad (unless, when)
 import Data.IORef (atomicModifyIORef)
-import Foreign hiding (with)
+import Foreign
 import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
@@ -347,8 +347,15 @@ getMsgOption :: Message -> MessageOption -> IO MessageOption
 getMsgOption m (MoreMsgParts _) = MoreMsgParts <$> getIntMsgOpt m more
 #endif
 
-zmqVersion :: (Int, Int, Int)
-zmqVersion = B.zmqVersion
+version :: IO (Int, Int, Int)
+version =
+    with 0 $ \major_ptr ->
+    with 0 $ \minor_ptr ->
+    with 0 $ \patch_ptr ->
+        c_zmq_version major_ptr minor_ptr patch_ptr >>
+        tupleUp <$> peek major_ptr <*> peek minor_ptr <*> peek patch_ptr
+  where
+    tupleUp a b c = (fromIntegral a, fromIntegral b, fromIntegral c)
 
 -- | Initialize a 0MQ context (cf. zmq_init for details).  You should
 -- normally prefer to use 'with' instead.
