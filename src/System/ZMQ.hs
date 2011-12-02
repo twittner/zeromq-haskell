@@ -160,7 +160,7 @@ instance SType Rep where
 -- Replies received by this socket are tagged with a proper postfix
 -- that can be use to route the reply back to the original requester.
 -- /Compatible peer sockets/: 'Rep', 'Xrep'.
-data XReq = Xreq
+data XReq = XReq
 instance SType XReq where
     zmqSocketType = const xrequest
 
@@ -170,7 +170,7 @@ instance SType XReq where
 -- sending a reply via XREP socket the message should be tagged with a
 -- prefix from a corresponding request.
 -- /Compatible peer sockets/: 'Req', 'Xreq'.
-data XRep = Xrep
+data XRep = XRep
 instance SType XRep where
     zmqSocketType = const xresponse
 
