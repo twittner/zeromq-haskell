@@ -51,24 +51,24 @@ tests = [
 --endif
     ]
   , testGroup "Socket Option (set)" [
-          testCase "Affinity"        (test_option_get (ZMQ.Affinity 0))
-        , testCase "Backlog"         (test_option_get (ZMQ.Backlog 100))
-        , testCase "Events"          (test_option_get (ZMQ.Events undefined))
-        , testCase "FD"              (test_option_get (ZMQ.FD undefined))
-        , testCase "Identity"        (test_option_get (ZMQ.Identity "id"))
-        , testCase "Linger"          (test_option_get (ZMQ.Linger (-1)))
-        , testCase "Rate"            (test_option_get (ZMQ.Rate 100))
-        , testCase "ReceiveBuf"      (test_option_get (ZMQ.ReceiveBuf 0))
-        , testCase "ReceiveMore"     (test_option_get (ZMQ.ReceiveMore undefined))
-        , testCase "ReconnectIVL"    (test_option_get (ZMQ.ReconnectIVL 100))
-        , testCase "ReconnectIVLMax" (test_option_get (ZMQ.ReconnectIVLMax 0))
-        , testCase "ReconnectIVL"    (test_option_get (ZMQ.RecoveryIVL 100))
-        , testCase "SendBuf"         (test_option_get (ZMQ.SendBuf 0))
+          testCase "Affinity"        (test_option_set (ZMQ.Affinity 0))
+        , testCase "Backlog"         (test_option_set (ZMQ.Backlog 100))
+        , testCase "Events"          (test_option_set (ZMQ.Events undefined))
+        , testCase "FD"              (test_option_set (ZMQ.FD undefined))
+        , testCase "Identity"        (test_option_set (ZMQ.Identity "id"))
+        , testCase "Linger"          (test_option_set (ZMQ.Linger (-1)))
+        , testCase "Rate"            (test_option_set (ZMQ.Rate 100))
+        , testCase "ReceiveBuf"      (test_option_set (ZMQ.ReceiveBuf 0))
+        , testCase "ReceiveMore"     (test_option_set (ZMQ.ReceiveMore undefined))
+        , testCase "ReconnectIVL"    (test_option_set (ZMQ.ReconnectIVL 100))
+        , testCase "ReconnectIVLMax" (test_option_set (ZMQ.ReconnectIVLMax 0))
+        , testCase "ReconnectIVL"    (test_option_set (ZMQ.RecoveryIVL 100))
+        , testCase "SendBuf"         (test_option_set (ZMQ.SendBuf 0))
 --ifdef ZMQ2
-        , testCase "HighWM"          (test_option_get (ZMQ.HighWM 0))
-        , testCase "McastLoop"       (test_option_get (ZMQ.McastLoop True))
-        , testCase "RecoveryIVLMsec" (test_option_get (ZMQ.RecoveryIVLMsec (-1)))
-        , testCase "Swap"            (test_option_get (ZMQ.Swap 0))
+        , testCase "HighWM"          (test_option_set (ZMQ.HighWM 0))
+        , testCase "McastLoop"       (test_option_set (ZMQ.McastLoop True))
+        , testCase "RecoveryIVLMsec" (test_option_set (ZMQ.RecoveryIVLMsec (-1)))
+        , testCase "Swap"            (test_option_set (ZMQ.Swap 0))
 --endif
     ]
   , testGroup "Pub/Sub" [
@@ -94,13 +94,13 @@ test_socket ty =
 test_option_get :: ZMQ.SocketOption -> IO ()
 test_option_get o =
     ZMQ.withContext 1 $ \c ->
-    ZMQ.withSocket c ZMQ.XSub $ \s ->
+    ZMQ.withSocket c ZMQ.Sub $ \s ->
         ZMQ.getOption s o >> return ()
 
 test_option_set :: ZMQ.SocketOption -> IO ()
 test_option_set o =
     ZMQ.withContext 1 $ \c ->
-    ZMQ.withSocket c ZMQ.XSub $ \s ->
+    ZMQ.withSocket c ZMQ.Sub $ \s ->
         ZMQ.setOption s o
 
 test_subscribe :: (ZMQ.SubsType a, ZMQ.SType a) => a -> IO ()
