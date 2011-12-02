@@ -137,29 +137,31 @@ getBoolOpt :: Socket a -> ZMQOption -> IO Bool
 getBoolOpt s o = ((1 :: Int64) ==) <$> getIntOpt s o
 
 getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> IO b
-getIntOpt sock (ZMQOption o) = onSocket "getIntOpt" sock $ \s ->
-    with (fromIntegral . sizeOf $ o) $ \opt_size_ptr ->
-    with 0 $ \result_ptr -> do
-        throwErrnoIfMinus1_ "getIntOpt" $
-            c_zmq_getsockopt s (fromIntegral o) (castPtr result_ptr) opt_size_ptr
-        peek result_ptr
+getIntOpt sock (ZMQOption o) = onSocket "getIntOpt" sock $ \s -> do
+    let i = 0
+    bracket (new i) free $ \iptr ->
+        bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
+            throwErrnoIfMinus1_ "getIntOpt" $
+                c_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
+            peek iptr
 
 getStrOpt :: Socket a -> ZMQOption -> IO String
 getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
     bracket (mallocBytes 255) free $ \bPtr ->
-    with (255 :: CSize) $ \sPtr -> do
+    bracket (new (255 :: CSize)) free $ \sPtr -> do
         throwErrnoIfMinus1_ "getStrOpt" $
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
 
 #ifdef ZMQ3
 getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> IO a
-getIntMsgOpt (Message m) (ZMQMsgOption o) =
-    with (fromIntegral . sizeOf $ o) $ \opt_size_ptr ->
-    with 0 $ \result_ptr -> do
-        throwErrnoIfMinus1_ "getIntMsgOpt" $
-            c_zmq_getmsgopt m (fromIntegral o) (castPtr result_ptr) opt_size_ptr
-        peek result_ptr
+getIntMsgOpt (Message m) (ZMQMsgOption o) = do
+    let i = 0
+    bracket (new i) free $ \iptr ->
+        bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
+            throwErrnoIfMinus1_ "getIntMsgOpt" $
+                c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
+            peek iptr
 #endif
 
 toZMQFlag :: Flag -> ZMQFlag
