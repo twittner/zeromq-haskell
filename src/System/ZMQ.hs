@@ -29,8 +29,10 @@ module System.ZMQ (
   , Pair(..)
   , Pub(..)
   , Sub(..)
+#ifdef ZMQ3
   , XPub(..)
   , XSub(..)
+#endif
   , Req(..)
   , Rep(..)
   , XReq(..)
@@ -121,6 +123,7 @@ data Sub = Sub
 instance SType Sub where
     zmqSocketType = const sub
 
+#ifdef ZMQ3
 -- | Same as 'Pub' except that you can receive subscriptions from the
 -- peers in form of incoming messages. Subscription message is a byte 1
 -- (for subscriptions) or byte 0 (for unsubscriptions) followed by the
@@ -137,6 +140,7 @@ instance SType XPub where
 data XSub = XSub
 instance SType XSub where
     zmqSocketType = const xsub
+#endif
 
 -- | Socket to send requests and receive replies. Requests are
 -- load-balanced among all the peers. This socket type allows only an
@@ -218,22 +222,24 @@ instance SType Down where
 class SubsType a
 
 instance SubsType Sub
+#ifdef ZMQ3
 instance SubsType XSub
+#endif
 
 -- | The option to set on 0MQ sockets (cf. zmq_setsockopt and zmq_getsockopt
 -- manpages for details).
 data SocketOption =
     Affinity        Word64    -- ^ ZMQ_AFFINITY
-  | Backlog         Int       -- ^ ZMQ_BACKLOG
+  | Backlog         CInt      -- ^ ZMQ_BACKLOG
   | Events          PollEvent -- ^ ZMQ_EVENTS
   | FD              Int       -- ^ ZMQ_FD
   | Identity        String    -- ^ ZMQ_IDENTITY
-  | Linger          Int       -- ^ ZMQ_LINGER
+  | Linger          CInt      -- ^ ZMQ_LINGER
   | Rate            Int64     -- ^ ZMQ_RATE
   | ReceiveBuf      Word64    -- ^ ZMQ_RCVBUF
   | ReceiveMore     Bool      -- ^ ZMQ_RCVMORE
-  | ReconnectIVL    Int       -- ^ ZMQ_RECONNECT_IVL
-  | ReconnectIVLMax Int       -- ^ ZMQ_RECONNECT_IVL_MAX
+  | ReconnectIVL    CInt      -- ^ ZMQ_RECONNECT_IVL
+  | ReconnectIVLMax CInt      -- ^ ZMQ_RECONNECT_IVL_MAX
   | RecoveryIVL     Int64     -- ^ ZMQ_RECOVERY_IVL
   | SendBuf         Word64    -- ^ ZMQ_SNDBUF
 #ifdef ZMQ2

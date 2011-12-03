@@ -19,8 +19,6 @@ tests = [
         , testCase "XReq" (test_socket ZMQ.XReq)
         , testCase "Rep"  (test_socket ZMQ.Rep)
         , testCase "Req"  (test_socket ZMQ.Req)
-        , testCase "XPub" (test_socket ZMQ.XSub)
-        , testCase "XSub" (test_socket ZMQ.XPub)
         , testCase "Sub"  (test_socket ZMQ.Sub)
         , testCase "Pub"  (test_socket ZMQ.Pub)
         , testCase "Pair" (test_socket ZMQ.Pair)
@@ -67,15 +65,13 @@ tests = [
 --ifdef ZMQ2
         , testCase "HighWM"          (test_option_set (ZMQ.HighWM 0))
         , testCase "McastLoop"       (test_option_set (ZMQ.McastLoop True))
-        , testCase "RecoveryIVLMsec" (test_option_set (ZMQ.RecoveryIVLMsec (-1)))
+        , testCase "RecoveryIVLMsec" (test_option_set (ZMQ.RecoveryIVLMsec 10))
         , testCase "Swap"            (test_option_set (ZMQ.Swap 0))
 --endif
     ]
   , testGroup "Pub/Sub" [
           testCase "Subscribe Sub"    (test_subscribe ZMQ.Sub)
-        , testCase "Subscribe XSub"   (test_subscribe ZMQ.XSub)
         , testCase "Unsubscribe Sub"  (test_unsubscribe ZMQ.Sub)
-        , testCase "Unsubscribe XSub" (test_unsubscribe ZMQ.XSub)
     ]
   ]
 
