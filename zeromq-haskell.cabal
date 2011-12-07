@@ -16,6 +16,7 @@ extra-source-files: README.md
                   , AUTHORS
                   , examples/*.hs
                   , examples/perf/*.hs
+                  , tests/*.hs
 description:
     The 0MQ lightweight messaging kernel is a library which extends
     the standard socket interfaces with features traditionally provided
@@ -70,9 +71,10 @@ test-suite zeromq-haskell-tests
                     , containers
                     , bytestring
                     , test-framework >= 0.4
-                    , test-framework-hunit >= 0.2
-                    , HUnit
+                    , test-framework-quickcheck2 >= 0.2
+                    , QuickCheck >= 2.4
     ghc-options:      -Wall -threaded -rtsopts
+    cpp-options:      -DZMQ2
 
 source-repository head
     type:             git

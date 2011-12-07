@@ -232,7 +232,7 @@ data SocketOption =
     Affinity        Word64    -- ^ ZMQ_AFFINITY
   | Backlog         CInt      -- ^ ZMQ_BACKLOG
   | Events          PollEvent -- ^ ZMQ_EVENTS
-  | FD              Int       -- ^ ZMQ_FD
+  | FD              CInt      -- ^ ZMQ_FD
   | Identity        String    -- ^ ZMQ_IDENTITY
   | Linger          CInt      -- ^ ZMQ_LINGER
   | Rate            Int64     -- ^ ZMQ_RATE
