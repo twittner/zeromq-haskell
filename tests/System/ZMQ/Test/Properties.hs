@@ -45,6 +45,11 @@ tests = [
 #endif
       , testProperty "(un-)subscribe" (prop_subscribe ZMQ.Sub)
       ]
+  , testGroup "0MQ Messages" [
+        testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive ZMQ.Req ZMQ.Rep)
+      , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive ZMQ.Push ZMQ.Pull)
+      , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive ZMQ.Pair ZMQ.Pair)
+      ]
   ]
 
 prop_get_socket_option :: ZMQ.SType a => a -> Property
@@ -69,6 +74,17 @@ prop_subscribe t subs = monadicIO $ run $
             ZMQ.subscribe s subs
             ZMQ.unsubscribe s subs
 
+prop_send_receive :: (ZMQ.SType a, ZMQ.SType b) => a -> b -> ByteString -> Property
+prop_send_receive a b msg = monadicIO $ do
+    msg' <- run $ ZMQ.withContext 0 $ \c ->
+                    ZMQ.withSocket c a $ \sender ->
+                    ZMQ.withSocket c b $ \receiver -> do
+                        ZMQ.bind receiver "inproc://endpoint"
+                        ZMQ.connect sender "inproc://endpoint"
+                        ZMQ.send sender msg []
+                        ZMQ.receive receiver []
+    assert (msg == msg')
+
 instance Arbitrary ZMQ.SocketOption where
     arbitrary = oneof [
         ZMQ.Affinity . fromIntegral        <$> (arbitrary :: Gen Word64)
@@ -87,9 +103,9 @@ instance Arbitrary ZMQ.SocketOption where
       , ZMQ.Identity . show                <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
       ]
 
-readOnlyOptions :: Gen ZMQ.SocketOption
-readOnlyOptions = elements [ZMQ.FD undefined, ZMQ.ReceiveMore undefined, ZMQ.Events undefined]
-
 instance Arbitrary ByteString where
     arbitrary = CB.pack <$> arbitrary
+
+readOnlyOptions :: Gen ZMQ.SocketOption
+readOnlyOptions = elements [ZMQ.FD undefined, ZMQ.ReceiveMore undefined, ZMQ.Events undefined]
 
