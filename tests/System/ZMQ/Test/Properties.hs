@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 module System.ZMQ.Test.Properties where
 
 import Control.Applicative
@@ -26,10 +25,9 @@ tests = [
       , testProperty "get socket option (Sub)"  (prop_get_socket_option ZMQ.Sub)
       , testProperty "get socket option (Pub)"  (prop_get_socket_option ZMQ.Pub)
       , testProperty "get socket option (Pair)" (prop_get_socket_option ZMQ.Pair)
-#ifdef ZMQ2
       , testProperty "get socket option (Down)" (prop_get_socket_option ZMQ.Down)
       , testProperty "get socket option (Up)"   (prop_get_socket_option ZMQ.Up)
-#endif
+
       , testProperty "set/get socket option (Push)" (prop_set_get_socket_option ZMQ.Push)
       , testProperty "set/get socket option (Pull)" (prop_set_get_socket_option ZMQ.Pull)
       , testProperty "set/get socket option (XRep)" (prop_set_get_socket_option ZMQ.XRep)
@@ -39,10 +37,9 @@ tests = [
       , testProperty "set/get socket option (Sub)"  (prop_set_get_socket_option ZMQ.Sub)
       , testProperty "set/get socket option (Pub)"  (prop_set_get_socket_option ZMQ.Pub)
       , testProperty "set/get socket option (Pair)" (prop_set_get_socket_option ZMQ.Pair)
-#ifdef ZMQ2
       , testProperty "set/get socket option (Down)" (prop_set_get_socket_option ZMQ.Down)
       , testProperty "set/get socket option (Up)"   (prop_set_get_socket_option ZMQ.Up)
-#endif
+
       , testProperty "(un-)subscribe" (prop_subscribe ZMQ.Sub)
       ]
   , testGroup "0MQ Messages" [

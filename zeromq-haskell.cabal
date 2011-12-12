@@ -1,6 +1,6 @@
 name:               zeromq-haskell
-version:            0.8.1
-synopsis:           bindings to zeromq
+version:            0.8.2
+synopsis:           Bindings to ZeroMQ 2.1.x
 category:           System, FFI
 license:            MIT
 license-file:       LICENSE
@@ -17,6 +17,7 @@ extra-source-files: README.md
                   , examples/*.hs
                   , examples/perf/*.hs
                   , tests/*.hs
+                  , tests/System/ZMQ/Test/*.hs
 description:
     The 0MQ lightweight messaging kernel is a library which extends
     the standard socket interfaces with features traditionally provided
@@ -26,16 +27,7 @@ description:
     multiple transport protocols and more.
 
     This library provides the Haskell language binding to 0MQ and
-    supports 0MQ 2.x as well as 3.x (use -fzmq2 or -fzmq3 to select
-    between the two).
-
-flag zmq2
-    description: Compile with 0MQ 2.x
-    default: True
-
-flag zmq3
-    description: Compile with 0MQ 3.x
-    default: False
+    supports 0MQ 2.1.x.
 
 library
     hs-source-dirs:       src
@@ -50,12 +42,6 @@ library
     build-depends:        base >= 3 && < 5
                         , containers
                         , bytestring
-
-    if flag(zmq2)
-        cpp-options:      -DZMQ2
-
-    if flag(zmq3)
-        cpp-options:      -DZMQ3
 
     if os(freebsd)
         extra-libraries:  zmq, pthread

@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification #-}
 -- |
 -- Module      : System.ZMQ
 -- Copyright   : (c) 2010-2011 Toralf Wittner
@@ -29,31 +29,19 @@ module System.ZMQ (
   , Pair(..)
   , Pub(..)
   , Sub(..)
-#ifdef ZMQ3
-  , XPub(..)
-  , XSub(..)
-#endif
   , Req(..)
   , Rep(..)
   , XReq(..)
   , XRep(..)
   , Pull(..)
   , Push(..)
-
-#ifdef ZMQ2
   , Up(..)
   , Down(..)
-#endif
 
   , withContext
   , withSocket
   , setOption
   , getOption
-
-#ifdef ZMQ3
-  , getMsgOption
-#endif
-
   , System.ZMQ.subscribe
   , System.ZMQ.unsubscribe
   , bind
@@ -71,10 +59,8 @@ module System.ZMQ (
   , socket
   , close
 
-#ifdef ZMQ2
   , Device(..)
   , device
-#endif
 
 ) where
 
@@ -122,25 +108,6 @@ instance SType Pub where
 data Sub = Sub
 instance SType Sub where
     zmqSocketType = const sub
-
-#ifdef ZMQ3
--- | Same as 'Pub' except that you can receive subscriptions from the
--- peers in form of incoming messages. Subscription message is a byte 1
--- (for subscriptions) or byte 0 (for unsubscriptions) followed by the
--- subscription body.
--- /Compatible peer sockets/: 'Sub', 'XSub'.
-data XPub = XPub
-instance SType XPub where
-    zmqSocketType = const xpub
-
--- | Same as 'Sub' except that you subscribe by sending subscription
--- messages to the socket. Subscription message is a byte 1 (for subscriptions)
--- or byte 0 (for unsubscriptions) followed by the subscription body.
--- /Compatible peer sockets/: 'Pub', 'XPub'.
-data XSub = XSub
-instance SType XSub where
-    zmqSocketType = const xsub
-#endif
 
 -- | Socket to send requests and receive replies. Requests are
 -- load-balanced among all the peers. This socket type allows only an
@@ -200,7 +167,6 @@ data Push = Push
 instance SType Push where
     zmqSocketType = const push
 
-#ifdef ZMQ2
 {-# DEPRECATED Up "Use Pull instead." #-}
 -- | Socket to receive messages from up the stream. Messages are
 -- fair-queued from among all the connected peers. Send function is not
@@ -216,15 +182,11 @@ instance SType Up where
 data Down = Down
 instance SType Down where
     zmqSocketType = const downstream
-#endif
 
 -- | Subscribable.
 class SubsType a
 
 instance SubsType Sub
-#ifdef ZMQ3
-instance SubsType XSub
-#endif
 
 -- | The option to set on 0MQ sockets (cf. zmq_setsockopt and zmq_getsockopt
 -- manpages for details).
@@ -242,27 +204,11 @@ data SocketOption =
   | ReconnectIVLMax CInt      -- ^ ZMQ_RECONNECT_IVL_MAX
   | RecoveryIVL     Int64     -- ^ ZMQ_RECOVERY_IVL
   | SendBuf         Word64    -- ^ ZMQ_SNDBUF
-#ifdef ZMQ2
   | HighWM          Word64    -- ^ ZMQ_HWM
   | McastLoop       Bool      -- ^ ZMQ_MCAST_LOOP
   | RecoveryIVLMsec Int64     -- ^ ZMQ_RECOVERY_IVL_MSEC
   | Swap            Int64     -- ^ ZMQ_SWAP
-#endif
-#ifdef ZMQ3
-  | IPv4Only        Bool      -- ^ ZMQ_IPV4ONLY
-  | MaxMsgSize      Int64     -- ^ ZMQ_MAXMSGSIZE
-  | McastHops       Int       -- ^ ZMQ_MULTICAST_HOPS
-  | ReceiveHighWM   Int       -- ^ ZMQ_RCVHWM
-  | ReceiveTimeout  Int       -- ^ ZMQ_RCVTIMEO
-  | SendHighWM      Int       -- ^ ZMQ_SNDHWM
-  | SendTimeout     Int       -- ^ ZMQ_SNDTIMEO
-#endif
   deriving (Eq, Ord, Show)
-
-#ifdef ZMQ3
-data MessageOption = MoreMsgParts CInt -- ^ ZMQ_MORE
-  deriving (Eq, Ord, Show)
-#endif
 
 -- | The events to wait for in poll (cf. man zmq_poll)
 data PollEvent =
@@ -300,21 +246,10 @@ setOption s (ReconnectIVL o)    = setIntOpt s reconnectIVL o
 setOption s (ReconnectIVLMax o) = setIntOpt s reconnectIVLMax o
 setOption s (RecoveryIVL o)     = setIntOpt s recoveryIVL o
 setOption s (SendBuf o)         = setIntOpt s sendBuf o
-#ifdef ZMQ2
 setOption s (HighWM o)          = setIntOpt s highWM o
 setOption s (McastLoop o)       = setBoolOpt s mcastLoop o
 setOption s (RecoveryIVLMsec o) = setIntOpt s recoveryIVLMsec o
 setOption s (Swap o)            = setIntOpt s swap o
-#endif
-#ifdef ZMQ3
-setOption s (IPv4Only o)        = setBoolOpt s ipv4Only o
-setOption s (MaxMsgSize o)      = setIntOpt s maxMessageSize o
-setOption s (McastHops o)       = setIntOpt s mcastHops o
-setOption s (ReceiveHighWM o)   = setIntOpt s receiveHighWM o
-setOption s (ReceiveTimeout o)  = setIntOpt s receiveTimeout o
-setOption s (SendHighWM o)      = setIntOpt s sendHighWM o
-setOption s (SendTimeout o)     = setIntOpt s sendTimeout o
-#endif
 
 -- | Get the given socket option by passing in some dummy value of
 -- that option. The actual value will be returned. Please note that
@@ -334,24 +269,10 @@ getOption s (ReconnectIVL _)    = ReconnectIVL <$> getIntOpt s reconnectIVL
 getOption s (ReconnectIVLMax _) = ReconnectIVLMax <$> getIntOpt s reconnectIVLMax
 getOption s (RecoveryIVL _)     = RecoveryIVL <$> getIntOpt s recoveryIVL
 getOption s (SendBuf _)         = SendBuf <$> getIntOpt s sendBuf
-#ifdef ZMQ2
 getOption s (HighWM _)          = HighWM <$> getIntOpt s highWM
 getOption s (McastLoop _)       = McastLoop <$> getBoolOpt s mcastLoop
 getOption s (RecoveryIVLMsec _) = RecoveryIVLMsec <$> getIntOpt s recoveryIVLMsec
 getOption s (Swap _)            = Swap <$> getIntOpt s swap
-#endif
-#ifdef ZMQ3
-getOption s (IPv4Only _)        = IPv4Only <$> getBoolOpt s ipv4Only
-getOption s (MaxMsgSize _)      = MaxMsgSize <$> getIntOpt s maxMessageSize
-getOption s (McastHops _)       = McastHops <$> getIntOpt s mcastHops
-getOption s (ReceiveHighWM _)   = ReceiveHighWM <$> getIntOpt s receiveHighWM
-getOption s (ReceiveTimeout _)  = ReceiveTimeout <$> getIntOpt s receiveTimeout
-getOption s (SendHighWM _)      = SendHighWM <$> getIntOpt s sendHighWM
-getOption s (SendTimeout _)     = SendTimeout <$> getIntOpt s sendTimeout
-
-getMsgOption :: Message -> MessageOption -> IO MessageOption
-getMsgOption m (MoreMsgParts _) = MoreMsgParts <$> getIntMsgOpt m more
-#endif
 
 version :: IO (Int, Int, Int)
 version =
@@ -516,7 +437,6 @@ waitRead, waitWrite :: Socket a -> IO ()
 waitRead = wait' threadWaitRead pollIn
 waitWrite = wait' threadWaitWrite pollOut
 
-#ifdef ZMQ2
 -- | Type representing ZeroMQ devices, as used with zmq_device
 data Device =
     Streamer  -- ^ ZMQ_STREAMER
@@ -538,4 +458,4 @@ device device' insock outsock =
     fromDevice Streamer  = fromIntegral . deviceType $ deviceStreamer
     fromDevice Forwarder = fromIntegral . deviceType $ deviceForwarder
     fromDevice Queue     = fromIntegral . deviceType $ deviceQueue
-#endif
+
