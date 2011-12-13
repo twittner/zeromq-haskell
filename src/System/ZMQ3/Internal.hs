@@ -1,4 +1,4 @@
-module System.ZMQ.Internal
+module System.ZMQ3.Internal
     ( Context(..)
     , Socket(..)
     , Message(..)
@@ -17,10 +17,7 @@ module System.ZMQ.Internal
     , getBoolOpt
     , getIntOpt
     , getStrOpt
-
-#ifdef ZMQ3
     , getIntMsgOpt
-#endif
 
     , toZMQFlag
     , combine
@@ -43,7 +40,7 @@ import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
 import Data.IORef (newIORef)
 
-import System.ZMQ.Base
+import System.ZMQ3.Base
 
 type Timeout = Int64
 type Size    = Word
@@ -153,7 +150,6 @@ getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
 
-#ifdef ZMQ3
 getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> IO a
 getIntMsgOpt (Message m) (ZMQMsgOption o) = do
     let i = 0
@@ -162,7 +158,6 @@ getIntMsgOpt (Message m) (ZMQMsgOption o) = do
             throwErrnoIfMinus1_ "getIntMsgOpt" $
                 c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
             peek iptr
-#endif
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag NoBlock = noBlock
