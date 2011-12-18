@@ -19,7 +19,6 @@ module System.ZMQ3 (
   , Context
   , Socket
   , Flag(..)
-  , SocketOption(..)
   , Poll(..)
   , Timeout
   , PollEvent(..)
@@ -38,21 +37,37 @@ module System.ZMQ3 (
   , Pull(..)
   , Push(..)
 
-
   , withContext
   , withSocket
-  , setOption
-  , getOption
-  , getMsgOption
 
   , System.ZMQ3.subscribe
   , System.ZMQ3.unsubscribe
+
+  , System.ZMQ3.affinity
+  , System.ZMQ3.backlog
+  , System.ZMQ3.fileDescriptor
+  , System.ZMQ3.identity
+  , System.ZMQ3.linger
+  , System.ZMQ3.rate
+  , System.ZMQ3.receiveBuffer
+  , System.ZMQ3.moreToReceive
+  , System.ZMQ3.reconnectInterval
+  , System.ZMQ3.reconnectIntervalMax
+  , System.ZMQ3.recoveryInterval
+  , System.ZMQ3.sendBuffer
+  , System.ZMQ3.ipv4Only
+  , System.ZMQ3.mcastHops
+  , System.ZMQ3.receiveHighWM
+  , System.ZMQ3.receiveTimeout
+  , System.ZMQ3.sendHighWM
+  , System.ZMQ3.sendTimeout
+  , System.ZMQ3.maxMessageSize
+
   , bind
   , connect
   , send
   , send'
   , receive
-  , moreToReceive
   , poll
   , version
 
@@ -269,11 +284,65 @@ subscribe s = setStrOpt s B.subscribe
 unsubscribe :: SubsType a => Socket a -> String -> IO ()
 unsubscribe s = setStrOpt s B.unsubscribe
 
--- | Equivalent of ZMQ_RCVMORE, i.e. returns True if a multi-part
--- message currently being read has more parts to follow, otherwise
--- False.
+affinity :: Socket a -> IO Word64
+affinity s = getIntOpt s B.affinity 0
+
+backlog :: Socket a -> IO Int
+backlog s = fromIntegral <$> getIntOpt s B.backlog (0 :: CInt)
+
+events :: Socket a -> IO Int
+events s = getIntOpt s B.events 0
+
+fileDescriptor :: Socket a -> IO Fd
+fileDescriptor s = Fd <$> getIntOpt s B.filedesc 0
+
+identity :: Socket a -> IO String
+identity s = getStrOpt s B.identity
+
+linger :: Socket a -> IO Int
+linger s = getIntOpt s B.linger 0
+
+rate :: Socket a -> IO Int
+rate s = fromIntegral <$> getIntOpt s B.rate (0 :: CInt)
+
+receiveBuffer :: Socket a -> IO Int
+receiveBuffer s = fromIntegral <$> getIntOpt s B.receiveBuf (0 :: CInt)
+
 moreToReceive :: Socket a -> IO Bool
-moreToReceive s = getBoolOpt s receiveMore
+moreToReceive s = (== 1) <$> getIntOpt s B.receiveMore (0 :: Int)
+
+reconnectInterval :: Socket a -> IO Int
+reconnectInterval s = fromIntegral <$> getIntOpt s B.reconnectIVL (0 :: CInt)
+
+reconnectIntervalMax :: Socket a -> IO Int
+reconnectIntervalMax s = fromIntegral <$> getIntOpt s B.reconnectIVLMax (0 :: CInt)
+
+recoveryInterval :: Socket a -> IO Int
+recoveryInterval s = getIntOpt s B.reconnectIVL 0
+
+sendBuffer :: Socket a -> IO Int
+sendBuffer s = getIntOpt s B.sendBuf 0
+
+ipv4Only :: Socket a -> IO Bool
+ipv4Only s = (== 1) <$> getIntOpt s B.ipv4Only (0 :: Int)
+
+mcastHops :: Socket a -> IO Int
+mcastHops s = getIntOpt s B.mcastHops 0
+
+receiveHighWM :: Socket a -> IO Int
+receiveHighWM s = getIntOpt s B.receiveHighWM 0
+
+receiveTimeout :: Socket a -> IO Int
+receiveTimeout s = getIntOpt s B.receiveTimeout 0
+
+sendHighWM :: Socket a -> IO Int
+sendHighWM s = getIntOpt s B.sendHighWM 0
+
+sendTimeout :: Socket a -> IO Int
+sendTimeout s = getIntOpt s B.sendTimeout 0
+
+maxMessageSize :: Socket a -> IO Int64
+maxMessageSize s = getIntOpt s B.maxMessageSize 0
 
 -- | Bind the socket to the given address (zmq_bind)
 bind :: Socket a -> String -> IO ()
@@ -356,9 +425,9 @@ retry msg wait act = throwErrnoIfMinus1RetryMayBlock_ msg act wait
 
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do
-    fd <- getIntOpt s filedesc
+    fd <- getIntOpt s filedesc 0
     w (Fd fd)
-    evs <- getIntOpt s events :: IO Word32
+    evs <- System.ZMQ3.events s
     unless (testev evs) $
         wait' w f s
   where

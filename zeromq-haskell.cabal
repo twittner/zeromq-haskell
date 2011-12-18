@@ -1,6 +1,6 @@
-name:               zeromq-haskell
-version:            0.8.1
-synopsis:           bindings to zeromq
+name:               zeromq-haskell3
+version:            0.1
+synopsis:           Bindings to ZeroMQ 3.1.x
 category:           System, FFI
 license:            MIT
 license-file:       LICENSE
@@ -17,6 +17,7 @@ extra-source-files: README.md
                   , examples/*.hs
                   , examples/perf/*.hs
                   , tests/*.hs
+                  , tests/System/ZMQ3/Test/*.hs
 description:
     The 0MQ lightweight messaging kernel is a library which extends
     the standard socket interfaces with features traditionally provided
@@ -25,23 +26,13 @@ description:
     patterns, message filtering (subscriptions), seamless access to
     multiple transport protocols and more.
 
-    This library provides the Haskell language binding to 0MQ and
-    supports 0MQ 2.x as well as 3.x (use -fzmq2 or -fzmq3 to select
-    between the two).
-
-flag zmq2
-    description: Compile with 0MQ 2.x
-    default: True
-
-flag zmq3
-    description: Compile with 0MQ 3.x
-    default: False
+    This library provides the Haskell language binding to 0MQ 3.1.x
 
 library
     hs-source-dirs:       src
-    exposed-modules:      System.ZMQ
-    other-modules:        System.ZMQ.Base
-                        , System.ZMQ.Internal
+    exposed-modules:      System.ZMQ3
+    other-modules:        System.ZMQ3.Base
+                        , System.ZMQ3.Internal
     includes:             zmq.h
     ghc-options:          -Wall -O2
     extensions:           CPP
@@ -50,12 +41,6 @@ library
     build-depends:        base >= 3 && < 5
                         , containers
                         , bytestring
-
-    if flag(zmq2)
-        cpp-options:      -DZMQ2
-
-    if flag(zmq3)
-        cpp-options:      -DZMQ3
 
     if os(freebsd)
         extra-libraries:  zmq, pthread
@@ -66,7 +51,7 @@ test-suite zeromq-haskell-tests
     type:             exitcode-stdio-1.0
     hs-source-dirs:   tests
     main-is:          tests.hs
-    build-depends:    zeromq-haskell
+    build-depends:    zeromq-haskell3
                     , base >= 3 && < 5
                     , containers
                     , bytestring
@@ -74,7 +59,6 @@ test-suite zeromq-haskell-tests
                     , test-framework-quickcheck2 >= 0.2
                     , QuickCheck >= 2.4
     ghc-options:      -Wall -threaded -rtsopts
-    cpp-options:      -DZMQ2
 
 source-repository head
     type:             git

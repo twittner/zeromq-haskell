@@ -11,10 +11,8 @@ module System.ZMQ3.Internal
     , messageClose
     , messageInit
     , messageInitSize
-    , setBoolOpt
     , setIntOpt
     , setStrOpt
-    , getBoolOpt
     , getIntOpt
     , getStrOpt
     , getIntMsgOpt
@@ -112,10 +110,6 @@ messageInitSize s = do
         c_zmq_msg_init_size ptr (fromIntegral s)
     return (Message ptr)
 
-setBoolOpt :: Socket a -> ZMQOption -> Bool -> IO ()
-setBoolOpt sock opt True  = setIntOpt sock opt (1 :: Int64)
-setBoolOpt sock opt False = setIntOpt sock opt (0 :: Int64)
-
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
     throwErrnoIfMinus1_ "setIntOpt" $ with i $ \ptr ->
@@ -130,12 +124,8 @@ setStrOpt sock (ZMQOption o) str = onSocket "setStrOpt" sock $ \s ->
                            (castPtr cstr)
                            (fromIntegral len)
 
-getBoolOpt :: Socket a -> ZMQOption -> IO Bool
-getBoolOpt s o = ((1 :: Int64) ==) <$> getIntOpt s o
-
-getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> IO b
-getIntOpt sock (ZMQOption o) = onSocket "getIntOpt" sock $ \s -> do
-    let i = 0
+getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO b
+getIntOpt sock (ZMQOption o) i = onSocket "getIntOpt" sock $ \s -> do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
             throwErrnoIfMinus1_ "getIntOpt" $
@@ -150,9 +140,8 @@ getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
 
-getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> IO a
-getIntMsgOpt (Message m) (ZMQMsgOption o) = do
-    let i = 0
+getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> a -> IO a
+getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
             throwErrnoIfMinus1_ "getIntMsgOpt" $
