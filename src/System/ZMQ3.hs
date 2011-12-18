@@ -63,6 +63,24 @@ module System.ZMQ3 (
   , System.ZMQ3.sendTimeout
   , System.ZMQ3.maxMessageSize
 
+  , setAffinity
+  , setBacklog
+  , setIdentity
+  , setLinger
+  , setRate
+  , setReceiveBuffer
+  , setReconnectInterval
+  , setReconnectIntervalMax
+  , setRecoveryInterval
+  , setSendBuffer
+  , setIpv4Only
+  , setMcastHops
+  , setReceiveHighWM
+  , setReceiveTimeout
+  , setSendHighWM
+  , setSendTimeout
+  , setMaxMessageSize
+
   , bind
   , connect
   , send
@@ -284,11 +302,17 @@ subscribe s = setStrOpt s B.subscribe
 unsubscribe :: SubsType a => Socket a -> String -> IO ()
 unsubscribe s = setStrOpt s B.unsubscribe
 
-affinity :: Socket a -> IO Word64
-affinity s = getIntOpt s B.affinity 0
+affinity :: Socket a -> IO Int
+affinity s = fromIntegral <$> getIntOpt s B.affinity (0 :: Word64)
+
+setAffinity :: Int -> Socket a -> IO ()
+setAffinity x s = setIntOpt s B.affinity (fromIntegral x :: Word64)
 
 backlog :: Socket a -> IO Int
-backlog s = fromIntegral <$> getIntOpt s B.backlog (0 :: CInt)
+backlog s = getIntOpt s B.backlog 0
+
+setBacklog :: Int -> Socket a -> IO ()
+setBacklog x s = setIntOpt s B.backlog (fromIntegral x :: CInt)
 
 events :: Socket a -> IO Int
 events s = getIntOpt s B.events 0
@@ -299,50 +323,96 @@ fileDescriptor s = Fd <$> getIntOpt s B.filedesc 0
 identity :: Socket a -> IO String
 identity s = getStrOpt s B.identity
 
+setIdentity :: String -> Socket a -> IO ()
+setIdentity x s = setStrOpt s B.identity x
+
 linger :: Socket a -> IO Int
 linger s = getIntOpt s B.linger 0
 
+setLinger :: Int -> Socket a -> IO ()
+setLinger x s = setIntOpt s B.linger (fromIntegral x :: CInt)
+
 rate :: Socket a -> IO Int
-rate s = fromIntegral <$> getIntOpt s B.rate (0 :: CInt)
+rate s = getIntOpt s B.rate 0
+
+setRate :: Int -> Socket a -> IO ()
+setRate x s = setIntOpt s B.rate (fromIntegral x :: CInt)
 
 receiveBuffer :: Socket a -> IO Int
-receiveBuffer s = fromIntegral <$> getIntOpt s B.receiveBuf (0 :: CInt)
+receiveBuffer s = getIntOpt s B.receiveBuf 0
+
+setReceiveBuffer :: Int -> Socket a -> IO ()
+setReceiveBuffer x s = setIntOpt s B.receiveBuf (fromIntegral x :: CInt)
 
 moreToReceive :: Socket a -> IO Bool
 moreToReceive s = (== 1) <$> getIntOpt s B.receiveMore (0 :: Int)
 
 reconnectInterval :: Socket a -> IO Int
-reconnectInterval s = fromIntegral <$> getIntOpt s B.reconnectIVL (0 :: CInt)
+reconnectInterval s = getIntOpt s B.reconnectIVL 0
+
+setReconnectInterval :: Int -> Socket a -> IO ()
+setReconnectInterval x s = setIntOpt s B.reconnectIVL (fromIntegral x :: CInt)
 
 reconnectIntervalMax :: Socket a -> IO Int
-reconnectIntervalMax s = fromIntegral <$> getIntOpt s B.reconnectIVLMax (0 :: CInt)
+reconnectIntervalMax s = getIntOpt s B.reconnectIVLMax 0
+
+setReconnectIntervalMax :: Int -> Socket a -> IO ()
+setReconnectIntervalMax x s = setIntOpt s B.reconnectIVLMax (fromIntegral x :: CInt)
 
 recoveryInterval :: Socket a -> IO Int
-recoveryInterval s = getIntOpt s B.reconnectIVL 0
+recoveryInterval s = getIntOpt s B.recoveryIVL 0
+
+setRecoveryInterval :: Int -> Socket a -> IO ()
+setRecoveryInterval x s = setIntOpt s B.recoveryIVL (fromIntegral x :: CInt)
 
 sendBuffer :: Socket a -> IO Int
 sendBuffer s = getIntOpt s B.sendBuf 0
 
+setSendBuffer :: Int -> Socket a -> IO ()
+setSendBuffer x s = setIntOpt s B.sendBuf (fromIntegral x :: CInt)
+
 ipv4Only :: Socket a -> IO Bool
 ipv4Only s = (== 1) <$> getIntOpt s B.ipv4Only (0 :: Int)
+
+setIpv4Only :: Bool -> Socket a -> IO ()
+setIpv4Only True s  = setIntOpt s B.ipv4Only (1 :: CInt)
+setIpv4Only False s = setIntOpt s B.ipv4Only (0 :: CInt)
 
 mcastHops :: Socket a -> IO Int
 mcastHops s = getIntOpt s B.mcastHops 0
 
+setMcastHops :: Int -> Socket a -> IO ()
+setMcastHops x s = setIntOpt s B.mcastHops (fromIntegral x :: CInt)
+
 receiveHighWM :: Socket a -> IO Int
 receiveHighWM s = getIntOpt s B.receiveHighWM 0
+
+setReceiveHighWM :: Int -> Socket a -> IO ()
+setReceiveHighWM x s = setIntOpt s B.receiveHighWM (fromIntegral x :: CInt)
 
 receiveTimeout :: Socket a -> IO Int
 receiveTimeout s = getIntOpt s B.receiveTimeout 0
 
+setReceiveTimeout :: Int -> Socket a -> IO ()
+setReceiveTimeout x s = setIntOpt s B.receiveTimeout (fromIntegral x :: CInt)
+
 sendHighWM :: Socket a -> IO Int
 sendHighWM s = getIntOpt s B.sendHighWM 0
+
+setSendHighWM :: Int -> Socket a -> IO ()
+setSendHighWM x s = setIntOpt s B.sendHighWM (fromIntegral x :: CInt)
 
 sendTimeout :: Socket a -> IO Int
 sendTimeout s = getIntOpt s B.sendTimeout 0
 
+setSendTimeout :: Int -> Socket a -> IO ()
+setSendTimeout x s = setIntOpt s B.sendTimeout (fromIntegral x :: CInt)
+
 maxMessageSize :: Socket a -> IO Int64
 maxMessageSize s = getIntOpt s B.maxMessageSize 0
+
+setMaxMessageSize :: Int64 -> Socket a -> IO ()
+setMaxMessageSize x s = setIntOpt s B.maxMessageSize x
 
 -- | Bind the socket to the given address (zmq_bind)
 bind :: Socket a -> String -> IO ()
