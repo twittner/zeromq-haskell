@@ -112,14 +112,14 @@ messageInitSize s = do
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
-    throwErrnoIfMinus1_ "setIntOpt" $ with i $ \ptr ->
+    throwErrnoIfMinus1Retry_ "setIntOpt" $ with i $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr ptr)
                            (fromIntegral . sizeOf $ i)
 
 setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
 setStrOpt sock (ZMQOption o) str = onSocket "setStrOpt" sock $ \s ->
-  throwErrnoIfMinus1_ "setStrOpt" $ withCStringLen str $ \(cstr, len) ->
+  throwErrnoIfMinus1Retry_ "setStrOpt" $ withCStringLen str $ \(cstr, len) ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr cstr)
                            (fromIntegral len)
@@ -128,7 +128,7 @@ getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO b
 getIntOpt sock (ZMQOption o) i = onSocket "getIntOpt" sock $ \s -> do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwErrnoIfMinus1_ "getIntOpt" $
+            throwErrnoIfMinus1Retry_ "getIntOpt" $
                 c_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 
@@ -136,7 +136,7 @@ getStrOpt :: Socket a -> ZMQOption -> IO String
 getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
     bracket (mallocBytes 255) free $ \bPtr ->
     bracket (new (255 :: CSize)) free $ \sPtr -> do
-        throwErrnoIfMinus1_ "getStrOpt" $
+        throwErrnoIfMinus1Retry_ "getStrOpt" $
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
 
@@ -144,7 +144,7 @@ getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> a -> IO a
 getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwErrnoIfMinus1_ "getIntMsgOpt" $
+            throwErrnoIfMinus1Retry_ "getIntMsgOpt" $
                 c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 
