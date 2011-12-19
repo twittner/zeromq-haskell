@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, ExistentialQuantification #-}
+{-# LANGUAGE ExistentialQuantification #-}
 -- |
 -- Module      : System.ZMQ3
 -- Copyright   : (c) 2010-2011 Toralf Wittner
@@ -302,11 +302,11 @@ subscribe s = setStrOpt s B.subscribe
 unsubscribe :: SubsType a => Socket a -> String -> IO ()
 unsubscribe s = setStrOpt s B.unsubscribe
 
-affinity :: Socket a -> IO Int
-affinity s = fromIntegral <$> getIntOpt s B.affinity (0 :: Word64)
+affinity :: Socket a -> IO Word64
+affinity s = getIntOpt s B.affinity 0
 
-setAffinity :: Int -> Socket a -> IO ()
-setAffinity x s = setIntOpt s B.affinity (fromIntegral x :: Word64)
+setAffinity :: Word64 -> Socket a -> IO ()
+setAffinity x s = setIntOpt s B.affinity x
 
 backlog :: Socket a -> IO Int
 backlog s = getIntOpt s B.backlog 0
@@ -424,28 +424,28 @@ connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
     throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
 
--- | Send the given 'SB.ByteString' over the socket (zmq_send).
-send :: Socket a -> SB.ByteString -> [Flag] -> IO ()
-send sock val fls = bracket (messageOf val) messageClose $ \m ->
+-- | Send the given 'SB.ByteString' over the socket (zmq_sendmsg).
+send :: Socket a -> [Flag] -> SB.ByteString -> IO ()
+send sock fls val = bracket (messageOf val) messageClose $ \m ->
   onSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
-          c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
+          c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
--- | Send the given 'LB.ByteString' over the socket (zmq_send).
+-- | Send the given 'LB.ByteString' over the socket (zmq_sendmsg).
 --   This is operationally identical to @send socket (Strict.concat
 --   (Lazy.toChunks lbs)) flags@ but may be more efficient.
-send' :: Socket a -> LB.ByteString -> [Flag] -> IO ()
-send' sock val fls = bracket (messageOfLazy val) messageClose $ \m ->
+send' :: Socket a -> [Flag] -> LB.ByteString -> IO ()
+send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
   onSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
-          c_zmq_send s (msgPtr m) (combine (NoBlock : fls))
+          c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
--- | Receive a 'ByteString' from socket (zmq_recv).
+-- | Receive a 'ByteString' from socket (zmq_recvmsg).
 receive :: Socket a -> [Flag] -> IO (SB.ByteString)
 receive sock fls = bracket messageInit messageClose $ \m ->
   onSocket "receive" sock $ \s -> do
     retry "receive" (waitRead sock) $
-          c_zmq_recv s (msgPtr m) (combine (NoBlock : fls))
+          c_zmq_recvmsg s (msgPtr m) (combine (DontWait : fls))
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
@@ -495,7 +495,7 @@ retry msg wait act = throwErrnoIfMinus1RetryMayBlock_ msg act wait
 
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do
-    fd <- getIntOpt s filedesc 0
+    fd <- fromIntegral <$> fileDescriptor s
     w (Fd fd)
     evs <- System.ZMQ3.events s
     unless (testev evs) $

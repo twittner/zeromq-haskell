@@ -44,12 +44,8 @@ type Timeout = Int64
 type Size    = Word
 
 -- | Flags to apply on send operations (cf. man zmq_send)
---
--- [@NoBlock@] Send operation should be performed in non-blocking mode.
--- If it cannot be performed immediatley an error will be thrown (errno
--- is set to EAGAIN).
-data Flag = NoBlock -- ^ ZMQ_NOBLOCK (0MQ-2.x), ZMQ_DONTWAIT (0MQ-3.x)
-          | SndMore -- ^ ZMQ_SNDMORE
+data Flag = DontWait -- ^ ZMQ_DONTWAIT
+          | SndMore  -- ^ ZMQ_SNDMORE
   deriving (Eq, Ord, Show)
 
 -- | A 0MQ context representation.
@@ -149,7 +145,7 @@ getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
             peek iptr
 
 toZMQFlag :: Flag -> ZMQFlag
-toZMQFlag NoBlock = noBlock
+toZMQFlag DontWait = dontWait
 toZMQFlag SndMore = sndMore
 
 combine :: [Flag] -> CInt

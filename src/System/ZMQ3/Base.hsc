@@ -110,8 +110,8 @@ newtype ZMQMsgOption = ZMQMsgOption { msgOptVal :: CInt } deriving (Eq, Ord)
 newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQFlag, ZMQFlag
-  , noBlock = ZMQ_DONTWAIT
-  , sndMore = ZMQ_SNDMORE
+  , dontWait = ZMQ_DONTWAIT
+  , sndMore  = ZMQ_SNDMORE
 }
 
 newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
@@ -180,10 +180,10 @@ foreign import ccall unsafe "zmq.h zmq_connect"
     c_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_sendmsg"
-    c_zmq_send :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+    c_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_recvmsg"
-    c_zmq_recv :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+    c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_getmsgopt"
     c_zmq_getmsgopt :: ZMQMsgPtr
