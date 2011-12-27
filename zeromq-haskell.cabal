@@ -30,7 +30,7 @@ description:
 
 library
     hs-source-dirs:       src
-    exposed-modules:      System.ZMQ3
+    exposed-modules:      System.ZMQ3, Data.Restricted
     other-modules:        System.ZMQ3.Base
                         , System.ZMQ3.Internal
     includes:             zmq.h

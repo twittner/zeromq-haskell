@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 module System.ZMQ3.Test.Properties where
 
 import Control.Applicative
@@ -8,93 +9,128 @@ import Test.QuickCheck.Monadic
 
 import Data.Int
 import Data.Word
+import Data.Restricted
+import Data.Maybe (fromJust)
 import Data.ByteString (ByteString)
-import qualified System.ZMQ3 as ZMQ
+import System.ZMQ3
+import System.Posix.Types (Fd(..))
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Char8 as CB
 
 tests :: [Test]
 tests = [
     testGroup "0MQ Socket Properties" [
-        testProperty "get socket option (Push)" (prop_get_socket_option ZMQ.Push)
-      , testProperty "get socket option (Pull)" (prop_get_socket_option ZMQ.Pull)
-      , testProperty "get socket option (XRep)" (prop_get_socket_option ZMQ.XRep)
-      , testProperty "get socket option (XReq)" (prop_get_socket_option ZMQ.XReq)
-      , testProperty "get socket option (Rep)"  (prop_get_socket_option ZMQ.Rep)
-      , testProperty "get socket option (Req)"  (prop_get_socket_option ZMQ.Req)
-      , testProperty "get socket option (Sub)"  (prop_get_socket_option ZMQ.Sub)
-      , testProperty "get socket option (Pub)"  (prop_get_socket_option ZMQ.Pub)
-      , testProperty "get socket option (Pair)" (prop_get_socket_option ZMQ.Pair)
-
-      , testProperty "set/get socket option (Push)" (prop_set_get_socket_option ZMQ.Push)
-      , testProperty "set/get socket option (Pull)" (prop_set_get_socket_option ZMQ.Pull)
-      , testProperty "set/get socket option (XRep)" (prop_set_get_socket_option ZMQ.XRep)
-      , testProperty "set/get socket option (XReq)" (prop_set_get_socket_option ZMQ.XReq)
-      , testProperty "set/get socket option (Rep)"  (prop_set_get_socket_option ZMQ.Rep)
-      , testProperty "set/get socket option (Req)"  (prop_set_get_socket_option ZMQ.Req)
-      , testProperty "set/get socket option (Sub)"  (prop_set_get_socket_option ZMQ.Sub)
-      , testProperty "set/get socket option (Pub)"  (prop_set_get_socket_option ZMQ.Pub)
-      , testProperty "set/get socket option (Pair)" (prop_set_get_socket_option ZMQ.Pair)
-
-      , testProperty "(un-)subscribe" (prop_subscribe ZMQ.Sub)
+        testProperty "set/get socket option" (prop_set_get_socket_option Pair)
+      , testProperty "(un-)subscribe"        (prop_subscribe Sub)
       ]
   , testGroup "0MQ Messages" [
-        testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive ZMQ.Req ZMQ.Rep)
-      , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive ZMQ.Push ZMQ.Pull)
-      , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive ZMQ.Pair ZMQ.Pair)
+        testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive Req Rep)
+      , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive Push Pull)
+      , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive Pair Pair)
       ]
   ]
 
-prop_get_socket_option :: ZMQ.SType a => a -> Property
-prop_get_socket_option t = forAll readOnlyOptions canGetOption
-  where
-    canGetOption opt = monadicIO $ run $
-        ZMQ.withContext 1 $ \c ->
-            ZMQ.withSocket c t $ \s -> ZMQ.getOption s opt
-
-prop_set_get_socket_option :: ZMQ.SType a => a -> ZMQ.SocketOption -> Property
+prop_set_get_socket_option :: SType t => t -> SetOpt -> Property
 prop_set_get_socket_option t opt = monadicIO $ do
-    o <- run $ ZMQ.withContext 1 $ \c ->
-                    ZMQ.withSocket c t $ \s -> do
-                        ZMQ.setOption s opt
-                        ZMQ.getOption s opt
-    assert (opt == o)
+    r <- run $
+        withContext 1 $ \c ->
+            withSocket c t $ \s ->
+                case opt of
+                    Identity val        -> (== (rvalue val)) <$> (setIdentity val s >> identity s)
+                    Affinity val        -> (eq val)          <$> (setAffinity val s >> affinity s)
+                    Backlog val         -> (eq (rvalue val)) <$> (setBacklog val s >> backlog s)
+                    Linger val          -> (eq (rvalue val)) <$> (setLinger val s >> linger s)
+                    Rate val            -> (eq (rvalue val)) <$> (setRate val s >> rate s)
+                    ReceiveBuf val      -> (eq (rvalue val)) <$> (setReceiveBuffer val s >> receiveBuffer s)
+                    ReconnectIVL val    -> (eq (rvalue val)) <$> (setReconnectInterval val s >> reconnectInterval s)
+                    ReconnectIVLMax val -> (eq (rvalue val)) <$> (setReconnectIntervalMax val s >> reconnectIntervalMax s)
+                    RecoveryIVL val     -> (eq (rvalue val)) <$> (setRecoveryInterval val s >> recoveryInterval s)
+                    SendBuf val         -> (eq (rvalue val)) <$> (setSendBuffer val s >> sendBuffer s)
+                    Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
+                    MaxMessageSize val  -> (eq val)          <$> (setMaxMessageSize val s >> maxMessageSize s)
+                    McastHops val       -> (eq (rvalue val)) <$> (setMcastHops val s >> mcastHops s)
+                    ReceiveHighWM val   -> (eq (rvalue val)) <$> (setReceiveHighWM val s >> receiveHighWM s)
+                    ReceiveTimeout val  -> (eq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
+                    SendHighWM val      -> (eq (rvalue val)) <$> (setSendHighWM val s >> sendHighWM s)
+                    SendTimeout val     -> (eq (rvalue val)) <$> (setSendTimeout val s >> sendTimeout s)
+    assert r
+  where
+    eq :: (Integral i, Integral k) => i -> k -> Bool
+    eq i k  = fromIntegral i == fromIntegral k
 
-prop_subscribe :: (ZMQ.SubsType a, ZMQ.SType a) => a -> String -> Property
+prop_subscribe :: (SubsType a, SType a) => a -> String -> Property
 prop_subscribe t subs = monadicIO $ run $
-    ZMQ.withContext 1 $ \c ->
-        ZMQ.withSocket c t $ \s -> do
-            ZMQ.subscribe s subs
-            ZMQ.unsubscribe s subs
+    withContext 1 $ \c ->
+        withSocket c t $ \s -> do
+            subscribe s subs
+            unsubscribe s subs
 
-prop_send_receive :: (ZMQ.SType a, ZMQ.SType b) => a -> b -> ByteString -> Property
+prop_send_receive :: (SType a, SType b) => a -> b -> ByteString -> Property
 prop_send_receive a b msg = monadicIO $ do
-    msg' <- run $ ZMQ.withContext 0 $ \c ->
-                    ZMQ.withSocket c a $ \sender ->
-                    ZMQ.withSocket c b $ \receiver -> do
-                        ZMQ.bind receiver "inproc://endpoint"
-                        ZMQ.connect sender "inproc://endpoint"
-                        ZMQ.send sender msg []
-                        ZMQ.receive receiver []
+    msg' <- run $ withContext 0 $ \c ->
+                    withSocket c a $ \sender ->
+                    withSocket c b $ \receiver -> do
+                        bind receiver "inproc://endpoint"
+                        connect sender "inproc://endpoint"
+                        send sender [] msg
+                        receive receiver []
     assert (msg == msg')
-
-instance Arbitrary ZMQ.SocketOption where
-    arbitrary = oneof [
-        ZMQ.Affinity . fromIntegral        <$> (arbitrary :: Gen Word64)
-      , ZMQ.Backlog . fromIntegral         <$> (arbitrary :: Gen Int32)
-      , ZMQ.Linger . fromIntegral          <$> (arbitrary :: Gen Int32)
-      , ZMQ.Rate . fromIntegral            <$> (arbitrary :: Gen Word32)
-      , ZMQ.ReceiveBuf . fromIntegral      <$> (arbitrary :: Gen Word64)
-      , ZMQ.ReconnectIVL . fromIntegral    <$> (arbitrary :: Gen Int32)  `suchThat` (>= 0)
-      , ZMQ.ReconnectIVLMax . fromIntegral <$> (arbitrary :: Gen Int32)  `suchThat` (>= 0)
-      , ZMQ.RecoveryIVL . fromIntegral     <$> (arbitrary :: Gen Word32)
-      , ZMQ.SendBuf . fromIntegral         <$> (arbitrary :: Gen Word64)
-      , ZMQ.Identity . show                <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
-      ]
 
 instance Arbitrary ByteString where
     arbitrary = CB.pack <$> arbitrary
 
-readOnlyOptions :: Gen ZMQ.SocketOption
-readOnlyOptions = elements [ZMQ.FD undefined, ZMQ.ReceiveMore undefined, ZMQ.Events undefined]
+data GetOpt =
+    Events          Int
+  | ReceiveMore     Bool
+  | Filedesc        Fd
+  deriving Show
 
+data SetOpt =
+    Affinity        Word64
+  | Backlog         (Restricted N0 Int32 Int)
+  | Identity        (Restricted N1 N254 String)
+  | Linger          (Restricted Nneg1 Int32 Int)
+  | Rate            (Restricted N1 Int32 Int)
+  | ReceiveBuf      (Restricted N0 Int32 Int)
+  | ReconnectIVL    (Restricted N0 Int32 Int)
+  | ReconnectIVLMax (Restricted N0 Int32 Int)
+  | RecoveryIVL     (Restricted N0 Int32 Int)
+  | SendBuf         (Restricted N0 Int32 Int)
+  | Ipv4Only        Bool
+  | MaxMessageSize  Int64
+  | McastHops       (Restricted N1 Int32 Int)
+  | ReceiveHighWM   (Restricted N0 Int32 Int)
+  | ReceiveTimeout  (Restricted Nneg1 Int32 Int)
+  | SendHighWM      (Restricted N0 Int32 Int)
+  | SendTimeout     (Restricted Nneg1 Int32 Int)
+  deriving Show
+
+instance Arbitrary SetOpt where
+    arbitrary = oneof [
+        Identity . fromJust . restrict . show <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
+      , Affinity              <$> (arbitrary :: Gen Word64)
+      , Ipv4Only              <$> (arbitrary :: Gen Bool)
+      , Backlog         . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , Linger          . toRneg1 <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
+      , Rate            . toR1 <$> (arbitrary :: Gen Int32) `suchThat` (> 0)
+      , ReceiveBuf      . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , ReconnectIVL    . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , ReconnectIVLMax . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , RecoveryIVL     . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , SendBuf         . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , MaxMessageSize  . fromIntegral <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , McastHops       . toR1 <$> (arbitrary :: Gen Int32) `suchThat` (> 0)
+      , ReceiveHighWM   . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , ReceiveTimeout  . toRneg1 <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
+      , SendHighWM      . toR0 <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+      , SendTimeout     . toRneg1 <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
+      ]
+
+toR1 :: Int32 -> Restricted N1 Int32 Int
+toR1 = fromJust . restrict . fromIntegral
+
+toR0 :: Int32 -> Restricted N0 Int32 Int
+toR0 = fromJust . restrict . fromIntegral
+
+toRneg1 :: Int32 -> Restricted Nneg1 Int32 Int
+toRneg1 = fromJust . restrict . fromIntegral

@@ -101,6 +101,7 @@ import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
 import Control.Monad (unless, when)
+import Data.Restricted
 import Data.IORef (atomicModifyIORef)
 import Foreign
 import Foreign.C.Error
@@ -302,117 +303,123 @@ subscribe s = setStrOpt s B.subscribe
 unsubscribe :: SubsType a => Socket a -> String -> IO ()
 unsubscribe s = setStrOpt s B.unsubscribe
 
-affinity :: Socket a -> IO Word64
-affinity s = getIntOpt s B.affinity 0
-
-setAffinity :: Word64 -> Socket a -> IO ()
-setAffinity x s = setIntOpt s B.affinity x
-
-backlog :: Socket a -> IO Int
-backlog s = getIntOpt s B.backlog 0
-
-setBacklog :: Int -> Socket a -> IO ()
-setBacklog x s = setIntOpt s B.backlog (fromIntegral x :: CInt)
+-- Read Only
 
 events :: Socket a -> IO Int
-events s = getIntOpt s B.events 0
+events = getInt32Option B.events
 
 fileDescriptor :: Socket a -> IO Fd
-fileDescriptor s = Fd <$> getIntOpt s B.filedesc 0
+fileDescriptor s = Fd . fromIntegral <$> getInt32Option B.filedesc s
+
+moreToReceive :: Socket a -> IO Bool
+moreToReceive s = (== 1) <$> getInt32Option B.receiveMore s
+
+-- Read
 
 identity :: Socket a -> IO String
 identity s = getStrOpt s B.identity
 
-setIdentity :: String -> Socket a -> IO ()
-setIdentity x s = setStrOpt s B.identity x
+affinity :: Socket a -> IO Word64
+affinity s = getIntOpt s B.affinity 0
 
-linger :: Socket a -> IO Int
-linger s = getIntOpt s B.linger 0
-
-setLinger :: Int -> Socket a -> IO ()
-setLinger x s = setIntOpt s B.linger (fromIntegral x :: CInt)
-
-rate :: Socket a -> IO Int
-rate s = getIntOpt s B.rate 0
-
-setRate :: Int -> Socket a -> IO ()
-setRate x s = setIntOpt s B.rate (fromIntegral x :: CInt)
-
-receiveBuffer :: Socket a -> IO Int
-receiveBuffer s = getIntOpt s B.receiveBuf 0
-
-setReceiveBuffer :: Int -> Socket a -> IO ()
-setReceiveBuffer x s = setIntOpt s B.receiveBuf (fromIntegral x :: CInt)
-
-moreToReceive :: Socket a -> IO Bool
-moreToReceive s = (== 1) <$> getIntOpt s B.receiveMore (0 :: Int)
-
-reconnectInterval :: Socket a -> IO Int
-reconnectInterval s = getIntOpt s B.reconnectIVL 0
-
-setReconnectInterval :: Int -> Socket a -> IO ()
-setReconnectInterval x s = setIntOpt s B.reconnectIVL (fromIntegral x :: CInt)
-
-reconnectIntervalMax :: Socket a -> IO Int
-reconnectIntervalMax s = getIntOpt s B.reconnectIVLMax 0
-
-setReconnectIntervalMax :: Int -> Socket a -> IO ()
-setReconnectIntervalMax x s = setIntOpt s B.reconnectIVLMax (fromIntegral x :: CInt)
-
-recoveryInterval :: Socket a -> IO Int
-recoveryInterval s = getIntOpt s B.recoveryIVL 0
-
-setRecoveryInterval :: Int -> Socket a -> IO ()
-setRecoveryInterval x s = setIntOpt s B.recoveryIVL (fromIntegral x :: CInt)
-
-sendBuffer :: Socket a -> IO Int
-sendBuffer s = getIntOpt s B.sendBuf 0
-
-setSendBuffer :: Int -> Socket a -> IO ()
-setSendBuffer x s = setIntOpt s B.sendBuf (fromIntegral x :: CInt)
+maxMessageSize :: Socket a -> IO Int64
+maxMessageSize s = getIntOpt s B.maxMessageSize 0
 
 ipv4Only :: Socket a -> IO Bool
-ipv4Only s = (== 1) <$> getIntOpt s B.ipv4Only (0 :: Int)
+ipv4Only s = (== 1) <$> getInt32Option B.ipv4Only s
+
+backlog :: Socket a -> IO Int
+backlog = getInt32Option B.backlog
+
+linger :: Socket a -> IO Int
+linger = getInt32Option B.linger
+
+rate :: Socket a -> IO Int
+rate = getInt32Option B.rate
+
+receiveBuffer :: Socket a -> IO Int
+receiveBuffer = getInt32Option B.receiveBuf
+
+reconnectInterval :: Socket a -> IO Int
+reconnectInterval = getInt32Option B.reconnectIVL
+
+reconnectIntervalMax :: Socket a -> IO Int
+reconnectIntervalMax = getInt32Option B.reconnectIVLMax
+
+recoveryInterval :: Socket a -> IO Int
+recoveryInterval = getInt32Option B.recoveryIVL
+
+sendBuffer :: Socket a -> IO Int
+sendBuffer = getInt32Option B.sendBuf
+
+mcastHops :: Socket a -> IO Int
+mcastHops = getInt32Option B.mcastHops
+
+receiveHighWM :: Socket a -> IO Int
+receiveHighWM = getInt32Option B.receiveHighWM
+
+receiveTimeout :: Socket a -> IO Int
+receiveTimeout = getInt32Option B.receiveTimeout
+
+sendTimeout :: Socket a -> IO Int
+sendTimeout = getInt32Option B.sendTimeout
+
+sendHighWM :: Socket a -> IO Int
+sendHighWM = getInt32Option B.sendHighWM
+
+-- Write
+
+setIdentity :: Restricted N1 N254 String -> Socket a -> IO ()
+setIdentity x s = setStrOpt s B.identity (rvalue x)
+
+setAffinity :: Word64 -> Socket a -> IO ()
+setAffinity x s = setIntOpt s B.affinity x
+
+setMaxMessageSize :: Int64 -> Socket a -> IO ()
+setMaxMessageSize x s = setIntOpt s B.maxMessageSize x
 
 setIpv4Only :: Bool -> Socket a -> IO ()
 setIpv4Only True s  = setIntOpt s B.ipv4Only (1 :: CInt)
 setIpv4Only False s = setIntOpt s B.ipv4Only (0 :: CInt)
 
-mcastHops :: Socket a -> IO Int
-mcastHops s = getIntOpt s B.mcastHops 0
+setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+setLinger = setInt32OptFromRestricted B.linger
 
-setMcastHops :: Int -> Socket a -> IO ()
-setMcastHops x s = setIntOpt s B.mcastHops (fromIntegral x :: CInt)
+setReceiveTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+setReceiveTimeout = setInt32OptFromRestricted B.receiveTimeout
 
-receiveHighWM :: Socket a -> IO Int
-receiveHighWM s = getIntOpt s B.receiveHighWM 0
+setSendTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+setSendTimeout = setInt32OptFromRestricted B.sendTimeout
 
-setReceiveHighWM :: Int -> Socket a -> IO ()
-setReceiveHighWM x s = setIntOpt s B.receiveHighWM (fromIntegral x :: CInt)
+setRate :: Integral i => Restricted N1 Int32 i -> Socket a -> IO ()
+setRate = setInt32OptFromRestricted B.rate
 
-receiveTimeout :: Socket a -> IO Int
-receiveTimeout s = getIntOpt s B.receiveTimeout 0
+setMcastHops :: Integral i => Restricted N1 Int32 i -> Socket a -> IO ()
+setMcastHops = setInt32OptFromRestricted B.mcastHops
 
-setReceiveTimeout :: Int -> Socket a -> IO ()
-setReceiveTimeout x s = setIntOpt s B.receiveTimeout (fromIntegral x :: CInt)
+setBacklog :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setBacklog = setInt32OptFromRestricted B.backlog
 
-sendHighWM :: Socket a -> IO Int
-sendHighWM s = getIntOpt s B.sendHighWM 0
+setReceiveBuffer :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setReceiveBuffer = setInt32OptFromRestricted B.receiveBuf
 
-setSendHighWM :: Int -> Socket a -> IO ()
-setSendHighWM x s = setIntOpt s B.sendHighWM (fromIntegral x :: CInt)
+setReconnectInterval :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setReconnectInterval = setInt32OptFromRestricted B.reconnectIVL
 
-sendTimeout :: Socket a -> IO Int
-sendTimeout s = getIntOpt s B.sendTimeout 0
+setReconnectIntervalMax :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setReconnectIntervalMax = setInt32OptFromRestricted B.reconnectIVLMax
 
-setSendTimeout :: Int -> Socket a -> IO ()
-setSendTimeout x s = setIntOpt s B.sendTimeout (fromIntegral x :: CInt)
+setSendBuffer :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setSendBuffer = setInt32OptFromRestricted B.sendBuf
 
-maxMessageSize :: Socket a -> IO Int64
-maxMessageSize s = getIntOpt s B.maxMessageSize 0
+setRecoveryInterval :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setRecoveryInterval = setInt32OptFromRestricted B.recoveryIVL
 
-setMaxMessageSize :: Int64 -> Socket a -> IO ()
-setMaxMessageSize x s = setIntOpt s B.maxMessageSize x
+setReceiveHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setReceiveHighWM = setInt32OptFromRestricted B.receiveHighWM
+
+setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 
 -- | Bind the socket to the given address (zmq_bind)
 bind :: Socket a -> String -> IO ()

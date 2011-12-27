@@ -16,6 +16,8 @@ module System.ZMQ3.Internal
     , getIntOpt
     , getStrOpt
     , getIntMsgOpt
+    , getInt32Option
+    , setInt32OptFromRestricted
 
     , toZMQFlag
     , combine
@@ -37,6 +39,7 @@ import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
 import Data.IORef (newIORef)
+import Data.Restricted
 
 import System.ZMQ3.Base
 
@@ -143,6 +146,12 @@ getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
             throwErrnoIfMinus1Retry_ "getIntMsgOpt" $
                 c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
             peek iptr
+
+getInt32Option :: ZMQOption -> Socket a -> IO Int
+getInt32Option o s = fromIntegral <$> getIntOpt s o (0 :: CInt)
+
+setInt32OptFromRestricted :: Integral i => ZMQOption -> Restricted l u i -> Socket b -> IO ()
+setInt32OptFromRestricted o x s = setIntOpt s o ((fromIntegral . rvalue $ x) :: CInt)
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag DontWait = dontWait
