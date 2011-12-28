@@ -89,6 +89,9 @@ module System.ZMQ3 (
   , poll
   , version
 
+  , Data.Restricted.fit
+  , Data.Restricted.restrict
+
     -- * Low-level functions
   , init
   , term
