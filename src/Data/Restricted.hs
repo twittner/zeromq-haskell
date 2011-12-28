@@ -1,6 +1,5 @@
 {-# LANGUAGE EmptyDataDecls         #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
@@ -28,7 +27,7 @@ instance (Show l, Show u, Show v) => Show (Restricted l u v) where
     show (Restricted v) = show v
 
 -- | A uniform way to restrict values to a certain range.
-class Restriction l u v | l u -> v where
+class Restriction l u v where
     restrict :: v -> Maybe (Restricted l u v)
     fit      :: v -> Restricted l u v
 
