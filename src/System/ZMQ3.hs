@@ -45,23 +45,24 @@ module System.ZMQ3 (
 
   , System.ZMQ3.affinity
   , System.ZMQ3.backlog
+  , System.ZMQ3.events
   , System.ZMQ3.fileDescriptor
   , System.ZMQ3.identity
+  , System.ZMQ3.ipv4Only
   , System.ZMQ3.linger
+  , System.ZMQ3.maxMessageSize
+  , System.ZMQ3.mcastHops
+  , System.ZMQ3.moreToReceive
   , System.ZMQ3.rate
   , System.ZMQ3.receiveBuffer
-  , System.ZMQ3.moreToReceive
+  , System.ZMQ3.receiveHighWM
+  , System.ZMQ3.receiveTimeout
   , System.ZMQ3.reconnectInterval
   , System.ZMQ3.reconnectIntervalMax
   , System.ZMQ3.recoveryInterval
   , System.ZMQ3.sendBuffer
-  , System.ZMQ3.ipv4Only
-  , System.ZMQ3.mcastHops
-  , System.ZMQ3.receiveHighWM
-  , System.ZMQ3.receiveTimeout
   , System.ZMQ3.sendHighWM
   , System.ZMQ3.sendTimeout
-  , System.ZMQ3.maxMessageSize
 
   , setAffinity
   , setBacklog
@@ -89,8 +90,8 @@ module System.ZMQ3 (
   , poll
   , version
 
-  , Data.Restricted.fit
   , Data.Restricted.restrict
+  , Data.Restricted.toRestricted
 
     -- * Low-level functions
   , init
