@@ -4,7 +4,7 @@ import Control.Monad
 import System.IO
 import System.Exit
 import System.Environment
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString.UTF8 as SB
 import qualified Data.ByteString.Char8 as SB
 
@@ -21,5 +21,5 @@ main = do
             ZMQ.bind s addr
             forever $ do
                 line <- SB.fromString <$> getLine
-                ZMQ.send s (SB.append name line) []
+                ZMQ.send s [] (SB.append name line)
 

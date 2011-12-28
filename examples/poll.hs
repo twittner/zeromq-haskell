@@ -3,7 +3,7 @@ import Control.Monad
 import System.IO
 import System.Exit
 import System.Environment
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString as SB
 
 main :: IO ()
@@ -22,8 +22,8 @@ main = do
  where
     receive []               = return ()
     receive ((ZMQ.S s e):ss) = do
-        msg <- ZMQ.receive s []
-        ZMQ.send s msg []
+        msg <- ZMQ.receive s
+        ZMQ.send s [] msg
         receive ss
 
 usage :: String

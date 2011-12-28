@@ -3,7 +3,7 @@ import Control.Concurrent
 import System.IO
 import System.Exit
 import System.Environment
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString as SB
 
 main :: IO ()
@@ -19,7 +19,7 @@ main = do
     ZMQ.withContext 1 $ \c ->
         ZMQ.withSocket c ZMQ.Pub $ \s -> do
             ZMQ.connect s connTo
-            replicateM_ count $ ZMQ.send s message []
+            replicateM_ count $ ZMQ.send s [] message
             threadDelay 10000000
 
 usage :: String

@@ -2,7 +2,7 @@ import Control.Monad
 import System.IO
 import System.Exit
 import System.Environment
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString as SB
 
 main :: IO ()
@@ -20,10 +20,10 @@ main = do
             loop s rounds size
   where
     loop s r sz = unless (r <= 0) $ do
-        msg <- ZMQ.receive s []
+        msg <- ZMQ.receive s
         when (SB.length msg /= sz) $
             error "message of incorrect size received"
-        ZMQ.send s msg []
+        ZMQ.send s [] msg
         loop s (r - 1) sz
 
 usage :: String

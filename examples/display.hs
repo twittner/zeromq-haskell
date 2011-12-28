@@ -3,7 +3,7 @@ import System.IO
 import System.Exit
 import System.Environment
 import Control.Exception
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString as SB
 
 main :: IO ()
@@ -17,7 +17,7 @@ main = do
             ZMQ.subscribe s ""
             mapM (ZMQ.connect s) args
             forever $ do
-                line <- ZMQ.receive s []
+                line <- ZMQ.receive s
                 SB.putStrLn line
                 hFlush stdout
 

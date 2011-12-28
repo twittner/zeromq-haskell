@@ -3,7 +3,7 @@ import System.IO
 import System.Exit
 import System.Environment
 import Data.Time.Clock
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString as SB
 
 main :: IO ()
@@ -25,8 +25,8 @@ main = do
             print (diffUTCTime end start)
   where
     loop s r msg = unless (r <= 0) $ do
-        ZMQ.send s msg []
-        msg' <- ZMQ.receive s []
+        ZMQ.send s [] msg
+        msg' <- ZMQ.receive s
         when (SB.length msg' /= SB.length msg) $
             error "message of incorrect size received"
         loop s (r - 1) msg

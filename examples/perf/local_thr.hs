@@ -3,7 +3,7 @@ import System.IO
 import System.Exit
 import System.Environment
 import Data.Time.Clock
-import qualified System.ZMQ as ZMQ
+import qualified System.ZMQ3 as ZMQ
 import qualified Data.ByteString as SB
 import Text.Printf
 
@@ -27,7 +27,7 @@ main = do
             printStat start end size count
   where
     receive s sz = do
-        msg <- ZMQ.receive s []
+        msg <- ZMQ.receive s
         when (SB.length msg /= sz) $
             error "message of incorrect size received"
 
