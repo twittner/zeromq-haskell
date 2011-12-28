@@ -1,4 +1,4 @@
-name:               zeromq-haskell3
+name:               zeromq3-haskell
 version:            0.1
 synopsis:           Bindings to ZeroMQ 3.1.x
 category:           System, FFI
@@ -51,7 +51,7 @@ test-suite zeromq-haskell-tests
     type:             exitcode-stdio-1.0
     hs-source-dirs:   tests
     main-is:          tests.hs
-    build-depends:    zeromq-haskell3
+    build-depends:    zeromq3-haskell
                     , base >= 3 && < 5
                     , containers
                     , bytestring

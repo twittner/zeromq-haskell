@@ -1,43 +1,24 @@
-This library provides Haskell bindings to zeromq (http://zeromq.org).
+This library provides Haskell bindings to 0MQ 3.1.x (http://zeromq.org).
 
 Current status
 --------------
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
-Version 0.8.1 - zmqVersion has been renamed to version and reports the
-runtime version of 0MQ, instead of the compile time version macros.
+Version 0.1 - First release to provide bindings against 0MQ 3.1.x
 
-Version 0.8.0 - zeromq-haskell can now be compiled either against 0MQ 2.x
-(default) or 0MQ 3.x.
-
-Version 0.7.1 - Removes unix dependency
-
-Verison 0.7.0 - Changes semantics of poll to return a list of the same
-length as it's parameter to allow identification of Sockets by index.
-PollEvent gets another constructor None to denote the absence of polling
-events.
-
-Version 0.6.0 - This version renames "with" to "withContext" and
-introduces a new "withSocket" resource wrapper. The API is otherwise
-identical to 0.5.0
-
-This software requires zeromq version 2.1.x.
+This software requires 0MQ version 3.1.x.
 
 Installation
 ------------
 
 As usual for Haskell packages this software is installed best via Cabal
 (http://www.haskell.org/cabal). In addition to GHC it depends on 0MQ of course.
-Please note that by default zeromq-haskell attempts to compile against 0MQ 2.x.
-If instead you want to use 0MQ 3.x, then provide the following flags to Cabal:
-
-    --flags="-zmq2 zmq3"
 
 Notes
 -----
 
-zeromq-haskell mostly follows 0MQ's API. One difference though is that sockets
+zeromq3-haskell mostly follows 0MQ's API. One difference though is that sockets
 are parameterized types, i.e. there is not one socket type but when creating a
 socket the desired socket type has to be specified, e.g. `Pair` and the
 resulting socket is of type `Socket Pair`.
@@ -49,12 +30,23 @@ only apply to `ZMQ_SUB` sockets have their own functions (`subscribe` and
 Other differences are mostly for convenience. Also one does not deal directly
 with 0MQ messages, instead these are created internally as needed.
 
+Finally note that `receive` is already used in a non-blocking way internally.
+GHC's I/O manager is used to wait for data to be available, so from a client's
+perspective `receive` appears to be blocking.
+
+Differences to the 0MQ 2.1.x binding
+------------------------------------
+
+This library is based on the zeromq-haskell binding for 0MQ 2.1.x. Socket types
+and options have been aligned with 0MQ 3.1.x and instead of using a big
+`SocketOption` datatype, this library provides separate get and set functions for
+each available option, e.g. `affinity`/`setAffinity`.
+
 Examples
 --------
 
 The test folder contains some simple tests mostly mimicking the ones that come
 with 0MQ.
-
 
 Bugs
 ----
