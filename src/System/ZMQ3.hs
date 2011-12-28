@@ -451,11 +451,11 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
           c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
 -- | Receive a 'ByteString' from socket (zmq_recvmsg).
-receive :: Socket a -> [Flag] -> IO (SB.ByteString)
-receive sock fls = bracket messageInit messageClose $ \m ->
+receive :: Socket a -> IO (SB.ByteString)
+receive sock = bracket messageInit messageClose $ \m ->
   onSocket "receive" sock $ \s -> do
     retry "receive" (waitRead sock) $
-          c_zmq_recvmsg s (msgPtr m) (combine (DontWait : fls))
+          c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)

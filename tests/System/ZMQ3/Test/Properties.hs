@@ -73,7 +73,7 @@ prop_send_receive a b msg = monadicIO $ do
                         bind receiver "inproc://endpoint"
                         connect sender "inproc://endpoint"
                         send sender [] msg
-                        receive receiver []
+                        receive receiver
     assert (msg == msg')
 
 instance Arbitrary ByteString where
