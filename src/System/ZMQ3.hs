@@ -309,119 +309,156 @@ unsubscribe s = setStrOpt s B.unsubscribe
 
 -- Read Only
 
+-- | Cf. @zmq_getsockopt ZMQ_EVENTS@
 events :: Socket a -> IO PollEvent
 events s = toEvent <$> getIntOpt s B.events 0
 
+-- | Cf. @zmq_getsockopt ZMQ_FD@
 fileDescriptor :: Socket a -> IO Fd
 fileDescriptor s = Fd . fromIntegral <$> getInt32Option B.filedesc s
 
+-- | Cf. @zmq_getsockopt ZMQ_RCVMORE@
 moreToReceive :: Socket a -> IO Bool
 moreToReceive s = (== 1) <$> getInt32Option B.receiveMore s
 
 -- Read
 
+-- | Cf. @zmq_getsockopt ZMQ_IDENTITY@
 identity :: Socket a -> IO String
 identity s = getStrOpt s B.identity
 
+-- | Cf. @zmq_getsockopt ZMQ_AFFINITY@
 affinity :: Socket a -> IO Word64
 affinity s = getIntOpt s B.affinity 0
 
+-- | Cf. @zmq_getsockopt ZMQ_MAXMSGSIZE@
 maxMessageSize :: Socket a -> IO Int64
 maxMessageSize s = getIntOpt s B.maxMessageSize 0
 
+-- | Cf. @zmq_getsockopt ZMQ_IPV4ONLY@
 ipv4Only :: Socket a -> IO Bool
 ipv4Only s = (== 1) <$> getInt32Option B.ipv4Only s
 
+-- | Cf. @zmq_getsockopt ZMQ_BACKLOG@
 backlog :: Socket a -> IO Int
 backlog = getInt32Option B.backlog
 
+-- | Cf. @zmq_getsockopt ZMQ_LINGER@
 linger :: Socket a -> IO Int
 linger = getInt32Option B.linger
 
+-- | Cf. @zmq_getsockopt ZMQ_RATE@
 rate :: Socket a -> IO Int
 rate = getInt32Option B.rate
 
+-- | Cf. @zmq_getsockopt ZMQ_RCVBUF@
 receiveBuffer :: Socket a -> IO Int
 receiveBuffer = getInt32Option B.receiveBuf
 
+-- | Cf. @zmq_getsockopt ZMQ_RECONNECT_IVL@
 reconnectInterval :: Socket a -> IO Int
 reconnectInterval = getInt32Option B.reconnectIVL
 
+-- | Cf. @zmq_getsockopt ZMQ_RECONNECT_IVL_MAX@
 reconnectIntervalMax :: Socket a -> IO Int
 reconnectIntervalMax = getInt32Option B.reconnectIVLMax
 
+-- | Cf. @zmq_getsockopt ZMQ_RECOVERY_IVL@
 recoveryInterval :: Socket a -> IO Int
 recoveryInterval = getInt32Option B.recoveryIVL
 
+-- | Cf. @zmq_getsockopt ZMQ_SNDBUF@
 sendBuffer :: Socket a -> IO Int
 sendBuffer = getInt32Option B.sendBuf
 
+-- | Cf. @zmq_getsockopt ZMQ_MULTICAST_HOPS@
 mcastHops :: Socket a -> IO Int
 mcastHops = getInt32Option B.mcastHops
 
+-- | Cf. @zmq_getsockopt ZMQ_RCVHWM@
 receiveHighWM :: Socket a -> IO Int
 receiveHighWM = getInt32Option B.receiveHighWM
 
+-- | Cf. @zmq_getsockopt ZMQ_RCVTIMEO@
 receiveTimeout :: Socket a -> IO Int
 receiveTimeout = getInt32Option B.receiveTimeout
 
+-- | Cf. @zmq_getsockopt ZMQ_SNDTIMEO@
 sendTimeout :: Socket a -> IO Int
 sendTimeout = getInt32Option B.sendTimeout
 
+-- | Cf. @zmq_getsockopt ZMQ_SNDHWM@
 sendHighWM :: Socket a -> IO Int
 sendHighWM = getInt32Option B.sendHighWM
 
 -- Write
 
+-- | Cf. @zmq_setsockopt ZMQ_IDENTITY@
 setIdentity :: Restricted N1 N254 String -> Socket a -> IO ()
 setIdentity x s = setStrOpt s B.identity (rvalue x)
 
+-- | Cf. @zmq_setsockopt ZMQ_AFFINITY@
 setAffinity :: Word64 -> Socket a -> IO ()
 setAffinity x s = setIntOpt s B.affinity x
 
+-- | Cf. @zmq_setsockopt ZMQ_MAXMSGSIZE@
 setMaxMessageSize :: Int64 -> Socket a -> IO ()
 setMaxMessageSize x s = setIntOpt s B.maxMessageSize x
 
+-- | Cf. @zmq_setsockopt ZMQ_IPV4ONLY@
 setIpv4Only :: Bool -> Socket a -> IO ()
 setIpv4Only True s  = setIntOpt s B.ipv4Only (1 :: CInt)
 setIpv4Only False s = setIntOpt s B.ipv4Only (0 :: CInt)
 
+-- | Cf. @zmq_setsockopt ZMQ_LINGER@
 setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
 setLinger = setInt32OptFromRestricted B.linger
 
+-- | Cf. @zmq_setsockopt ZMQ_RCVTIMEO@
 setReceiveTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
 setReceiveTimeout = setInt32OptFromRestricted B.receiveTimeout
 
+-- | Cf. @zmq_setsockopt ZMQ_SNDTIMEO@
 setSendTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
 setSendTimeout = setInt32OptFromRestricted B.sendTimeout
 
+-- | Cf. @zmq_setsockopt ZMQ_RATE@
 setRate :: Integral i => Restricted N1 Int32 i -> Socket a -> IO ()
 setRate = setInt32OptFromRestricted B.rate
 
+-- | Cf. @zmq_setsockopt ZMQ_MULTICAST_HOPS@
 setMcastHops :: Integral i => Restricted N1 Int32 i -> Socket a -> IO ()
 setMcastHops = setInt32OptFromRestricted B.mcastHops
 
+-- | Cf. @zmq_setsockopt ZMQ_BACKLOG@
 setBacklog :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setBacklog = setInt32OptFromRestricted B.backlog
 
+-- | Cf. @zmq_setsockopt ZMQ_RCVBUF@
 setReceiveBuffer :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setReceiveBuffer = setInt32OptFromRestricted B.receiveBuf
 
+-- | Cf. @zmq_setsockopt ZMQ_RECONNECT_IVL@
 setReconnectInterval :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setReconnectInterval = setInt32OptFromRestricted B.reconnectIVL
 
+-- | Cf. @zmq_setsockopt ZMQ_RECONNECT_IVL_MAX@
 setReconnectIntervalMax :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setReconnectIntervalMax = setInt32OptFromRestricted B.reconnectIVLMax
 
+-- | Cf. @zmq_setsockopt ZMQ_SNDBUF@
 setSendBuffer :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setSendBuffer = setInt32OptFromRestricted B.sendBuf
 
+-- | Cf. @zmq_setsockopt ZMQ_RECOVERY_IVL@
 setRecoveryInterval :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setRecoveryInterval = setInt32OptFromRestricted B.recoveryIVL
 
+-- | Cf. @zmq_setsockopt ZMQ_RCVHWM@
 setReceiveHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setReceiveHighWM = setInt32OptFromRestricted B.receiveHighWM
 
+-- | Cf. @zmq_setsockopt ZMQ_SNDHWM@
 setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 
@@ -453,7 +490,7 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
 
 -- | Receive a 'ByteString' from socket (zmq_recvmsg).
 --
--- /Note/: This function always calls zmq_recvmsg in a non-blocking way,
+-- /Note/: This function always calls @zmq_recvmsg@ in a non-blocking way,
 -- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
 -- by default. Still 'receive' is blocking the thread as long as no data
 -- is available using GHC's 'threadWaitRead'.
