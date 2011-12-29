@@ -12,6 +12,8 @@ import Data.Word
 import Data.Restricted
 import Data.Maybe (fromJust)
 import Data.ByteString (ByteString)
+import Control.Concurrent
+import Control.Concurrent.MVar
 import System.ZMQ3
 import System.Posix.Types (Fd(..))
 import qualified Data.ByteString as SB
@@ -50,6 +52,7 @@ tests = [
         testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive Req Rep)
       , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive Push Pull)
       , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive Pair Pair)
+      , testProperty "publish/subscribe (Pub/Sub)"          (prop_pub_sub Pub Sub)
       ]
   ]
 
@@ -102,10 +105,24 @@ prop_send_receive a b msg = monadicIO $ do
     msg' <- run $ withContext 0 $ \c ->
                     withSocket c a $ \sender ->
                     withSocket c b $ \receiver -> do
+                        sync <- newEmptyMVar :: IO (MVar ByteString)
                         bind receiver "inproc://endpoint"
+                        forkIO $ receive receiver >>= putMVar sync
                         connect sender "inproc://endpoint"
                         send sender [] msg
-                        receive receiver
+                        takeMVar sync
+    assert (msg == msg')
+
+prop_pub_sub :: (SType a, SubsType b, SType b) => a -> b -> ByteString -> Property
+prop_pub_sub a b msg = monadicIO $ do
+    msg' <- run $ withContext 0 $ \c ->
+                    withSocket c a $ \pub ->
+                    withSocket c b $ \sub -> do
+                        subscribe sub ""
+                        bind sub "inproc://endpoint"
+                        connect pub "inproc://endpoint"
+                        send pub [] msg
+                        receive sub
     assert (msg == msg')
 
 instance Arbitrary ByteString where
