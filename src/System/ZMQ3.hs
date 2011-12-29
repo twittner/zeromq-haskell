@@ -309,8 +309,8 @@ unsubscribe s = setStrOpt s B.unsubscribe
 
 -- Read Only
 
-events :: Socket a -> IO Int
-events = getInt32Option B.events
+events :: Socket a -> IO PollEvent
+events s = toEvent <$> getIntOpt s B.events 0
 
 fileDescriptor :: Socket a -> IO Fd
 fileDescriptor s = Fd . fromIntegral <$> getInt32Option B.filedesc s
@@ -443,8 +443,8 @@ send sock fls val = bracket (messageOf val) messageClose $ \m ->
           c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
 -- | Send the given 'LB.ByteString' over the socket (zmq_sendmsg).
---   This is operationally identical to @send socket (Strict.concat
---   (Lazy.toChunks lbs)) flags@ but may be more efficient.
+-- This is operationally identical to @send socket (Strict.concat
+-- (Lazy.toChunks lbs)) flags@ but may be more efficient.
 send' :: Socket a -> [Flag] -> LB.ByteString -> IO ()
 send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
   onSocket "send'" sock $ \s ->
@@ -452,6 +452,11 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
           c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
 -- | Receive a 'ByteString' from socket (zmq_recvmsg).
+--
+-- /Note/: This function always calls zmq_recvmsg in a non-blocking way,
+-- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
+-- by default. Still 'receive' is blocking the thread as long as no data
+-- is available using GHC's 'threadWaitRead'.
 receive :: Socket a -> IO (SB.ByteString)
 receive sock = bracket messageInit messageClose $ \m ->
   onSocket "receive" sock $ \s -> do
@@ -506,9 +511,9 @@ retry msg wait act = throwErrnoIfMinus1RetryMayBlock_ msg act wait
 
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do
-    fd <- fromIntegral <$> fileDescriptor s
+    fd <- getIntOpt s B.filedesc 0
     w (Fd fd)
-    evs <- System.ZMQ3.events s
+    evs <- getInt32Option B.events s
     unless (testev evs) $
         wait' w f s
   where
