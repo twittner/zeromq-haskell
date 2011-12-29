@@ -4,6 +4,23 @@
 {-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 
+-- |
+-- Module      : Data.Restricted
+-- Copyright   : (c) 2011 Toralf Wittner
+-- License     : MIT
+-- Maintainer  : toralf.wittner@gmail.com
+-- Stability   : experimental
+-- Portability : non-portable
+--
+-- Type-level restricted data.
+-- This module allows for type declarations which embed certain restrictions,
+-- such as value bounds. E.g. @Restricted N0 N1 Int@ denotes an 'Int' which can
+-- only have values [0 .. 1]. When creating such a value, the constructor functions
+-- 'restrict' or 'toRestricted' ensure that the restrictions are obeyed. Code
+-- that consumes restricted types does not need to check the constraints.
+--
+-- /N.B./ This module more or less tailored to be used within 'System.ZMQ3'.
+-- Therefore the provided type level restrictions are limited.
 module Data.Restricted (
 
     Restricted
@@ -23,20 +40,38 @@ import Data.Int
 -- | Type level restriction.
 data Restricted l u v = Restricted !v deriving Show
 
--- | A uniform way to restrict values to a certain range.
+-- | A uniform way to restrict values.
 class Restriction l u v where
+
+    -- | Create a restricted value. Returns 'Nothing' if
+    -- the given value does not satisfy all restrictions.
     toRestricted :: v -> Maybe (Restricted l u v)
-    restrict     :: v -> Restricted l u v
+
+    -- | Create a restricted value. If the given value
+    -- does not satisfy the restrictions, a modified
+    -- variant is used instead, e.g. if an integer is
+    -- larger than the upper bound, the upper bound
+    -- value is used.
+    restrict :: v -> Restricted l u v
 
 -- | Get the actual value.
 rvalue :: Restricted l u v -> v
 rvalue (Restricted v) = v
 
-data Nneg1 -- ^ type-level  -1
-data N0    -- ^ type-level   0
-data N1    -- ^ type-level   1
-data N254  -- ^ type-level 254
-data Inf   -- ^ type-level infinity
+-- | type level -1
+data Nneg1
+
+-- | type-level   0
+data N0
+
+-- | type-level   1
+data N1
+
+-- | type-level 254
+data N254
+
+-- | type-level infinity
+data Inf
 
 instance Show Nneg1 where show _ = "Nneg1"
 instance Show N0    where show _ = "N0"
