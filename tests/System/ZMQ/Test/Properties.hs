@@ -46,6 +46,7 @@ tests = [
         testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive ZMQ.Req ZMQ.Rep)
       , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive ZMQ.Push ZMQ.Pull)
       , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive ZMQ.Pair ZMQ.Pair)
+      , testProperty "publish/subscribe (Pub/Sub)"          (prop_pub_sub ZMQ.Pub ZMQ.Sub)
       ]
   ]
 
@@ -82,6 +83,17 @@ prop_send_receive a b msg = monadicIO $ do
                         ZMQ.receive receiver []
     assert (msg == msg')
 
+prop_pub_sub :: (ZMQ.SType a, ZMQ.SubsType b, ZMQ.SType b) => a -> b -> ByteString -> Property
+prop_pub_sub a b msg = monadicIO $ do
+    msg' <- run $ ZMQ.withContext 0 $ \c ->
+                    ZMQ.withSocket c a $ \pub ->
+                    ZMQ.withSocket c b $ \sub -> do
+                        ZMQ.subscribe sub ""
+                        ZMQ.bind sub "inproc://endpoint"
+                        ZMQ.connect pub "inproc://endpoint"
+                        ZMQ.send pub msg []
+                        ZMQ.receive sub []
+    assert (msg == msg')
 instance Arbitrary ZMQ.SocketOption where
     arbitrary = oneof [
         ZMQ.Affinity . fromIntegral        <$> (arbitrary :: Gen Word64)
