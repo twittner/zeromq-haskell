@@ -15,7 +15,7 @@ main = do
     ZMQ.withContext 1 $ \c ->
         ZMQ.withSocket c ZMQ.Sub $ \s -> do
             ZMQ.subscribe s ""
-            mapM (ZMQ.connect s) args
+            mapM (ZMQ.connect s) (map read args)
             forever $ do
                 line <- ZMQ.receive s
                 SB.putStrLn line

@@ -14,7 +14,7 @@ main = do
         exitFailure
     ZMQ.withContext 1 $ \c ->
         ZMQ.withSocket c ZMQ.Rep $ \s -> do
-            let bindTo = head args
+            let bindTo = read . head $ args
                 toPoll = [ZMQ.S s ZMQ.In]
             ZMQ.bind s bindTo
             forever $

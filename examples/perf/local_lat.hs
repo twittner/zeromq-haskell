@@ -11,7 +11,7 @@ main = do
     when (length args /= 3) $ do
         hPutStrLn stderr usage
         exitFailure
-    let bindTo = args !! 0
+    let bindTo = read $ args !! 0
         size   = read $ args !! 1
         rounds = read $ args !! 2
     ZMQ.withContext 1 $ \c ->

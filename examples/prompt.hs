@@ -18,7 +18,7 @@ main = do
         name = SB.append (SB.fromString $ args !! 1) ": "
     ZMQ.withContext 1 $ \c ->
         ZMQ.withSocket c ZMQ.Pub $ \s -> do
-            ZMQ.bind s addr
+            ZMQ.bind s (read addr)
             forever $ do
                 line <- SB.fromString <$> getLine
                 ZMQ.send s [] (SB.append name line)
