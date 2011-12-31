@@ -72,6 +72,7 @@ prop_set_get_socket_option t opt = monadicIO $ do
             withSocket c t $ \s ->
                 case opt of
                     Identity val        -> (== (rvalue val)) <$> (setIdentity val s >> identity s)
+                    Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
                     Affinity val        -> (eq val)          <$> (setAffinity val s >> affinity s)
                     Backlog val         -> (eq (rvalue val)) <$> (setBacklog val s >> backlog s)
                     Linger val          -> (eq (rvalue val)) <$> (setLinger val s >> linger s)
@@ -81,8 +82,7 @@ prop_set_get_socket_option t opt = monadicIO $ do
                     ReconnectIVLMax val -> (eq (rvalue val)) <$> (setReconnectIntervalMax val s >> reconnectIntervalMax s)
                     RecoveryIVL val     -> (eq (rvalue val)) <$> (setRecoveryInterval val s >> recoveryInterval s)
                     SendBuf val         -> (eq (rvalue val)) <$> (setSendBuffer val s >> sendBuffer s)
-                    Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
-                    MaxMessageSize val  -> (eq val)          <$> (setMaxMessageSize val s >> maxMessageSize s)
+                    MaxMessageSize val  -> (eq (rvalue val)) <$> (setMaxMessageSize val s >> maxMessageSize s)
                     McastHops val       -> (eq (rvalue val)) <$> (setMcastHops val s >> mcastHops s)
                     ReceiveHighWM val   -> (eq (rvalue val)) <$> (setReceiveHighWM val s >> receiveHighWM s)
                     ReceiveTimeout val  -> (eq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
@@ -140,7 +140,7 @@ data SetOpt =
   | Identity        (Restricted N1 N254 String)
   | Ipv4Only        Bool
   | Linger          (Restricted Nneg1 Int32 Int)
-  | MaxMessageSize  Int64
+  | MaxMessageSize  (Restricted Nneg1 Int64 Int64)
   | McastHops       (Restricted N1 Int32 Int)
   | Rate            (Restricted N1 Int32 Int)
   | ReceiveBuf      (Restricted N0 Int32 Int)
@@ -163,22 +163,22 @@ instance Arbitrary GetOpt where
 
 instance Arbitrary SetOpt where
     arbitrary = oneof [
-        Affinity                  <$> (arbitrary :: Gen Word64)
-      , Ipv4Only                  <$> (arbitrary :: Gen Bool)
-      , Backlog         . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , Linger          . toRneg1 <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
-      , Rate            . toR1    <$> (arbitrary :: Gen Int32) `suchThat` (>   0)
-      , ReceiveBuf      . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , ReconnectIVL    . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , ReconnectIVLMax . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , RecoveryIVL     . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , SendBuf         . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , McastHops       . toR1    <$> (arbitrary :: Gen Int32) `suchThat` (>   0)
-      , ReceiveHighWM   . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , ReceiveTimeout  . toRneg1 <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
-      , SendHighWM      . toR0    <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
-      , SendTimeout     . toRneg1 <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
-      , MaxMessageSize  . fromIntegral <$> (arbitrary :: Gen Int32) `suchThat` (>= 0)
+        Affinity                   <$> (arbitrary :: Gen Word64)
+      , Ipv4Only                   <$> (arbitrary :: Gen Bool)
+      , Backlog         . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , Linger          . toRneg1  <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
+      , Rate            . toR1     <$> (arbitrary :: Gen Int32) `suchThat` (>   0)
+      , ReceiveBuf      . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , ReconnectIVL    . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , ReconnectIVLMax . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , RecoveryIVL     . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , SendBuf         . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , McastHops       . toR1     <$> (arbitrary :: Gen Int32) `suchThat` (>   0)
+      , ReceiveHighWM   . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , ReceiveTimeout  . toRneg1  <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
+      , SendHighWM      . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
+      , SendTimeout     . toRneg1  <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
+      , MaxMessageSize  . toRneg1' <$> (arbitrary :: Gen Int64) `suchThat` (>= -1)
       , Identity . fromJust . toRestricted . show <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
       ]
 
@@ -190,3 +190,6 @@ toR0 = fromJust . toRestricted . fromIntegral
 
 toRneg1 :: Int32 -> Restricted Nneg1 Int32 Int
 toRneg1 = fromJust . toRestricted . fromIntegral
+
+toRneg1' :: Int64 -> Restricted Nneg1 Int64 Int64
+toRneg1' = fromJust . toRestricted . fromIntegral

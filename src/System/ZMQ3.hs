@@ -402,8 +402,8 @@ setAffinity :: Word64 -> Socket a -> IO ()
 setAffinity x s = setIntOpt s B.affinity x
 
 -- | Cf. @zmq_setsockopt ZMQ_MAXMSGSIZE@
-setMaxMessageSize :: Int64 -> Socket a -> IO ()
-setMaxMessageSize x s = setIntOpt s B.maxMessageSize x
+setMaxMessageSize :: Integral i => Restricted Nneg1 Int64 i -> Socket a -> IO ()
+setMaxMessageSize x s = setIntOpt s B.maxMessageSize ((fromIntegral . rvalue $ x) :: Int64)
 
 -- | Cf. @zmq_setsockopt ZMQ_IPV4ONLY@
 setIpv4Only :: Bool -> Socket a -> IO ()
