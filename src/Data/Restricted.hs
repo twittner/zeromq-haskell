@@ -19,7 +19,7 @@
 -- 'restrict' or 'toRestricted' ensure that the restrictions are obeyed. Code
 -- that consumes restricted types does not need to check the constraints.
 --
--- /N.B./ This module more or less tailored to be used within 'System.ZMQ3'.
+-- /N.B./ This module is more or less tailored to be used within 'System.ZMQ3'.
 -- Therefore the provided type level restrictions are limited.
 module Data.Restricted (
 
@@ -82,49 +82,69 @@ instance Show Inf   where show _ = "Inf"
 -- Natural numbers
 
 instance (Integral a) => Restriction N0 Inf a where
-    toRestricted i | lbcheck 0 i = Just $ Restricted i
-                   | otherwise   = Nothing
-    restrict = Restricted . lbfit 0
+    toRestricted = toIntRLB 0
+    restrict     = intRLB   0
 
 instance (Integral a) => Restriction N0 Int32 a where
-    toRestricted i | check (0, fromIntegral (maxBound :: Int32)) i = Just $ Restricted i
-                   | otherwise                                     = Nothing
-    restrict = Restricted . lbfit 0 . ubfit (fromIntegral (maxBound :: Int32))
+    toRestricted = toIntR 0 (maxBound :: Int32)
+    restrict     = intR   0 (maxBound :: Int32)
 
 instance (Integral a) => Restriction N0 Int64 a where
-    toRestricted i | check (0, fromIntegral (maxBound :: Int64)) i = Just $ Restricted i
-                   | otherwise                                     = Nothing
-    restrict = Restricted . lbfit 0 . ubfit (fromIntegral (maxBound :: Int64))
+    toRestricted = toIntR 0 (maxBound :: Int64)
+    restrict     = intR   0 (maxBound :: Int64)
 
 -- Positive natural numbers
 
 instance (Integral a) => Restriction N1 Inf a where
-    toRestricted i | lbcheck 1 i = Just $ Restricted i
-                   | otherwise   = Nothing
-    restrict = Restricted . lbfit 1
+    toRestricted = toIntRLB 1
+    restrict     = intRLB   1
 
 instance (Integral a) => Restriction N1 Int32 a where
-    toRestricted i | check (1, fromIntegral (maxBound :: Int32)) i = Just $ Restricted i
-                   | otherwise                                     = Nothing
-    restrict = Restricted . lbfit 1 . ubfit (fromIntegral (maxBound :: Int32))
+    toRestricted = toIntR 1 (maxBound :: Int32)
+    restrict     = intR   1 (maxBound :: Int32)
 
 instance (Integral a) => Restriction N1 Int64 a where
-    toRestricted i | check (1, fromIntegral (maxBound :: Int64)) i = Just $ Restricted i
-                   | otherwise                                     = Nothing
-    restrict = Restricted . lbfit 1 . ubfit (fromIntegral (maxBound :: Int64))
+    toRestricted = toIntR 1 (maxBound :: Int64)
+    restrict     = intR   1 (maxBound :: Int64)
 
--- Other ranges
+-- From -1 ranges
+
+instance (Integral a) => Restriction Nneg1 Inf a where
+    toRestricted = toIntRLB (-1)
+    restrict     = intRLB   (-1)
 
 instance (Integral a) => Restriction Nneg1 Int32 a where
-    toRestricted i | check (-1, fromIntegral (maxBound :: Int32)) i = Just $ Restricted i
-                   | otherwise                                      = Nothing
-    restrict = Restricted . lbfit (-1) . ubfit (fromIntegral (maxBound :: Int32))
+    toRestricted = toIntR (-1) (maxBound :: Int32)
+    restrict     = intR   (-1) (maxBound :: Int32)
+
+instance (Integral a) => Restriction Nneg1 Int64 a where
+    toRestricted = toIntR (-1) (maxBound :: Int64)
+    restrict     = intR   (-1) (maxBound :: Int64)
+
+-- Other ranges
 
 instance Restriction N1 N254 String where
     toRestricted s | check (1, 254) (length s) = Just $ Restricted s
                    | otherwise                 = Nothing
+
     restrict s | length s < 1 = Restricted " "
                | otherwise    = Restricted (take 254 s)
+
+-- Helpers
+
+toIntR :: (Integral i, Integral j) => i -> j -> i -> Maybe (Restricted a b i)
+toIntR lb ub i | check (lb, fromIntegral ub) i = Just $ Restricted i
+               | otherwise                     = Nothing
+
+intR :: (Integral i, Integral j) => i -> j -> i -> Restricted a b i
+intR lb ub = Restricted . lbfit lb . ubfit (fromIntegral ub)
+
+toIntRLB :: Integral i => i -> i -> Maybe (Restricted a b i)
+toIntRLB lb i | lbcheck lb i = Just $ Restricted i
+              | otherwise    = Nothing
+
+intRLB :: Integral i => i -> i -> Restricted a b i
+intRLB lb = Restricted . lbfit lb
 
 -- Bounds checks
 
