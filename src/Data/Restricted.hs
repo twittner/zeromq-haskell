@@ -6,7 +6,7 @@
 
 -- |
 -- Module      : Data.Restricted
--- Copyright   : (c) 2011 Toralf Wittner
+-- Copyright   : (c) 2011-2012 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : toralf.wittner@gmail.com
 -- Stability   : experimental

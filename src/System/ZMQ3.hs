@@ -1,7 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 -- |
 -- Module      : System.ZMQ3
--- Copyright   : (c) 2010-2011 Toralf Wittner
+-- Copyright   : (c) 2010-2012 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : toralf.wittner@gmail.com
 -- Stability   : experimental

@@ -7,13 +7,12 @@ This software currently has *beta* status, i.e. it had seen limited testing.
 
 Version 0.1 - First release to provide bindings against 0MQ 3.1.x
 
-This software requires 0MQ version 3.1.x.
-
 Installation
 ------------
 
 As usual for Haskell packages this software is installed best via Cabal
-(http://www.haskell.org/cabal). In addition to GHC it depends on 0MQ of course.
+(http://www.haskell.org/cabal). In addition to GHC it depends on 0MQ 3.1.x
+of course.
 
 Notes
 -----
@@ -45,7 +44,7 @@ each available option, e.g. `affinity`/`setAffinity`.
 Examples
 --------
 
-The test folder contains some simple tests mostly mimicking the ones that come
+The examples folder contains some simple tests mostly mimicking the ones that come
 with 0MQ.
 
 Bugs
