@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
 module System.ZMQ3.Test.Properties where
 
 import Control.Applicative

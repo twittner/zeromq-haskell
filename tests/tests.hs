@@ -1,7 +1,6 @@
 import Test.Framework (defaultMain)
-import qualified System.ZMQ3.Test.Properties as ZMQProperties
-import qualified Data.Endpoint.Test.Properties as EPProperties
+import qualified System.ZMQ3.Test.Properties as Properties
 
 main :: IO ()
-main = defaultMain $ ZMQProperties.tests ++ EPProperties.tests
+main = defaultMain Properties.tests
 

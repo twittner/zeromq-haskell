@@ -12,7 +12,7 @@ main = do
     when (length args /= 3) $ do
         hPutStrLn stderr usage
         exitFailure
-    let connTo  = read $ args !! 0
+    let connTo  = args !! 0
         size    = read $ args !! 1
         rounds  = read $ args !! 2
         message = SB.replicate size 0x65

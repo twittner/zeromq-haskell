@@ -33,7 +33,6 @@ library
     exposed-modules:      System.ZMQ3, Data.Restricted
     other-modules:        System.ZMQ3.Base
                         , System.ZMQ3.Internal
-                        , Data.Endpoint
     includes:             zmq.h
     ghc-options:          -Wall -O2
     extensions:           CPP
@@ -42,7 +41,6 @@ library
     build-depends:        base >= 3 && < 5
                         , containers
                         , bytestring
-                        , iproute >= 1.2.4
 
     if os(freebsd)
         extra-libraries:  zmq, pthread
@@ -56,7 +54,6 @@ test-suite zeromq-haskell-tests
     build-depends:    zeromq3-haskell
                     , base >= 3 && < 5
                     , containers
-                    , iproute >= 1.2.4
                     , bytestring
                     , test-framework >= 0.4
                     , test-framework-quickcheck2 >= 0.2

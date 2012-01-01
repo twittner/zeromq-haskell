@@ -93,10 +93,6 @@ module System.ZMQ3 (
   , Data.Restricted.restrict
   , Data.Restricted.toRestricted
 
-  , Data.Endpoint.Endpoint   (..)
-  , Data.Endpoint.TcpAddress (..)
-  , Data.Endpoint.PgmAddress (..)
-
     -- * Low-level functions
   , init
   , term
@@ -110,7 +106,6 @@ import Control.Applicative
 import Control.Exception
 import Control.Monad (unless, when)
 import Data.Restricted
-import Data.Endpoint
 import Data.IORef (atomicModifyIORef)
 import Foreign
 import Foreign.C.Error
@@ -468,14 +463,14 @@ setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 
 -- | Bind the socket to the given address (zmq_bind)
-bind :: Socket a -> Endpoint -> IO ()
-bind sock ep = onSocket "bind" sock $
-    throwErrnoIfMinus1_ "bind" . withCString (show ep) . c_zmq_bind
+bind :: Socket a -> String -> IO ()
+bind sock str = onSocket "bind" sock $
+    throwErrnoIfMinus1_ "bind" . withCString str . c_zmq_bind
 
 -- | Connect the socket to the given address (zmq_connect).
-connect :: Socket a -> Endpoint -> IO ()
-connect sock ep = onSocket "connect" sock $
-    throwErrnoIfMinus1_ "connect" . withCString (show ep) . c_zmq_connect
+connect :: Socket a -> String -> IO ()
+connect sock str = onSocket "connect" sock $
+    throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
 
 -- | Send the given 'SB.ByteString' over the socket (zmq_sendmsg).
 send :: Socket a -> [Flag] -> SB.ByteString -> IO ()
