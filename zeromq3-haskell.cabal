@@ -1,12 +1,12 @@
 name:               zeromq3-haskell
 version:            0.1
-synopsis:           Bindings to ZeroMQ 3.1.x
+synopsis:           Bindings to ZeroMQ 3.x
 category:           System, FFI
 license:            MIT
 license-file:       LICENSE
 author:             Toralf Wittner
 maintainer:         toralf.wittner@gmail.com
-copyright:          Copyright (c) 2011 zeromq-haskell authors
+copyright:          Copyright (c) 2010 - 2012 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
 tested-With:        GHC == 7.0.3
@@ -26,7 +26,7 @@ description:
     patterns, message filtering (subscriptions), seamless access to
     multiple transport protocols and more.
 
-    This library provides the Haskell language binding to 0MQ 3.1.x
+    This library provides the Haskell language binding to 0MQ >= 3.1.0
 
 library
     hs-source-dirs:       src

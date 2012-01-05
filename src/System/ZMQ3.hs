@@ -11,10 +11,44 @@
 -- the main difference that sockets are typed.
 -- The documentation of the individual socket types is copied from
 -- 0MQ's man pages authored by Martin Sustrik. For details please
--- refer to http://api.zeromq.org
+-- refer to <http://api.zeromq.org>
+--
+-- Differences to zeromq-haskell 2.x
+--
+-- /Socket Types/
+--
+-- 'System.ZMQ.Up' and 'System.ZMQ.Down' no longer exist.
+-- Some 0MQ tutorials mention 'ZMQ_DEALER' and 'ZMQ_ROUTER'. These
+-- are aliases to 'XRep' and 'XReq'.
+--
+-- /Socket options/
+--
+-- Instead of a single 'SocketOption' data-type, getter and setter
+-- functions are provided, e.g. one would write: @'affinity' sock@ instead of
+-- @getOption sock (Affinity 0)@
+--
+-- /Restrictions/
+--
+-- Many option setters use a 'Restriction' to further constrain the
+-- range of possible values of their integral types. For example
+-- the maximum message size can be given as -1, which means no limit
+-- or by greater values, which denote the message size in bytes. The
+-- type of 'setMaxMessageSize' is therefore:
+--
+-- @setMaxMessageSize :: 'Integral' i => 'Restricted' 'Nneg1' 'Int64' i -> 'Socket' a -> 'IO' ()@
+--
+-- which means any integral value in the range of @-1@ to
+-- (@'maxBound' :: 'Int64'@) can be given. To create a restricted
+-- type from plain types, use 'toRestricted' and 'restrict'.
+--
+-- /Devices/
+--
+-- Devices are no longer present in 0MQ 3.x and consequently have been
+-- removed form this binding as well.
 
 module System.ZMQ3 (
 
+    -- * Type Definitions
     Size
   , Context
   , Socket
@@ -37,12 +71,21 @@ module System.ZMQ3 (
   , Pull(..)
   , Push(..)
 
+    -- * General Operations
   , withContext
   , withSocket
+  , bind
+  , connect
+  , send
+  , send'
+  , receive
+  , poll
+  , version
 
   , System.ZMQ3.subscribe
   , System.ZMQ3.unsubscribe
 
+    -- * Socket Options (Read)
   , System.ZMQ3.affinity
   , System.ZMQ3.backlog
   , System.ZMQ3.events
@@ -64,6 +107,7 @@ module System.ZMQ3 (
   , System.ZMQ3.sendHighWM
   , System.ZMQ3.sendTimeout
 
+    -- * Socket Options (Write)
   , setAffinity
   , setBacklog
   , setIdentity
@@ -82,18 +126,11 @@ module System.ZMQ3 (
   , setSendTimeout
   , setMaxMessageSize
 
-  , bind
-  , connect
-  , send
-  , send'
-  , receive
-  , poll
-  , version
-
+    -- * Restrictions
   , Data.Restricted.restrict
   , Data.Restricted.toRestricted
 
-    -- * Low-level functions
+    -- * Low-level Functions
   , init
   , term
   , socket
