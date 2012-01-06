@@ -56,7 +56,7 @@ tests = [
       ]
   ]
 
-prop_get_socket_option :: SType t => t -> GetOpt -> Property
+prop_get_socket_option :: SocketType t => t -> GetOpt -> Property
 prop_get_socket_option t opt = monadicIO $ run $ do
     withContext 1 $ \c ->
         withSocket c t $ \s ->
@@ -65,7 +65,7 @@ prop_get_socket_option t opt = monadicIO $ run $ do
                 Filedesc _    -> fileDescriptor s >> return ()
                 ReceiveMore _ -> moreToReceive s  >> return ()
 
-prop_set_get_socket_option :: SType t => t -> SetOpt -> Property
+prop_set_get_socket_option :: SocketType t => t -> SetOpt -> Property
 prop_set_get_socket_option t opt = monadicIO $ do
     r <- run $
         withContext 1 $ \c ->
@@ -93,14 +93,14 @@ prop_set_get_socket_option t opt = monadicIO $ do
     eq :: (Integral i, Integral k) => i -> k -> Bool
     eq i k  = fromIntegral i == fromIntegral k
 
-prop_subscribe :: (SubsType a, SType a) => a -> String -> Property
+prop_subscribe :: (Subscriber a, SocketType a) => a -> String -> Property
 prop_subscribe t subs = monadicIO $ run $
     withContext 1 $ \c ->
         withSocket c t $ \s -> do
             subscribe s subs
             unsubscribe s subs
 
-prop_send_receive :: (SType a, SType b) => a -> b -> ByteString -> Property
+prop_send_receive :: (SocketType a, SocketType b, Receiver b, Sender a) => a -> b -> ByteString -> Property
 prop_send_receive a b msg = monadicIO $ do
     msg' <- run $ withContext 0 $ \c ->
                     withSocket c a $ \sender ->
@@ -113,7 +113,7 @@ prop_send_receive a b msg = monadicIO $ do
                         takeMVar sync
     assert (msg == msg')
 
-prop_pub_sub :: (SType a, SubsType b, SType b) => a -> b -> ByteString -> Property
+prop_pub_sub :: (SocketType a, Subscriber b, SocketType b, Sender a, Receiver b) => a -> b -> ByteString -> Property
 prop_pub_sub a b msg = monadicIO $ do
     msg' <- run $ withContext 0 $ \c ->
                     withSocket c a $ \pub ->

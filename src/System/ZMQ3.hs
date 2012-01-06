@@ -17,9 +17,16 @@
 --
 -- /Socket Types/
 --
--- 'System.ZMQ.Up' and 'System.ZMQ.Down' no longer exist.
--- Some 0MQ tutorials mention 'ZMQ_DEALER' and 'ZMQ_ROUTER'. These
+-- * 'System.ZMQ.Up' and 'System.ZMQ.Down' no longer exist.
+--
+-- * Some 0MQ tutorials mention 'ZMQ_DEALER' and 'ZMQ_ROUTER'. These
 -- are aliases to 'XRep' and 'XReq'.
+--
+-- * Renamed type-classes:
+-- @'SType' -\> 'SocketType'@, @'SubsType' -\> 'Subscriber'@.
+--
+-- * New type-classes:
+-- 'Sender', 'Receiver'
 --
 -- /Socket options/
 --
@@ -57,8 +64,13 @@ module System.ZMQ3 (
   , Timeout
   , PollEvent(..)
 
-  , SType
-  , SubsType
+    -- ** Type Classes
+  , SocketType
+  , Sender
+  , Receiver
+  , Subscriber
+
+    -- ** Socket Types
   , Pair(..)
   , Pub(..)
   , Sub(..)
@@ -158,31 +170,21 @@ import System.ZMQ3.Internal
 
 import GHC.Conc (threadWaitRead, threadWaitWrite)
 
--- | Socket types.
-class SType a where
-    zmqSocketType :: a -> ZMQSocketType
-
 -- | Socket to communicate with a single peer. Allows for only a
 -- single connect or a single bind. There's no message routing
 -- or message filtering involved. /Compatible peer sockets/: 'Pair'.
 data Pair = Pair
-instance SType Pair where
-    zmqSocketType = const pair
 
 -- | Socket to distribute data. 'receive' function is not
 -- implemented for this socket type. Messages are distributed in
 -- fanout fashion to all the peers. /Compatible peer sockets/: 'Sub'.
 data Pub = Pub
-instance SType Pub where
-    zmqSocketType = const pub
 
 -- | Socket to subscribe for data. Send function is not implemented
 -- for this socket type. Initially, socket is subscribed for no
 -- messages. Use 'subscribe' to specify which messages to subscribe for.
 -- /Compatible peer sockets/: 'Pub'.
 data Sub = Sub
-instance SType Sub where
-    zmqSocketType = const sub
 
 -- | Same as 'Pub' except that you can receive subscriptions from the
 -- peers in form of incoming messages. Subscription message is a byte 1
@@ -190,32 +192,24 @@ instance SType Sub where
 -- subscription body.
 -- /Compatible peer sockets/: 'Sub', 'XSub'.
 data XPub = XPub
-instance SType XPub where
-    zmqSocketType = const xpub
 
 -- | Same as 'Sub' except that you subscribe by sending subscription
 -- messages to the socket. Subscription message is a byte 1 (for subscriptions)
 -- or byte 0 (for unsubscriptions) followed by the subscription body.
 -- /Compatible peer sockets/: 'Pub', 'XPub'.
 data XSub = XSub
-instance SType XSub where
-    zmqSocketType = const xsub
 
 -- | Socket to send requests and receive replies. Requests are
 -- load-balanced among all the peers. This socket type allows only an
 -- alternated sequence of send's and recv's.
 -- /Compatible peer sockets/: 'Rep', 'Xrep'.
 data Req = Req
-instance SType Req where
-    zmqSocketType = const request
 
 -- | Socket to receive requests and send replies. This socket type
 -- allows only an alternated sequence of receive's and send's. Each
 -- send is routed to the peer that issued the last received request.
 -- /Compatible peer sockets/: 'Req', 'XReq'.
 data Rep = Rep
-instance SType Rep where
-    zmqSocketType = const response
 
 -- | Special socket type to be used in request/reply middleboxes
 -- such as zmq_queue(7).  Requests forwarded using this socket type
@@ -224,8 +218,6 @@ instance SType Rep where
 -- that can be use to route the reply back to the original requester.
 -- /Compatible peer sockets/: 'Rep', 'Xrep'.
 data XReq = XReq
-instance SType XReq where
-    zmqSocketType = const xrequest
 
 -- | Special socket type to be used in request/reply middleboxes
 -- such as zmq_queue(7).  Requests received using this socket are already
@@ -234,16 +226,12 @@ instance SType XReq where
 -- prefix from a corresponding request.
 -- /Compatible peer sockets/: 'Req', 'Xreq'.
 data XRep = XRep
-instance SType XRep where
-    zmqSocketType = const xresponse
 
 -- | A socket of type Pull is used by a pipeline node to receive
 -- messages from upstream pipeline nodes. Messages are fair-queued from
 -- among all connected upstream nodes. The zmq_send() function is not
 -- implemented for this socket type.
 data Pull = Pull
-instance SType Pull where
-    zmqSocketType = const pull
 
 -- | A socket of type Push is used by a pipeline node to send messages
 -- to downstream pipeline nodes. Messages are load-balanced to all connected
@@ -256,13 +244,60 @@ instance SType Pull where
 -- shall block until the exceptional state ends or at least one downstream
 -- node becomes available for sending; messages are not discarded.
 data Push = Push
-instance SType Push where
-    zmqSocketType = const push
 
--- | Subscribable.
-class SubsType a
+-- | Socket types.
+class SocketType a where
+    zmqSocketType :: a -> ZMQSocketType
 
-instance SubsType Sub
+-- | Sockets which can 'subscribe'.
+class Subscriber a
+
+-- | Sockets which can 'send'.
+class Sender a
+
+-- | Sockets which can 'receive'.
+class Receiver a
+
+instance SocketType Pair where zmqSocketType = const pair
+instance Sender     Pair
+instance Receiver   Pair
+
+instance SocketType Pub where zmqSocketType = const pub
+instance Sender     Pub
+
+instance SocketType Sub where zmqSocketType = const sub
+instance Subscriber Sub
+instance Receiver   Sub
+
+instance SocketType XPub where zmqSocketType = const xpub
+instance Sender     XPub
+instance Receiver   XPub
+
+instance SocketType XSub where zmqSocketType = const xsub
+instance Sender     XSub
+instance Receiver   XSub
+
+instance SocketType Req where zmqSocketType = const request
+instance Sender     Req
+instance Receiver   Req
+
+instance SocketType Rep where zmqSocketType = const response
+instance Sender     Rep
+instance Receiver   Rep
+
+instance SocketType XReq where zmqSocketType = const xrequest
+instance Sender     XReq
+instance Receiver   XReq
+
+instance SocketType XRep where zmqSocketType = const xresponse
+instance Sender     XRep
+instance Receiver   XRep
+
+instance SocketType Pull where zmqSocketType = const pull
+instance Receiver   Pull
+
+instance SocketType Push where zmqSocketType = const push
+instance Sender     Push
 
 -- | The events to wait for in poll (cf. man zmq_poll)
 data PollEvent =
@@ -280,6 +315,8 @@ data Poll =
     forall a. S (Socket a) PollEvent
   | F Fd PollEvent
 
+-- | Return the runtime version of the underlying 0MQ library as a
+-- (major, minor, patch) triple.
 version :: IO (Int, Int, Int)
 version =
     with 0 $ \major_ptr ->
@@ -314,12 +351,12 @@ withContext ioThreads act =
 -- | Run an action with a 0MQ socket. The socket will be closed after running
 -- the supplied action even if an error occurs. The socket supplied to your
 -- action will /not/ be valid after the action terminates.
-withSocket :: SType a => Context -> a -> (Socket a -> IO b) -> IO b
+withSocket :: SocketType a => Context -> a -> (Socket a -> IO b) -> IO b
 withSocket c t = bracket (socket c t) close
 
 -- | Create a new 0MQ socket within the given context. 'withSocket' provides
 -- automatic socket closing and may be safer to use.
-socket :: SType a => Context -> a -> IO (Socket a)
+socket :: SocketType a => Context -> a -> IO (Socket a)
 socket (Context c) t = do
   let zt = typeVal . zmqSocketType $ t
   s <- throwErrnoIfNull "socket" (c_zmq_socket c zt)
@@ -337,11 +374,11 @@ close sock@(Socket _ status) = onSocket "close" sock $ \s -> do
   when alive $ throwErrnoIfMinus1_ "close" . c_zmq_close $ s
 
 -- | Subscribe Socket to given subscription.
-subscribe :: SubsType a => Socket a -> String -> IO ()
+subscribe :: Subscriber a => Socket a -> String -> IO ()
 subscribe s = setStrOpt s B.subscribe
 
 -- | Unsubscribe Socket from given subscription.
-unsubscribe :: SubsType a => Socket a -> String -> IO ()
+unsubscribe :: Subscriber a => Socket a -> String -> IO ()
 unsubscribe s = setStrOpt s B.unsubscribe
 
 -- Read Only
@@ -510,7 +547,7 @@ connect sock str = onSocket "connect" sock $
     throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
 
 -- | Send the given 'SB.ByteString' over the socket (zmq_sendmsg).
-send :: Socket a -> [Flag] -> SB.ByteString -> IO ()
+send :: Sender a => Socket a -> [Flag] -> SB.ByteString -> IO ()
 send sock fls val = bracket (messageOf val) messageClose $ \m ->
   onSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
@@ -519,7 +556,7 @@ send sock fls val = bracket (messageOf val) messageClose $ \m ->
 -- | Send the given 'LB.ByteString' over the socket (zmq_sendmsg).
 -- This is operationally identical to @send socket (Strict.concat
 -- (Lazy.toChunks lbs)) flags@ but may be more efficient.
-send' :: Socket a -> [Flag] -> LB.ByteString -> IO ()
+send' :: Sender a => Socket a -> [Flag] -> LB.ByteString -> IO ()
 send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
   onSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
@@ -531,7 +568,7 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
 -- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
 -- by default. Still 'receive' is blocking the thread as long as no data
 -- is available using GHC's 'threadWaitRead'.
-receive :: Socket a -> IO (SB.ByteString)
+receive :: Receiver a => Socket a -> IO (SB.ByteString)
 receive sock = bracket messageInit messageClose $ \m ->
   onSocket "receive" sock $ \s -> do
     retry "receive" (waitRead sock) $
