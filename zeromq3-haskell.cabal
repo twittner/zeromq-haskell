@@ -37,7 +37,6 @@ library
     ghc-options:          -Wall -O2
     extensions:           CPP
                         , ForeignFunctionInterface
-                        , ExistentialQuantification
     build-depends:        base >= 3 && < 5
                         , containers
                         , bytestring

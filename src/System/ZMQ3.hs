@@ -1,4 +1,3 @@
-{-# LANGUAGE ExistentialQuantification #-}
 -- |
 -- Module      : System.ZMQ3
 -- Copyright   : (c) 2010-2012 Toralf Wittner
@@ -20,7 +19,7 @@
 -- * 'System.ZMQ.Up' and 'System.ZMQ.Down' no longer exist.
 --
 -- * Some 0MQ tutorials mention 'ZMQ_DEALER' and 'ZMQ_ROUTER'. These
--- are aliases to 'XRep' and 'XReq'.
+-- are aliases of 'XRep' and 'XReq'.
 --
 -- * Renamed type-classes:
 -- @'SType' -\> 'SocketType'@, @'SubsType' -\> 'Subscriber'@.
@@ -46,7 +45,7 @@
 --
 -- which means any integral value in the range of @-1@ to
 -- (@'maxBound' :: 'Int64'@) can be given. To create a restricted
--- type from plain types, use 'toRestricted' and 'restrict'.
+-- value from plain value, use 'toRestricted' or 'restrict'.
 --
 -- /Devices/
 --
@@ -186,7 +185,7 @@ data Pair = Pair
 -- fanout fashion to all the peers. /Compatible peer sockets/: 'Sub'.
 data Pub = Pub
 
--- | Socket to subscribe for data. Send function is not implemented
+-- | Socket to subscribe for data. 'send' function is not implemented
 -- for this socket type. Initially, socket is subscribed for no
 -- messages. Use 'subscribe' to specify which messages to subscribe for.
 -- /Compatible peer sockets/: 'Pub'.
@@ -222,15 +221,15 @@ data Rep = Rep
 -- should be tagged by a proper prefix identifying the original requester.
 -- Replies received by this socket are tagged with a proper postfix
 -- that can be use to route the reply back to the original requester.
--- /Compatible peer sockets/: 'Rep', 'Xrep'.
+-- /Compatible peer sockets/: 'Rep', 'XRep'.
 data XReq = XReq
 
 -- | Special socket type to be used in request/reply middleboxes
 -- such as zmq_queue(7).  Requests received using this socket are already
 -- properly tagged with prefix identifying the original requester. When
--- sending a reply via XREP socket the message should be tagged with a
+-- sending a reply via XRep socket the message should be tagged with a
 -- prefix from a corresponding request.
--- /Compatible peer sockets/: 'Req', 'Xreq'.
+-- /Compatible peer sockets/: 'Req', 'XReq'.
 data XRep = XRep
 
 -- | A socket of type Pull is used by a pipeline node to receive
@@ -327,14 +326,14 @@ version =
     tupleUp a b c = (fromIntegral a, fromIntegral b, fromIntegral c)
 
 -- | Initialize a 0MQ context (cf. zmq_init for details).  You should
--- normally prefer to use 'with' instead.
+-- normally prefer to use 'withContext' instead.
 init :: Size -> IO Context
 init ioThreads = do
     c <- throwErrnoIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
     return (Context c)
 
 -- | Terminate a 0MQ context (cf. zmq_term).  You should normally
--- prefer to use 'with' instead.
+-- prefer to use 'withContext' instead.
 term :: Context -> IO ()
 term = throwErrnoIfMinus1Retry_ "term" . c_zmq_term . ctx
 
@@ -535,33 +534,43 @@ setReceiveHighWM = setInt32OptFromRestricted B.receiveHighWM
 setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 
--- | Bind the socket to the given address (zmq_bind)
+-- | Bind the socket to the given address (cf. zmq_bind)
 bind :: Socket a -> String -> IO ()
 bind sock str = onSocket "bind" sock $
     throwErrnoIfMinus1_ "bind" . withCString str . c_zmq_bind
 
--- | Connect the socket to the given address (zmq_connect).
+-- | Connect the socket to the given address (cf. zmq_connect).
 connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
     throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
 
--- | Send the given 'SB.ByteString' over the socket (zmq_sendmsg).
+-- | Send the given 'SB.ByteString' over the socket (cf. zmq_sendmsg).
+--
+-- /Note/: This function always calls @zmq_sendmsg@ in a non-blocking way,
+-- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
+-- by default. Still 'send' is blocking the thread as long as the message
+-- can not be queued on the socket using GHC's 'threadWaitWrite'.
 send :: Sender a => Socket a -> [Flag] -> SB.ByteString -> IO ()
 send sock fls val = bracket (messageOf val) messageClose $ \m ->
   onSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
           c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
--- | Send the given 'LB.ByteString' over the socket (zmq_sendmsg).
+-- | Send the given 'LB.ByteString' over the socket (cf. zmq_sendmsg).
 -- This is operationally identical to @send socket (Strict.concat
 -- (Lazy.toChunks lbs)) flags@ but may be more efficient.
+--
+-- /Note/: This function always calls @zmq_sendmsg@ in a non-blocking way,
+-- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
+-- by default. Still 'send'' is blocking the thread as long as the message
+-- can not be queued on the socket using GHC's 'threadWaitWrite'.
 send' :: Sender a => Socket a -> [Flag] -> LB.ByteString -> IO ()
 send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
   onSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
           c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
--- | Receive a 'ByteString' from socket (zmq_recvmsg).
+-- | Receive a 'ByteString' from socket (cf. zmq_recvmsg).
 --
 -- /Note/: This function always calls @zmq_recvmsg@ in a non-blocking way,
 -- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
