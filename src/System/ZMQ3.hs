@@ -52,6 +52,14 @@
 --
 -- Devices are no longer present in 0MQ 3.x and consequently have been
 -- removed form this binding as well.
+--
+-- /Poll/
+--
+-- Removed support for polling. This should not be necessary as 'send' and
+-- 'receive' are internally non-blocking and use GHC's I/O manager to block
+-- calling threads when send or receive would yield EAGAIN. This combined with
+-- GHC's scalable threading model should relieve client code from the burden
+-- to do it's own polling. For timeouts have a look at 'System.Timeout.timeout'.
 
 module System.ZMQ3 (
 
@@ -59,10 +67,9 @@ module System.ZMQ3 (
     Size
   , Context
   , Socket
-  , Flag(..)
-  , Poll(..)
+  , Flag (SndMore)
   , Timeout
-  , PollEvent(..)
+  , Event(..)
 
     -- ** Type Classes
   , SocketType
@@ -91,7 +98,6 @@ module System.ZMQ3 (
   , send
   , send'
   , receive
-  , poll
   , version
 
   , System.ZMQ3.subscribe
@@ -159,7 +165,7 @@ import Data.IORef (atomicModifyIORef)
 import Foreign
 import Foreign.C.Error
 import Foreign.C.String
-import Foreign.C.Types (CInt, CShort)
+import Foreign.C.Types (CInt)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import System.Mem.Weak (addFinalizer)
@@ -299,21 +305,14 @@ instance Receiver   Pull
 instance SocketType Push where zmqSocketType = const push
 instance Sender     Push
 
--- | The events to wait for in poll (cf. man zmq_poll)
-data PollEvent =
+-- | Socket events.
+data Event =
     In     -- ^ ZMQ_POLLIN (incoming messages)
   | Out    -- ^ ZMQ_POLLOUT (outgoing messages, i.e. at least 1 byte can be written)
   | InOut  -- ^ ZMQ_POLLIN | ZMQ_POLLOUT
   | Native -- ^ ZMQ_POLLERR
   | None
   deriving (Eq, Ord, Show)
-
--- | Type representing a descriptor, poll is waiting for
--- (either a 0MQ socket or a file descriptor) plus the type
--- of event to wait for.
-data Poll =
-    forall a. S (Socket a) PollEvent
-  | F Fd PollEvent
 
 -- | Return the runtime version of the underlying 0MQ library as a
 -- (major, minor, patch) triple.
@@ -384,7 +383,7 @@ unsubscribe s = setStrOpt s B.unsubscribe
 -- Read Only
 
 -- | Cf. @zmq_getsockopt ZMQ_EVENTS@
-events :: Socket a -> IO PollEvent
+events :: Socket a -> IO Event
 events s = toEvent <$> getIntOpt s B.events 0
 
 -- | Cf. @zmq_getsockopt ZMQ_FD@
@@ -577,40 +576,8 @@ receive sock = bracket messageInit messageClose $ \m ->
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
 
--- | Polls for events on the given 'Poll' descriptors. Returns the
--- same list of 'Poll' descriptors with an "updated" 'PollEvent' field
--- (cf. zmq_poll). Sockets which have seen no activity have 'None' in
--- their 'PollEvent' field.
-poll :: [Poll] -> Timeout -> IO [Poll]
-poll fds to = do
-    let len = length fds
-        ps  = map createZMQPoll fds
-    withArray ps $ \ptr -> do
-        throwErrnoIfMinus1Retry_ "poll" $
-            c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
-        ps' <- peekArray len ptr
-        return $ map createPoll (zip ps' fds)
- where
-    createZMQPoll :: Poll -> ZMQPoll
-    createZMQPoll (S (Socket s _) e) =
-        ZMQPoll s 0 (fromEvent e) 0
-    createZMQPoll (F (Fd s) e) =
-        ZMQPoll nullPtr (fromIntegral s) (fromEvent e) 0
-
-    createPoll :: (ZMQPoll, Poll) -> Poll
-    createPoll (zp, S (Socket s t) _) =
-        S (Socket s t) (toEvent . fromIntegral . pRevents $ zp)
-    createPoll (zp, F fd _) =
-        F fd (toEvent . fromIntegral . pRevents $ zp)
-
-    fromEvent :: PollEvent -> CShort
-    fromEvent In     = fromIntegral . pollVal $ pollIn
-    fromEvent Out    = fromIntegral . pollVal $ pollOut
-    fromEvent InOut  = fromIntegral . pollVal $ pollInOut
-    fromEvent Native = fromIntegral . pollVal $ pollerr
-    fromEvent None   = 0
-
-toEvent :: Word32 -> PollEvent
+-- Convert bit-masked word into Event.
+toEvent :: Word32 -> Event
 toEvent e | e == (fromIntegral . pollVal $ pollIn)    = In
           | e == (fromIntegral . pollVal $ pollOut)   = Out
           | e == (fromIntegral . pollVal $ pollInOut) = InOut
