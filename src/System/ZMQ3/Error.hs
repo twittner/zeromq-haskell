@@ -18,11 +18,11 @@ import Foreign.C.Types (CInt)
 import System.ZMQ3.Base
 
 -- | ZMQError encapsulates information about errors, which occur
--- when using the native 0MQ API, such as the error number and message.
+-- when using the native 0MQ API, such as error number and message.
 data ZMQError = ZMQError {
-    errno   :: Int     -- ^ Get the error number int value.
-  , source  :: String  -- ^ Get the source where this error originates from.
-  , message :: String  -- ^ Get the actual error message.
+    errno   :: Int     -- ^ Error number value.
+  , source  :: String  -- ^ Source where this error originates from.
+  , message :: String  -- ^ Actual error message.
   } deriving (Eq, Ord, Typeable)
 
 instance Show ZMQError where

@@ -15,7 +15,9 @@ build-type:         Simple
 extra-source-files: README.md
                   , AUTHORS
                   , examples/*.hs
+                  , examples/Makefile
                   , examples/perf/*.hs
+                  , examples/perf/Makefile
                   , tests/*.hs
                   , tests/System/ZMQ3/Test/*.hs
 description:

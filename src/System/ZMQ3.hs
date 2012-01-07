@@ -58,7 +58,7 @@
 -- 'receive' are internally non-blocking and use GHC's I/O manager to block
 -- calling threads when send or receive would yield EAGAIN. This combined with
 -- GHC's scalable threading model should relieve client code from the burden
--- to do it's own polling. For timeouts have a look at 'System.Timeout.timeout'.
+-- to do it's own polling. For timeouts please consider 'System.Timeout.timeout'.
 --
 -- /Error Handling/
 --
@@ -355,8 +355,8 @@ term = throwIfMinus1Retry_ "term" . c_zmq_term . ctx
 -- throws an exception.
 withContext :: Size -> (Context -> IO a) -> IO a
 withContext ioThreads act =
-  bracket (throwIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
-          (throwIfMinus1Retry_ "c_zmq_term" . c_zmq_term)
+  bracket (throwIfNull "withContext (init)" $ c_zmq_init (fromIntegral ioThreads))
+          (throwIfMinus1Retry_ "withContext (term)" . c_zmq_term)
           (act . Context)
 
 -- | Run an action with a 0MQ socket. The socket will be closed after running
