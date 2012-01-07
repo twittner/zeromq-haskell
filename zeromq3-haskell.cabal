@@ -1,5 +1,5 @@
 name:               zeromq3-haskell
-version:            0.1
+version:            0.1.1
 synopsis:           Bindings to ZeroMQ 3.x
 category:           System, FFI
 license:            MIT

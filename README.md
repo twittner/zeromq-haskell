@@ -5,7 +5,10 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
-Version 0.1 - First release to provide bindings against 0MQ 3.1.0
+Version 0.1.1 - Include better error message when trying to build against
+                invalid 0MQ version.
+
+Version 0.1   - First release to provide bindings against 0MQ 3.1.0
 
 Installation
 ------------

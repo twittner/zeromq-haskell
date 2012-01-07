@@ -18,7 +18,7 @@ import Control.Applicative
 #include <zmq.h>
 
 #if ZMQ_VERSION_MAJOR != 3
-    ERROR__Invalid_0MQ_Version
+    #error *** INVALID 0MQ VERSION (must be 3.x) ***
 #endif
 
 newtype ZMQMsg = ZMQMsg { content :: Ptr () }
