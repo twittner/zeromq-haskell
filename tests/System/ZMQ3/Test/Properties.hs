@@ -33,7 +33,6 @@ tests = [
       , testProperty "get socket option (XRep)" (prop_get_socket_option XRep)
       , testProperty "get socket option (Pull)" (prop_get_socket_option Pull)
       , testProperty "get socket option (Push)" (prop_get_socket_option Push)
-
       , testProperty "set/get socket option (Pair)" (prop_set_get_socket_option Pair)
       , testProperty "set/get socket option (Pub)"  (prop_set_get_socket_option Pub)
       , testProperty "set/get socket option (Sub)"  (prop_set_get_socket_option Sub)
@@ -45,7 +44,6 @@ tests = [
       , testProperty "set/get socket option (XRep)" (prop_set_get_socket_option XRep)
       , testProperty "set/get socket option (Pull)" (prop_set_get_socket_option Pull)
       , testProperty "set/get socket option (Push)" (prop_set_get_socket_option Push)
-
       , testProperty "(un-)subscribe"               (prop_subscribe Sub)
       ]
   , testGroup "0MQ Messages" [

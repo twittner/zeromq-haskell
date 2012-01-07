@@ -27,7 +27,7 @@
 -- * New type-classes:
 -- 'Sender', 'Receiver'
 --
--- /Socket options/
+-- /Socket Options/
 --
 -- Instead of a single 'SocketOption' data-type, getter and setter
 -- functions are provided, e.g. one would write: @'affinity' sock@ instead of
@@ -59,6 +59,13 @@
 -- calling threads when send or receive would yield EAGAIN. This combined with
 -- GHC's scalable threading model should relieve client code from the burden
 -- to do it's own polling. For timeouts have a look at 'System.Timeout.timeout'.
+--
+-- /Error Handling/
+--
+-- The type 'ZMQError' is introduced, together with inspection functions 'errno',
+-- 'source' and 'message'. @zmq_strerror@ is used underneath to retrieve the
+-- correct error message. ZMQError will be thrown when native 0MQ procedures return
+-- an error status and it can be 'catch'ed as an 'Exception'.
 
 module System.ZMQ3 (
 
@@ -68,7 +75,7 @@ module System.ZMQ3 (
   , Socket
   , Flag (SndMore)
   , Timeout
-  , Event(..)
+  , Event (..)
 
     -- ** Type Classes
   , SocketType
@@ -147,6 +154,12 @@ module System.ZMQ3 (
   , Data.Restricted.restrict
   , Data.Restricted.toRestricted
 
+    -- * Error Handling
+  , ZMQError
+  , errno
+  , source
+  , message
+
     -- * Low-level Functions
   , init
   , term
@@ -161,8 +174,7 @@ import Control.Exception
 import Control.Monad (unless, when)
 import Data.Restricted
 import Data.IORef (atomicModifyIORef)
-import Foreign
-import Foreign.C.Error
+import Foreign hiding (throwIf, throwIf_, throwIfNull)
 import Foreign.C.String
 import Foreign.C.Types (CInt)
 import qualified Data.ByteString as SB
@@ -172,6 +184,7 @@ import System.Posix.Types (Fd(..))
 import System.ZMQ3.Base
 import qualified System.ZMQ3.Base as B
 import System.ZMQ3.Internal
+import System.ZMQ3.Error
 
 import GHC.Conc (threadWaitRead, threadWaitWrite)
 
@@ -329,21 +342,21 @@ version =
 -- normally prefer to use 'withContext' instead.
 init :: Size -> IO Context
 init ioThreads = do
-    c <- throwErrnoIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
+    c <- throwIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
     return (Context c)
 
 -- | Terminate a 0MQ context (cf. zmq_term).  You should normally
 -- prefer to use 'withContext' instead.
 term :: Context -> IO ()
-term = throwErrnoIfMinus1Retry_ "term" . c_zmq_term . ctx
+term = throwIfMinus1Retry_ "term" . c_zmq_term . ctx
 
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
 -- throws an exception.
 withContext :: Size -> (Context -> IO a) -> IO a
 withContext ioThreads act =
-  bracket (throwErrnoIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
-          (throwErrnoIfMinus1Retry_ "c_zmq_term" . c_zmq_term)
+  bracket (throwIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
+          (throwIfMinus1Retry_ "c_zmq_term" . c_zmq_term)
           (act . Context)
 
 -- | Run an action with a 0MQ socket. The socket will be closed after running
@@ -357,7 +370,7 @@ withSocket c t = bracket (socket c t) close
 socket :: SocketType a => Context -> a -> IO (Socket a)
 socket (Context c) t = do
   let zt = typeVal . zmqSocketType $ t
-  s <- throwErrnoIfNull "socket" (c_zmq_socket c zt)
+  s <- throwIfNull "socket" (c_zmq_socket c zt)
   sock@(Socket _ status) <- mkSocket s
   addFinalizer sock $ do
     alive <- atomicModifyIORef status (\b -> (False, b))
@@ -369,7 +382,7 @@ socket (Context c) t = do
 close :: Socket a -> IO ()
 close sock@(Socket _ status) = onSocket "close" sock $ \s -> do
   alive <- atomicModifyIORef status (\b -> (False, b))
-  when alive $ throwErrnoIfMinus1_ "close" . c_zmq_close $ s
+  when alive $ throwIfMinus1_ "close" . c_zmq_close $ s
 
 -- | Subscribe Socket to given subscription.
 subscribe :: Subscriber a => Socket a -> String -> IO ()
@@ -537,12 +550,12 @@ setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 -- | Bind the socket to the given address (cf. zmq_bind)
 bind :: Socket a -> String -> IO ()
 bind sock str = onSocket "bind" sock $
-    throwErrnoIfMinus1_ "bind" . withCString str . c_zmq_bind
+    throwIfMinus1_ "bind" . withCString str . c_zmq_bind
 
 -- | Connect the socket to the given address (cf. zmq_connect).
 connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
-    throwErrnoIfMinus1_ "connect" . withCString str . c_zmq_connect
+    throwIfMinus1_ "connect" . withCString str . c_zmq_connect
 
 -- | Send the given 'SB.ByteString' over the socket (cf. zmq_sendmsg).
 --
@@ -594,7 +607,7 @@ toEvent e | e == (fromIntegral . pollVal $ pollIn)    = In
           | otherwise                                 = None
 
 retry :: String -> IO () -> IO CInt -> IO ()
-retry msg wait act = throwErrnoIfMinus1RetryMayBlock_ msg act wait
+retry msg wait act = throwIfMinus1RetryMayBlock_ msg act wait
 
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do

@@ -191,8 +191,8 @@ foreign import ccall unsafe "zmq.h zmq_getmsgopt"
                     -> Ptr ()    -- option value
                     -> Ptr CSize -- option value size ptr
                     -> IO CInt
--- poll
+-- error messages
 
-foreign import ccall safe "zmq.h zmq_poll"
-    c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
+foreign import ccall unsafe "zmq.h zmq_strerror"
+    c_zmq_strerror :: CInt -> IO CString
 

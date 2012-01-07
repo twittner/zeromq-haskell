@@ -33,6 +33,7 @@ library
     exposed-modules:      System.ZMQ3, Data.Restricted
     other-modules:        System.ZMQ3.Base
                         , System.ZMQ3.Internal
+                        , System.ZMQ3.Error
     includes:             zmq.h
     ghc-options:          -Wall -O2
     extensions:           CPP

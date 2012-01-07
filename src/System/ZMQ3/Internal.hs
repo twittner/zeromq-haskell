@@ -23,6 +23,7 @@ module System.ZMQ3.Internal
     , combine
     , mkSocket
     , onSocket
+
     ) where
 
 import Control.Applicative
@@ -31,7 +32,6 @@ import Control.Exception
 import Data.IORef (IORef)
 
 import Foreign
-import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt, CSize)
 
@@ -42,6 +42,7 @@ import Data.IORef (newIORef)
 import Data.Restricted
 
 import System.ZMQ3.Base
+import System.ZMQ3.Error
 
 type Timeout = Int64
 type Size    = Word
@@ -93,32 +94,32 @@ messageOfLazy lbs = do
 
 messageClose :: Message -> IO ()
 messageClose (Message ptr) = do
-    throwErrnoIfMinus1_ "messageClose" $ c_zmq_msg_close ptr
+    throwIfMinus1_ "messageClose" $ c_zmq_msg_close ptr
     free ptr
 
 messageInit :: IO Message
 messageInit = do
     ptr <- new (ZMQMsg nullPtr)
-    throwErrnoIfMinus1_ "messageInit" $ c_zmq_msg_init ptr
+    throwIfMinus1_ "messageInit" $ c_zmq_msg_init ptr
     return (Message ptr)
 
 messageInitSize :: Size -> IO Message
 messageInitSize s = do
     ptr <- new (ZMQMsg nullPtr)
-    throwErrnoIfMinus1_ "messageInitSize" $
+    throwIfMinus1_ "messageInitSize" $
         c_zmq_msg_init_size ptr (fromIntegral s)
     return (Message ptr)
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
-    throwErrnoIfMinus1Retry_ "setIntOpt" $ with i $ \ptr ->
+    throwIfMinus1Retry_ "setIntOpt" $ with i $ \ptr ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr ptr)
                            (fromIntegral . sizeOf $ i)
 
 setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
 setStrOpt sock (ZMQOption o) str = onSocket "setStrOpt" sock $ \s ->
-  throwErrnoIfMinus1Retry_ "setStrOpt" $ withCStringLen str $ \(cstr, len) ->
+  throwIfMinus1Retry_ "setStrOpt" $ withCStringLen str $ \(cstr, len) ->
         c_zmq_setsockopt s (fromIntegral o)
                            (castPtr cstr)
                            (fromIntegral len)
@@ -127,7 +128,7 @@ getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO b
 getIntOpt sock (ZMQOption o) i = onSocket "getIntOpt" sock $ \s -> do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwErrnoIfMinus1Retry_ "getIntOpt" $
+            throwIfMinus1Retry_ "getIntOpt" $
                 c_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 
@@ -135,7 +136,7 @@ getStrOpt :: Socket a -> ZMQOption -> IO String
 getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
     bracket (mallocBytes 255) free $ \bPtr ->
     bracket (new (255 :: CSize)) free $ \sPtr -> do
-        throwErrnoIfMinus1Retry_ "getStrOpt" $
+        throwIfMinus1Retry_ "getStrOpt" $
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
 
@@ -143,7 +144,7 @@ getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> a -> IO a
 getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwErrnoIfMinus1Retry_ "getIntMsgOpt" $
+            throwIfMinus1Retry_ "getIntMsgOpt" $
                 c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 

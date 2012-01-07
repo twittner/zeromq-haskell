@@ -37,7 +37,8 @@ Differences to the 0MQ 2.x binding
 This library is based on the zeromq-haskell binding for 0MQ 2.x. Socket types
 and options have been aligned with 0MQ 3.x and instead of using a big
 `SocketOption` datatype, this library provides separate get and set functions for
-each available option, e.g. `affinity`/`setAffinity`.
+each available option, e.g. `affinity`/`setAffinity`. For details, please refer
+to the module's haddock documentation.
 
 Examples
 --------
