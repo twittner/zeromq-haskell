@@ -610,7 +610,7 @@ receive sock = bracket messageInit messageClose $ \m ->
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
 
--- Receive a multi-part message.
+-- | Receive a multi-part message.
 -- This function collects all message parts send via 'sendMulti'.
 receiveMulti :: Receiver a => Socket a -> IO [SB.ByteString]
 receiveMulti sock = recvall []
