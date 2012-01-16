@@ -49,7 +49,7 @@ type Size    = Word
 
 -- | Flags to apply on send operations (cf. man zmq_send)
 data Flag = DontWait -- ^ ZMQ_DONTWAIT
-          | SndMore  -- ^ ZMQ_SNDMORE
+          | SendMore -- ^ ZMQ_SNDMORE
   deriving (Eq, Ord, Show)
 
 -- | A 0MQ context representation.
@@ -156,7 +156,7 @@ setInt32OptFromRestricted o x s = setIntOpt s o ((fromIntegral . rvalue $ x) :: 
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag DontWait = dontWait
-toZMQFlag SndMore = sndMore
+toZMQFlag SendMore = sndMore
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0

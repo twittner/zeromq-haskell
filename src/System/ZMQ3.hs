@@ -73,7 +73,7 @@ module System.ZMQ3 (
     Size
   , Context
   , Socket
-  , Flag (SndMore)
+  , Flag (SendMore)
   , Timeout
   , Event (..)
 
@@ -103,7 +103,9 @@ module System.ZMQ3 (
   , connect
   , send
   , send'
+  , sendMulti
   , receive
+  , receiveMulti
   , version
 
   , System.ZMQ3.subscribe
@@ -169,6 +171,7 @@ module System.ZMQ3 (
 ) where
 
 import Prelude hiding (init)
+import qualified Prelude as P
 import Control.Applicative
 import Control.Exception
 import Control.Monad (unless, when)
@@ -583,6 +586,15 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
     retry "send'" (waitWrite sock) $
           c_zmq_sendmsg s (msgPtr m) (combine (DontWait : fls))
 
+-- | Send a multi-part message.
+-- This function applies the 'SendMore' 'Flag' between all message parts.
+-- 0MQ guarantees atomic delivery of a multi-part message
+-- (cf. zmq_sendmsg for details).
+sendMulti :: Sender a => Socket a -> [SB.ByteString] -> IO ()
+sendMulti sock msgs = do
+    mapM_ (send sock [SendMore]) (P.init msgs)
+    send sock [] (last msgs)
+
 -- | Receive a 'ByteString' from socket (cf. zmq_recvmsg).
 --
 -- /Note/: This function always calls @zmq_recvmsg@ in a non-blocking way,
@@ -597,6 +609,18 @@ receive sock = bracket messageInit messageClose $ \m ->
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
+
+-- Receive a multi-part message.
+-- This function collects all message parts send via 'sendMulti'.
+receiveMulti :: Receiver a => Socket a -> IO [SB.ByteString]
+receiveMulti sock = recvall []
+  where
+    recvall acc = do
+        msg <- receive sock
+        moreToReceive sock >>= next (msg:acc)
+
+    next acc True  = recvall acc
+    next acc False = return (reverse acc)
 
 -- Convert bit-masked word into Event.
 toEvent :: Word32 -> Event
