@@ -208,7 +208,7 @@ data SocketOption =
   | McastLoop       Bool      -- ^ ZMQ_MCAST_LOOP
   | RecoveryIVLMsec Int64     -- ^ ZMQ_RECOVERY_IVL_MSEC
   | Swap            Int64     -- ^ ZMQ_SWAP
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read)
 
 -- | The events to wait for in poll (cf. man zmq_poll)
 data PollEvent =
@@ -217,7 +217,7 @@ data PollEvent =
   | InOut  -- ^ ZMQ_POLLIN | ZMQ_POLLOUT
   | Native -- ^ ZMQ_POLLERR
   | None
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read)
 
 -- | Type representing a descriptor, poll is waiting for
 -- (either a 0MQ socket or a file descriptor) plus the type

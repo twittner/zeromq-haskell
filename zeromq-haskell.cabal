@@ -1,5 +1,5 @@
 name:               zeromq-haskell
-version:            0.8.2
+version:            0.8.3
 synopsis:           Bindings to ZeroMQ 2.1.x
 category:           System, FFI
 license:            MIT
