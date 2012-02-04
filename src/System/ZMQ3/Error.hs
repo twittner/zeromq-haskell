@@ -56,19 +56,19 @@ throwIfRetry p src act = do
 throwIfRetry_ :: (a -> Bool) -> String -> IO a -> IO ()
 throwIfRetry_ p src act = void $ throwIfRetry p src act
 
-throwIfMinus1 :: Num a => String -> IO a -> IO a
+throwIfMinus1 :: (Eq a, Num a) => String -> IO a -> IO a
 throwIfMinus1 = throwIf (== -1)
 
-throwIfMinus1_ :: Num a => String -> IO a -> IO ()
+throwIfMinus1_ :: (Eq a, Num a) => String -> IO a -> IO ()
 throwIfMinus1_ = throwIf_ (== -1)
 
 throwIfNull :: String -> IO (Ptr a) -> IO (Ptr a)
 throwIfNull = throwIf (== nullPtr)
 
-throwIfMinus1Retry :: Num a => String -> IO a -> IO a
+throwIfMinus1Retry :: (Eq a, Num a) => String -> IO a -> IO a
 throwIfMinus1Retry = throwIfRetry (== -1)
 
-throwIfMinus1Retry_ :: Num a => String -> IO a -> IO ()
+throwIfMinus1Retry_ :: (Eq a, Num a) => String -> IO a -> IO ()
 throwIfMinus1Retry_ = throwIfRetry_ (== -1)
 
 throwIfRetryMayBlock :: (a -> Bool) -> String -> IO a -> IO b -> IO a
@@ -83,10 +83,10 @@ throwIfRetryMayBlock p src f on_block = do
 throwIfRetryMayBlock_ :: (a -> Bool) -> String -> IO a -> IO b -> IO ()
 throwIfRetryMayBlock_ p src f on_block = void $ throwIfRetryMayBlock p src f on_block
 
-throwIfMinus1RetryMayBlock :: Num a => String -> IO a -> IO b -> IO a
+throwIfMinus1RetryMayBlock :: (Eq a, Num a) => String -> IO a -> IO b -> IO a
 throwIfMinus1RetryMayBlock = throwIfRetryMayBlock (== -1)
 
-throwIfMinus1RetryMayBlock_ :: Num a => String -> IO a -> IO b -> IO ()
+throwIfMinus1RetryMayBlock_ :: (Eq a, Num a) => String -> IO a -> IO b -> IO ()
 throwIfMinus1RetryMayBlock_ = throwIfRetryMayBlock_ (== -1)
 
 zmqErrnoMessage :: CInt -> IO String
