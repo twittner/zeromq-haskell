@@ -151,6 +151,19 @@ foreign import ccall unsafe "zmq.h zmq_msg_data"
 foreign import ccall unsafe "zmq.h zmq_msg_size"
     c_zmq_msg_size :: ZMQMsgPtr -> IO CSize
 
+foreign import ccall unsafe "zmq.h zmq_msg_get"
+    c_zmq_msg_get :: ZMQMsgPtr
+                    -> CInt      -- option
+                    -> Ptr ()    -- option value
+                    -> Ptr CSize -- option value size ptr
+                    -> IO CInt
+
+foreign import ccall unsafe "zmq.h zmq_msg_set"
+    c_zmq_msg_set :: ZMQMsgPtr
+                    -> CInt      -- option
+                    -> Ptr ()    -- option value
+                    -> Ptr CSize -- option value size ptr
+                    -> IO CInt
 -- socket
 
 foreign import ccall unsafe "zmq.h zmq_socket"
@@ -185,12 +198,6 @@ foreign import ccall unsafe "zmq.h zmq_sendmsg"
 foreign import ccall unsafe "zmq.h zmq_recvmsg"
     c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_getmsgopt"
-    c_zmq_getmsgopt :: ZMQMsgPtr
-                    -> CInt      -- option
-                    -> Ptr ()    -- option value
-                    -> Ptr CSize -- option value size ptr
-                    -> IO CInt
 -- error messages
 
 foreign import ccall unsafe "zmq.h zmq_strerror"

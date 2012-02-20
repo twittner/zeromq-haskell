@@ -152,7 +152,7 @@ getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
             throwIfMinus1Retry_ "getIntMsgOpt" $
-                c_zmq_getmsgopt m (fromIntegral o) (castPtr iptr) jptr
+                c_zmq_msg_get m (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 
 getInt32Option :: ZMQOption -> Socket a -> IO Int
