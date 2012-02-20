@@ -18,8 +18,9 @@
 --
 -- * 'System.ZMQ.Up' and 'System.ZMQ.Down' no longer exist.
 --
--- * Some 0MQ tutorials mention 'ZMQ_DEALER' and 'ZMQ_ROUTER'. These
--- are aliases of 'XRep' and 'XReq'.
+-- * 'XReq' is renamed to 'Dealer' and 'XRep' is renamed to 'Router'
+-- (in accordance with libzmq). 'XReq' and 'XRep' are available as
+-- deprecated aliases.
 --
 -- * Renamed type-classes:
 -- @'SType' -\> 'SocketType'@, @'SubsType' -\> 'Subscriber'@.
@@ -91,8 +92,10 @@ module System.ZMQ3 (
   , XSub(..)
   , Req(..)
   , Rep(..)
-  , XReq(..)
-  , XRep(..)
+  , Dealer(..)
+  , Router(..)
+  , XReq
+  , XRep
   , Pull(..)
   , Push(..)
 
@@ -222,30 +225,38 @@ data XSub = XSub
 -- | Socket to send requests and receive replies. Requests are
 -- load-balanced among all the peers. This socket type allows only an
 -- alternated sequence of send's and recv's.
--- /Compatible peer sockets/: 'Rep', 'Xrep'.
+-- /Compatible peer sockets/: 'Rep', 'Router'.
 data Req = Req
 
 -- | Socket to receive requests and send replies. This socket type
 -- allows only an alternated sequence of receive's and send's. Each
 -- send is routed to the peer that issued the last received request.
--- /Compatible peer sockets/: 'Req', 'XReq'.
+-- /Compatible peer sockets/: 'Req', 'Dealer'.
 data Rep = Rep
 
--- | Special socket type to be used in request/reply middleboxes
--- such as zmq_queue(7).  Requests forwarded using this socket type
--- should be tagged by a proper prefix identifying the original requester.
--- Replies received by this socket are tagged with a proper postfix
--- that can be use to route the reply back to the original requester.
--- /Compatible peer sockets/: 'Rep', 'XRep'.
-data XReq = XReq
+-- | Each message sent is round-robined among all connected peers,
+-- and each message received is fair-queued from all connected peers.
+-- /Compatible peer sockets/: 'Router', 'Req', 'Rep'.
+data Dealer = Dealer
 
--- | Special socket type to be used in request/reply middleboxes
--- such as zmq_queue(7).  Requests received using this socket are already
--- properly tagged with prefix identifying the original requester. When
--- sending a reply via XRep socket the message should be tagged with a
--- prefix from a corresponding request.
--- /Compatible peer sockets/: 'Req', 'XReq'.
-data XRep = XRep
+-- | /Deprecated Alias/
+type XReq = Dealer
+{-# DEPRECATED XReq "Use Dealer" #-}
+
+-- | When receiving messages a Router socket shall prepend a message
+-- part containing the identity of the originating peer to
+-- the message before passing it to the application. Messages
+-- received are fair-queued from among all connected peers. When
+-- sending messages a Router socket shall remove the first part of
+-- the message and use it to determine the identity of the peer the
+-- message shall be routed to. If the peer does not exist anymore
+-- the message shall be silently discarded.
+-- /Compatible peer sockets/: 'Dealer', 'Req', 'Rep'.
+data Router = Router
+
+-- | /Deprecated Alias/
+type XRep = Router
+{-# DEPRECATED XRep "Use Router" #-}
 
 -- | A socket of type Pull is used by a pipeline node to receive
 -- messages from upstream pipeline nodes. Messages are fair-queued from
@@ -305,13 +316,13 @@ instance SocketType Rep where zmqSocketType = const response
 instance Sender     Rep
 instance Receiver   Rep
 
-instance SocketType XReq where zmqSocketType = const xrequest
-instance Sender     XReq
-instance Receiver   XReq
+instance SocketType Dealer where zmqSocketType = const dealer
+instance Sender     Dealer
+instance Receiver   Dealer
 
-instance SocketType XRep where zmqSocketType = const xresponse
-instance Sender     XRep
-instance Receiver   XRep
+instance SocketType Router where zmqSocketType = const router
+instance Sender     Router
+instance Receiver   Router
 
 instance SocketType Pull where zmqSocketType = const pull
 instance Receiver   Pull
