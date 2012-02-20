@@ -182,7 +182,6 @@ import Foreign.C.String
 import Foreign.C.Types (CInt)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
-import System.Mem.Weak (addFinalizer)
 import System.Posix.Types (Fd(..))
 import System.ZMQ3.Base
 import qualified System.ZMQ3.Base as B
@@ -373,12 +372,7 @@ withSocket c t = bracket (socket c t) close
 socket :: SocketType a => Context -> a -> IO (Socket a)
 socket (Context c) t = do
   let zt = typeVal . zmqSocketType $ t
-  s <- throwIfNull "socket" (c_zmq_socket c zt)
-  sock@(Socket _ status) <- mkSocket s
-  addFinalizer sock $ do
-    alive <- atomicModifyIORef status (\b -> (False, b))
-    when alive $ c_zmq_close s >> return () -- socket has not been closed yet
-  return sock
+  throwIfNull "socket" (c_zmq_socket c zt) >>= mkSocket
 
 -- | Close a 0MQ socket. 'withSocket' provides automatic socket closing and may
 -- be safer to use.
