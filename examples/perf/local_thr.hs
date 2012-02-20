@@ -35,6 +35,7 @@ main = do
         receive s sz
         loop s (c - 1) sz
 
+    printStat :: UTCTime -> UTCTime -> Int -> Int -> IO ()
     printStat start end size count = do
         let elapsed = fromRational . toRational $ diffUTCTime end start :: Double
             through = fromIntegral count / elapsed
