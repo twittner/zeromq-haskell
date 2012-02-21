@@ -151,6 +151,7 @@ foreign import ccall unsafe "zmq.h zmq_msg_data"
 foreign import ccall unsafe "zmq.h zmq_msg_size"
     c_zmq_msg_size :: ZMQMsgPtr -> IO CSize
 
+#if 0
 foreign import ccall unsafe "zmq.h zmq_msg_get"
     c_zmq_msg_get :: ZMQMsgPtr
                     -> CInt      -- option
@@ -164,6 +165,8 @@ foreign import ccall unsafe "zmq.h zmq_msg_set"
                     -> Ptr ()    -- option value
                     -> Ptr CSize -- option value size ptr
                     -> IO CInt
+#endif
+
 -- socket
 
 foreign import ccall unsafe "zmq.h zmq_socket"

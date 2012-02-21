@@ -15,7 +15,6 @@ module System.ZMQ3.Internal
     , setStrOpt
     , getIntOpt
     , getStrOpt
-    , getIntMsgOpt
     , getInt32Option
     , setInt32OptFromRestricted
 
@@ -146,14 +145,6 @@ getStrOpt sock (ZMQOption o) = onSocket "getStrOpt" sock $ \s ->
         throwIfMinus1Retry_ "getStrOpt" $
             c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekCStringLen (bPtr, fromIntegral len)
-
-getIntMsgOpt :: (Storable a, Integral a) => Message -> ZMQMsgOption -> a -> IO a
-getIntMsgOpt (Message m) (ZMQMsgOption o) i = do
-    bracket (new i) free $ \iptr ->
-        bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwIfMinus1Retry_ "getIntMsgOpt" $
-                c_zmq_msg_get m (fromIntegral o) (castPtr iptr) jptr
-            peek iptr
 
 getInt32Option :: ZMQOption -> Socket a -> IO Int
 getInt32Option o s = fromIntegral <$> getIntOpt s o (0 :: CInt)
