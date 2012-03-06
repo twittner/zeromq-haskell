@@ -5,6 +5,8 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
+Version 0.1.4 - Expose 'waitRead' and 'waitWrite'.
+
 Version 0.1.3 - Deprecated 'Xreq', 'XRep' in favour of 'Dealer' and 'Router'
                 as in libzmq. Fixes to compile and run with GHC 7.4.1.
 

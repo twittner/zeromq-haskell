@@ -59,7 +59,7 @@
 -- 'receive' are internally non-blocking and use GHC's I/O manager to block
 -- calling threads when send or receive would yield EAGAIN. This combined with
 -- GHC's scalable threading model should relieve client code from the burden
--- to do it's own polling. For timeouts please consider 'System.Timeout.timeout'.
+-- to do it's own polling.
 --
 -- /Error Handling/
 --
@@ -170,6 +170,8 @@ module System.ZMQ3 (
   , term
   , socket
   , close
+  , waitRead
+  , waitWrite
 
 ) where
 
@@ -648,7 +650,15 @@ wait' w f s = do
   where
     testev e = e .&. fromIntegral (pollVal f) /= 0
 
-waitRead, waitWrite :: Socket a -> IO ()
+-- | Wait until data is available for reading from the given Socket.
+-- After this function returns, a call to 'receive' will essentially be
+-- non-blocking.
+waitRead :: Socket a -> IO ()
 waitRead = wait' threadWaitRead pollIn
+
+-- | Wait until data can be written to the given Socket.
+-- After this function returns, a call to 'send' will essentially be
+-- non-blocking.
+waitWrite :: Socket a -> IO ()
 waitWrite = wait' threadWaitWrite pollOut
 
