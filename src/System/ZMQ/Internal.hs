@@ -24,7 +24,7 @@ module System.ZMQ.Internal
     ) where
 
 import Control.Applicative
-import Control.Monad (foldM_)
+import Control.Monad (foldM_, when)
 import Control.Exception
 import Data.IORef (IORef)
 
@@ -36,7 +36,7 @@ import Foreign.C.Types (CInt, CSize)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Unsafe as UB
-import Data.IORef (newIORef)
+import Data.IORef (newIORef, mkWeakIORef, readIORef)
 
 import System.ZMQ.Base
 
@@ -71,7 +71,14 @@ onSocket _func (Socket sock _state) act = act sock
 {-# INLINE onSocket #-}
 
 mkSocket :: ZMQSocket -> IO (Socket a)
-mkSocket s = Socket s <$> newIORef True
+mkSocket s = do
+    ref <- newIORef True
+    addFinalizer ref $ do
+        alive <- readIORef ref
+        when alive $ c_zmq_close s >> return ()
+    return (Socket s ref)
+  where
+    addFinalizer r f = mkWeakIORef r f >> return ()
 
 messageOf :: SB.ByteString -> IO Message
 messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do

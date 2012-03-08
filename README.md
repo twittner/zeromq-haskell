@@ -5,6 +5,8 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
+Version 0.8.4 - Various fixes to work with GHC 7.4.1.
+
 Version 0.8.3 - Derive Read in SocketOption and PollEvent.
 
 Version 0.8.2 - Revert changes to support 0MQ 2.x as well as 3.x in a single

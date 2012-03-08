@@ -1,5 +1,5 @@
 name:               zeromq-haskell
-version:            0.8.3
+version:            0.8.4
 synopsis:           Bindings to ZeroMQ 2.1.x
 category:           System, FFI
 license:            MIT
@@ -9,7 +9,7 @@ maintainer:         toralf.wittner@gmail.com
 copyright:          Copyright (c) 2011 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
-tested-With:        GHC == 7.0.3
+tested-With:        GHC == 7.4.1
 cabal-version:      >= 1.8
 build-type:         Simple
 extra-source-files: README.md

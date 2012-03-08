@@ -33,6 +33,8 @@ module System.ZMQ (
   , Rep(..)
   , XReq(..)
   , XRep(..)
+  , Dealer(..)
+  , Router(..)
   , Pull(..)
   , Push(..)
   , Up(..)
@@ -75,7 +77,6 @@ import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Lazy as LB
-import System.Mem.Weak (addFinalizer)
 import System.Posix.Types (Fd(..))
 import System.ZMQ.Base
 import qualified System.ZMQ.Base as B
@@ -135,6 +136,10 @@ data XReq = XReq
 instance SType XReq where
     zmqSocketType = const xrequest
 
+data Dealer = Dealer
+instance SType Dealer where
+    zmqSocketType = const dealer
+
 -- | Special socket type to be used in request/reply middleboxes
 -- such as zmq_queue(7).  Requests received using this socket are already
 -- properly tagged with prefix identifying the original requester. When
@@ -144,6 +149,10 @@ instance SType XReq where
 data XRep = XRep
 instance SType XRep where
     zmqSocketType = const xresponse
+
+data Router = Router
+instance SType Router where
+    zmqSocketType = const router
 
 -- | A socket of type Pull is used by a pipeline node to receive
 -- messages from upstream pipeline nodes. Messages are fair-queued from
@@ -315,13 +324,8 @@ withSocket c t = bracket (socket c t) close
 -- automatic socket closing and may be safer to use.
 socket :: SType a => Context -> a -> IO (Socket a)
 socket (Context c) t = do
-  let zt = typeVal . zmqSocketType $ t
-  s <- throwErrnoIfNull "socket" (c_zmq_socket c zt)
-  sock@(Socket _ status) <- mkSocket s
-  addFinalizer sock $ do
-    alive <- atomicModifyIORef status (\b -> (False, b))
-    when alive $ c_zmq_close s >> return () -- socket has not been closed yet
-  return sock
+    let zt = typeVal . zmqSocketType $ t
+    throwErrnoIfNull "socket" (c_zmq_socket c zt) >>= mkSocket
 
 -- | Close a 0MQ socket. 'withSocket' provides automatic socket closing and may
 -- be safer to use.
