@@ -297,7 +297,7 @@ version =
 -- normally prefer to use 'with' instead.
 init :: Size -> IO Context
 init ioThreads = do
-    c <- throwErrnoIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
+    c <- throwErrnoIfNull "init" $ c_init (fromIntegral ioThreads)
     return (Context c)
 
 -- | Terminate a 0MQ context (cf. zmq_term).  You should normally
@@ -310,7 +310,7 @@ term = throwErrnoIfMinus1Retry_ "term" . c_zmq_term . ctx
 -- throws an exception.
 withContext :: Size -> (Context -> IO a) -> IO a
 withContext ioThreads act =
-  bracket (throwErrnoIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
+  bracket (throwErrnoIfNull "c_init" $ c_init (fromIntegral ioThreads))
           (throwErrnoIfMinus1Retry_ "c_zmq_term" . c_zmq_term)
           (act . Context)
 
