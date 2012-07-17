@@ -297,21 +297,21 @@ version =
 -- normally prefer to use 'with' instead.
 init :: Size -> IO Context
 init ioThreads = do
-    c <- throwErrnoIfNull "init" $ c_init (fromIntegral ioThreads)
+    c <- throwErrnoIfNull "init" $ c_zmq_init (fromIntegral ioThreads)
     return (Context c)
 
 -- | Terminate a 0MQ context (cf. zmq_term).  You should normally
 -- prefer to use 'with' instead.
 term :: Context -> IO ()
-term = throwErrnoIfMinus1Retry_ "term" . c_zmq_term . ctx
+term = throwErrnoIfMinus1Retry_ "term" . c_term . ctx
 
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
 -- throws an exception.
 withContext :: Size -> (Context -> IO a) -> IO a
 withContext ioThreads act =
-  bracket (throwErrnoIfNull "c_init" $ c_init (fromIntegral ioThreads))
-          (throwErrnoIfMinus1Retry_ "c_zmq_term" . c_zmq_term)
+  bracket (throwErrnoIfNull "c_zmq_init" $ c_zmq_init (fromIntegral ioThreads))
+          (throwErrnoIfMinus1Retry_ "c_term" . c_term)
           (act . Context)
 
 -- | Run an action with a 0MQ socket. The socket will be closed after running

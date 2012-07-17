@@ -134,11 +134,11 @@ foreign import ccall safe "zmq.h zmq_device"
 foreign import ccall unsafe "zmq.h zmq_version"
     c_zmq_version :: Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
 
-foreign import ccall unsafe "init"
-    c_init :: CInt -> IO ZMQCtx
+foreign import ccall unsafe "zmq.h zmq_init"
+    c_zmq_init :: CInt -> IO ZMQCtx
 
-foreign import ccall unsafe "zmq.h zmq_term"
-    c_zmq_term :: ZMQCtx -> IO CInt
+foreign import ccall unsafe "term"
+    c_term :: ZMQCtx -> IO CInt
 
 -- zmq_msg_t related
 

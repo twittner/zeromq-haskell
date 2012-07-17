@@ -3,17 +3,16 @@
 #ifndef ZMQ_HAVE_WINDOWS
 
 #include <signal.h>
-#include <assert.h>
 
-void* init (int nthreads) {
+int term (void* ctx) {
         signal (SIGVTALRM, SIG_IGN);
-        return zmq_init (nthreads);
+        return zmq_term (ctx);
 }
 
 #else
 
-void* init (int nthreads) {
-        return zmq_init (nthreads);
+int term (void* ctx) {
+        return zmq_term (ctx);
 }
 
 #endif
