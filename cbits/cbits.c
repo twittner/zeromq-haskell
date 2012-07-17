@@ -5,7 +5,9 @@
 #include <signal.h>
 
 int term (void* ctx) {
-        signal (SIGVTALRM, SIG_IGN);
+        int i;
+        for (i = 1; i < NSIG; ++i)
+                signal (i, SIG_IGN);
         return zmq_term (ctx);
 }
 
