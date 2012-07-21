@@ -363,7 +363,7 @@ init ioThreads = do
 -- | Terminate a 0MQ context (cf. zmq_term).  You should normally
 -- prefer to use 'withContext' instead.
 term :: Context -> IO ()
-term = throwIfMinus1Retry_ "term" . c_zmq_term . ctx
+term = throwIfMinus1Retry_ "term" . c_term . ctx
 
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
@@ -371,7 +371,7 @@ term = throwIfMinus1Retry_ "term" . c_zmq_term . ctx
 withContext :: Size -> (Context -> IO a) -> IO a
 withContext ioThreads act =
   bracket (throwIfNull "withContext (init)" $ c_zmq_init (fromIntegral ioThreads))
-          (throwIfMinus1Retry_ "withContext (term)" . c_zmq_term)
+          (throwIfMinus1Retry_ "withContext (term)" . c_term)
           (act . Context)
 
 -- | Run an action with a 0MQ socket. The socket will be closed after running
