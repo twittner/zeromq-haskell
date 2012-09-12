@@ -31,7 +31,6 @@ description:
     This library provides the Haskell language binding to 0MQ >= 3.1.0
 
 library
-    c-sources:            cbits/cbits.c
     hs-source-dirs:       src
     exposed-modules:      System.ZMQ3, Data.Restricted
     other-modules:        System.ZMQ3.Base
