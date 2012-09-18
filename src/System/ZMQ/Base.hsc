@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, ForeignFunctionInterface #-}
+{-# LANGUAGE CPP, ForeignFunctionInterface, InterruptibleFFI #-}
 -- |
 -- Module      : System.ZMQ.Base
 -- Copyright   : (c) 2010-2011 Toralf Wittner
@@ -126,7 +126,7 @@ newtype ZMQDevice = ZMQDevice { deviceType :: CInt } deriving (Eq, Ord)
     deviceQueue     = ZMQ_QUEUE
 }
 
-foreign import ccall safe "zmq.h zmq_device"
+foreign import ccall interruptible "zmq.h zmq_device"
     c_zmq_device :: CInt -> ZMQSocket -> ZMQSocket -> IO CInt
 
 -- general initialization
