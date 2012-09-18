@@ -30,7 +30,6 @@ description:
     supports 0MQ 2.1.x.
 
 library
-    c-sources:            cbits/cbits.c
     hs-source-dirs:       src
     exposed-modules:      System.ZMQ
     other-modules:        System.ZMQ.Base
