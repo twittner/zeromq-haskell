@@ -42,7 +42,6 @@ library
                         , ForeignFunctionInterface
     build-depends:        base >= 3 && < 5
                         , transformers >= 0.3
-                        , MonadCatchIO-transformers >= 0.3
                         , containers
                         , bytestring
                         , ioscope
