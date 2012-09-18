@@ -32,7 +32,7 @@ description:
 
 library
     hs-source-dirs:       src
-    exposed-modules:      System.ZMQ3, Data.Restricted
+    exposed-modules:      System.ZMQ3, System.ZMQ3.Safe, Data.Restricted
     other-modules:        System.ZMQ3.Base
                         , System.ZMQ3.Internal
                         , System.ZMQ3.Error
@@ -41,8 +41,11 @@ library
     extensions:           CPP
                         , ForeignFunctionInterface
     build-depends:        base >= 3 && < 5
+                        , transformers >= 0.3
+                        , MonadCatchIO-transformers >= 0.3
                         , containers
                         , bytestring
+                        , ioscope
 
     if os(freebsd)
         extra-libraries:  zmq, pthread
