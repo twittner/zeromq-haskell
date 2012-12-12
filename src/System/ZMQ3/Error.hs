@@ -6,11 +6,12 @@
 -- used by the standard throw* functions in 'Foreign.C.Error'.
 module System.ZMQ3.Error where
 
+import Control.Monad
 import Control.Exception
 import Text.Printf
 import Data.Typeable (Typeable)
 
-import Foreign hiding (throwIf, throwIf_)
+import Foreign hiding (throwIf, throwIf_, void)
 import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt)
