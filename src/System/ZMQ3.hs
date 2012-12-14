@@ -173,16 +173,18 @@ module System.ZMQ3 (
   , waitRead
   , waitWrite
 
+    -- * Utils
+  , proxy
 ) where
 
 import Prelude hiding (init)
 import qualified Prelude as P
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, when)
+import Control.Monad (unless, when, void)
 import Data.Restricted
 import Data.IORef (atomicModifyIORef)
-import Foreign hiding (throwIf, throwIf_, throwIfNull)
+import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt)
 import qualified Data.ByteString as SB
@@ -662,3 +664,18 @@ waitRead = wait' threadWaitRead pollIn
 waitWrite :: Socket a -> IO ()
 waitWrite = wait' threadWaitWrite pollOut
 
+-- | Starts built-in 0MQ proxy.
+--
+-- Proxy connects front to back socket
+--
+-- Before calling proxy all sockets should be binded
+--
+-- If the capture socket is not Nothing, the proxy  shall send all
+-- messages, received on both frontend and backend, to the capture socket.
+proxy :: Socket a -> Socket b -> Maybe (Socket c) -> IO ()
+proxy front back capture =
+  onSocket "proxy-front" front $ \f ->
+    onSocket "proxy-back" back $ \b ->
+      void (c_zmq_proxy f b c)
+  where
+    c = maybe nullPtr _socket capture
