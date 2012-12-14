@@ -61,45 +61,90 @@ type ZMQPollPtr = Ptr ZMQPoll
 newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQSocketType, ZMQSocketType
-  , pair       = ZMQ_PAIR
-  , pub        = ZMQ_PUB
-  , sub        = ZMQ_SUB
-  , xpub       = ZMQ_XPUB
-  , xsub       = ZMQ_XSUB
-  , request    = ZMQ_REQ
-  , response   = ZMQ_REP
-  , dealer     = ZMQ_DEALER
-  , router     = ZMQ_ROUTER
-  , pull       = ZMQ_PULL
-  , push       = ZMQ_PUSH
+  , pair     = ZMQ_PAIR
+  , pub      = ZMQ_PUB
+  , sub      = ZMQ_SUB
+  , xpub     = ZMQ_XPUB
+  , xsub     = ZMQ_XSUB
+  , request  = ZMQ_REQ
+  , response = ZMQ_REP
+  , dealer   = ZMQ_DEALER
+  , router   = ZMQ_ROUTER
+  , pull     = ZMQ_PULL
+  , push     = ZMQ_PUSH
 }
 
 newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQOption, ZMQOption
-  , affinity        = ZMQ_AFFINITY
-  , backlog         = ZMQ_BACKLOG
-  , events          = ZMQ_EVENTS
-  , filedesc        = ZMQ_FD
-  , identity        = ZMQ_IDENTITY
-  , ipv4Only        = ZMQ_IPV4ONLY
-  , linger          = ZMQ_LINGER
-  , maxMessageSize  = ZMQ_MAXMSGSIZE
-  , mcastHops       = ZMQ_MULTICAST_HOPS
-  , rate            = ZMQ_RATE
-  , receiveBuf      = ZMQ_RCVBUF
-  , receiveHighWM   = ZMQ_RCVHWM
-  , receiveMore     = ZMQ_RCVMORE
-  , receiveTimeout  = ZMQ_RCVTIMEO
-  , reconnectIVL    = ZMQ_RECONNECT_IVL
-  , reconnectIVLMax = ZMQ_RECONNECT_IVL_MAX
-  , recoveryIVL     = ZMQ_RECOVERY_IVL
-  , sendBuf         = ZMQ_SNDBUF
-  , sendHighWM      = ZMQ_SNDHWM
-  , sendTimeout     = ZMQ_SNDTIMEO
-  , subscribe       = ZMQ_SUBSCRIBE
-  , unsubscribe     = ZMQ_UNSUBSCRIBE
+  , affinity             = ZMQ_AFFINITY
+  , backlog              = ZMQ_BACKLOG
+  , delayAttachOnConnect = ZMQ_DELAY_ATTACH_ON_CONNECT
+  , events               = ZMQ_EVENTS
+  , filedesc             = ZMQ_FD
+  , identity             = ZMQ_IDENTITY
+  , ipv4Only             = ZMQ_IPV4ONLY
+  , lastEndpoint         = ZMQ_LAST_ENDPOINT
+  , linger               = ZMQ_LINGER
+  , maxMessageSize       = ZMQ_MAXMSGSIZE
+  , mcastHops            = ZMQ_MULTICAST_HOPS
+  , rate                 = ZMQ_RATE
+  , receiveBuf           = ZMQ_RCVBUF
+  , receiveHighWM        = ZMQ_RCVHWM
+  , receiveMore          = ZMQ_RCVMORE
+  , receiveTimeout       = ZMQ_RCVTIMEO
+  , reconnectIVL         = ZMQ_RECONNECT_IVL
+  , reconnectIVLMax      = ZMQ_RECONNECT_IVL_MAX
+  , recoveryIVL          = ZMQ_RECOVERY_IVL
+  , routerMandatory      = ZMQ_ROUTER_MANDATORY
+  , sendBuf              = ZMQ_SNDBUF
+  , sendHighWM           = ZMQ_SNDHWM
+  , sendTimeout          = ZMQ_SNDTIMEO
+  , subscribe            = ZMQ_SUBSCRIBE
+  , tcpAcceptFilter      = ZMQ_TCP_ACCEPT_FILTER
+  , tcpKeepAlive         = ZMQ_TCP_KEEPALIVE
+  , tcpKeepAliveCount    = ZMQ_TCP_KEEPALIVE_CNT
+  , tcpKeepAliveIdle     = ZMQ_TCP_KEEPALIVE_IDLE
+  , tcpKeepAliveInterval = ZMQ_TCP_KEEPALIVE_INTVL
+  , unsubscribe          = ZMQ_UNSUBSCRIBE
+  , xpubVerbose          = ZMQ_XPUB_VERBOSE
 }
+
+newtype ZMQEventType = ZMQEventType { eventTypeVal :: CInt } deriving (Eq, Ord)
+
+#{enum ZMQEventType, ZMQEventType
+  , connected      = ZMQ_EVENT_CONNECTED
+  , connectDelayed = ZMQ_EVENT_CONNECT_DELAYED
+  , connectRetried = ZMQ_EVENT_CONNECT_RETRIED
+  , listening      = ZMQ_EVENT_LISTENING
+  , bindFailed     = ZMQ_EVENT_BIND_FAILED
+  , accepted       = ZMQ_EVENT_ACCEPTED
+  , acceptFailed   = ZMQ_EVENT_ACCEPT_FAILED
+  , closed         = ZMQ_EVENT_CLOSED
+  , closeFailed    = ZMQ_EVENT_CLOSE_FAILED
+  , disconnected   = ZMQ_EVENT_DISCONNECTED
+}
+
+#if 0
+data ZMQEvent = ZMQEvent
+    { eventTag :: {-# UNPACK #-} !CInt
+    , addr     :: {-# UNPACK #-} !CChar
+    , payload  :: {-# UNPACK #-} !CInt
+    }
+
+instance Storable ZMQEvent where
+    alignment _ = #{alignment zmq_event_t}
+    sizeOf    _ = #{size zmq_event_t}
+    peek p = do
+        t <- #{peek zmq_event_t, event} p
+        a <- peekByteOff p #{offset zmq_event_t, data.connected.addr}
+        i <- peekByteOff p #{offset zmq_event_t, data.connected.fd}
+        return $ ZMQEvent t a i
+    poke p (ZMQEvent t a i) = do
+        #{poke zmq_event_t, event} p t
+        pokeByteOff p #{offset zmq_event_t, data.connected.addr} a
+        pokeByteOff p #{offset zmq_event_t, data.connected.fd} i
+#endif
 
 newtype ZMQMsgOption = ZMQMsgOption { msgOptVal :: CInt } deriving (Eq, Ord)
 
@@ -128,11 +173,17 @@ newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
 foreign import ccall unsafe "zmq.h zmq_version"
     c_zmq_version :: Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
 
-foreign import ccall unsafe "zmq.h zmq_init"
-    c_zmq_init :: CInt -> IO ZMQCtx
+foreign import ccall unsafe "zmq.h zmq_ctx_new"
+    c_zmq_ctx_new :: IO ZMQCtx
 
-foreign import ccall unsafe "zmq.h zmq_term"
-    c_zmq_term :: ZMQCtx -> IO CInt
+foreign import ccall unsafe "zmq.h zmq_ctx_destroy"
+    c_zmq_ctx_destroy :: ZMQCtx -> IO CInt
+
+foreign import ccall unsafe "zmq.h zmq_ctx_get"
+    c_zmq_ctx_get :: ZMQCtx -> CInt -> IO CInt
+
+foreign import ccall unsafe "zmq.h zmq_ctx_set"
+    c_zmq_ctx_set :: ZMQCtx -> CInt -> CInt -> IO CInt
 
 -- zmq_msg_t related
 
@@ -151,21 +202,11 @@ foreign import ccall unsafe "zmq.h zmq_msg_data"
 foreign import ccall unsafe "zmq.h zmq_msg_size"
     c_zmq_msg_size :: ZMQMsgPtr -> IO CSize
 
-#if 0
 foreign import ccall unsafe "zmq.h zmq_msg_get"
-    c_zmq_msg_get :: ZMQMsgPtr
-                    -> CInt      -- option
-                    -> Ptr ()    -- option value
-                    -> Ptr CSize -- option value size ptr
-                    -> IO CInt
+    c_zmq_msg_get :: ZMQMsgPtr -> CInt -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_msg_set"
-    c_zmq_msg_set :: ZMQMsgPtr
-                    -> CInt      -- option
-                    -> Ptr ()    -- option value
-                    -> Ptr CSize -- option value size ptr
-                    -> IO CInt
-#endif
+    c_zmq_msg_set :: ZMQMsgPtr -> CInt -> CInt -> IO CInt
 
 -- socket
 
@@ -192,6 +233,9 @@ foreign import ccall unsafe "zmq.h zmq_getsockopt"
 foreign import ccall unsafe "zmq.h zmq_bind"
     c_zmq_bind :: ZMQSocket -> CString -> IO CInt
 
+foreign import ccall unsafe "zmq.h zmq_unbind"
+    c_zmq_unbind :: ZMQSocket -> CString -> IO CInt
+
 foreign import ccall unsafe "zmq.h zmq_connect"
     c_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
@@ -201,12 +245,15 @@ foreign import ccall unsafe "zmq.h zmq_sendmsg"
 foreign import ccall unsafe "zmq.h zmq_recvmsg"
     c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
+foreign import ccall unsafe "zmq.h zmq_socket_monitor"
+    c_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
+
 -- error messages
 
 foreign import ccall unsafe "zmq.h zmq_strerror"
     c_zmq_strerror :: CInt -> IO CString
 
--- built in templates
+-- proxy
 
 foreign import ccall unsafe "zmq.h zmq_proxy"
     c_zmq_proxy :: ZMQSocket -> ZMQSocket -> ZMQSocket -> IO CInt

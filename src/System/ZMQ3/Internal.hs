@@ -5,6 +5,7 @@ module System.ZMQ3.Internal
     , Flag(..)
     , Timeout
     , Size
+    , Switch
 
     , messageOf
     , messageOfLazy
@@ -22,6 +23,10 @@ module System.ZMQ3.Internal
     , combine
     , mkSocket
     , onSocket
+
+    , bool2cint
+    , toSwitch
+    , fromSwitch
 
     ) where
 
@@ -49,6 +54,12 @@ type Size    = Word
 -- | Flags to apply on send operations (cf. man zmq_send)
 data Flag = DontWait -- ^ ZMQ_DONTWAIT
           | SendMore -- ^ ZMQ_SNDMORE
+  deriving (Eq, Ord, Show)
+
+data Switch =
+    Default
+  | On
+  | Off
   deriving (Eq, Ord, Show)
 
 -- | A 0MQ context representation.
@@ -158,3 +169,18 @@ toZMQFlag SendMore = sndMore
 
 combine :: [Flag] -> CInt
 combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
+
+bool2cint :: Bool -> CInt
+bool2cint True  = 1
+bool2cint False = 0
+
+toSwitch :: Integral a => a -> Maybe Switch
+toSwitch (-1) = Just Default
+toSwitch  0   = Just Off
+toSwitch  1   = Just On
+toSwitch _    = Nothing
+
+fromSwitch :: Integral a => Switch -> a
+fromSwitch Default = -1
+fromSwitch Off     = 0
+fromSwitch On      = 1
