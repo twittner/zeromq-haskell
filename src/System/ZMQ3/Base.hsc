@@ -206,3 +206,7 @@ foreign import ccall unsafe "zmq.h zmq_recvmsg"
 foreign import ccall unsafe "zmq.h zmq_strerror"
     c_zmq_strerror :: CInt -> IO CString
 
+-- built in templates
+
+foreign import ccall unsafe "zmq.h zmq_proxy"
+    c_zmq_proxy :: ZMQSocket -> ZMQSocket -> ZMQSocket -> IO CInt
