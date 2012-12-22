@@ -21,7 +21,7 @@ import Control.Applicative
     #error *** INVALID 0MQ VERSION (must be 3.x) ***
 #endif
 
-newtype ZMQMsg = ZMQMsg { content :: Ptr () }
+newtype ZMQMsg = ZMQMsg { content :: Ptr () } deriving (Eq, Ord)
 
 instance Storable ZMQMsg where
     alignment _        = #{alignment zmq_msg_t}
@@ -30,10 +30,10 @@ instance Storable ZMQMsg where
     poke p (ZMQMsg c)  = #{poke zmq_msg_t, _} p c
 
 data ZMQPoll = ZMQPoll
-    { pSocket  :: ZMQSocket
-    , pFd      :: CInt
-    , pEvents  :: CShort
-    , pRevents :: CShort
+    { pSocket  :: {-# UNPACK #-} !ZMQSocket
+    , pFd      :: {-# UNPACK #-} !CInt
+    , pEvents  :: {-# UNPACK #-} !CShort
+    , pRevents :: {-# UNPACK #-} !CShort
     }
 
 instance Storable ZMQPoll where
@@ -123,28 +123,12 @@ newtype ZMQEventType = ZMQEventType { eventTypeVal :: CInt } deriving (Eq, Ord)
   , closed         = ZMQ_EVENT_CLOSED
   , closeFailed    = ZMQ_EVENT_CLOSE_FAILED
   , disconnected   = ZMQ_EVENT_DISCONNECTED
+  , allEvents      = ZMQ_EVENT_ALL
 }
 
-#if 0
-data ZMQEvent = ZMQEvent
-    { eventTag :: {-# UNPACK #-} !CInt
-    , addr     :: {-# UNPACK #-} !CChar
-    , payload  :: {-# UNPACK #-} !CInt
-    }
-
-instance Storable ZMQEvent where
-    alignment _ = #{alignment zmq_event_t}
-    sizeOf    _ = #{size zmq_event_t}
-    peek p = do
-        t <- #{peek zmq_event_t, event} p
-        a <- peekByteOff p #{offset zmq_event_t, data.connected.addr}
-        i <- peekByteOff p #{offset zmq_event_t, data.connected.fd}
-        return $ ZMQEvent t a i
-    poke p (ZMQEvent t a i) = do
-        #{poke zmq_event_t, event} p t
-        pokeByteOff p #{offset zmq_event_t, data.connected.addr} a
-        pokeByteOff p #{offset zmq_event_t, data.connected.fd} i
-#endif
+zmqEventAddrOffset, zmqEventDataOffset :: Int
+zmqEventAddrOffset = #{offset zmq_event_t, data.connected.addr}
+zmqEventDataOffset = #{offset zmq_event_t, data.connected.fd}
 
 newtype ZMQMsgOption = ZMQMsgOption { msgOptVal :: CInt } deriving (Eq, Ord)
 

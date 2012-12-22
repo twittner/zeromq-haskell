@@ -5,7 +5,8 @@ module System.ZMQ3.Internal
     , Flag(..)
     , Timeout
     , Size
-    , Switch
+    , Switch (..)
+    , EventType (..)
 
     , messageOf
     , messageOfLazy
@@ -27,6 +28,7 @@ module System.ZMQ3.Internal
     , bool2cint
     , toSwitch
     , fromSwitch
+    , events2cint
 
     ) where
 
@@ -52,14 +54,31 @@ type Timeout = Int64
 type Size    = Word
 
 -- | Flags to apply on send operations (cf. man zmq_send)
-data Flag = DontWait -- ^ ZMQ_DONTWAIT
-          | SendMore -- ^ ZMQ_SNDMORE
+data Flag =
+    DontWait -- ^ ZMQ_DONTWAIT
+  | SendMore -- ^ ZMQ_SNDMORE
   deriving (Eq, Ord, Show)
 
+-- | Configuration switch
 data Switch =
-    Default
-  | On
-  | Off
+    Default -- ^ Use default setting
+  | On      -- ^ Activate setting
+  | Off     -- ^ De-activate setting
+  deriving (Eq, Ord, Show)
+
+-- | Event types to monitor.
+data EventType =
+    ConnectedEvent
+  | ConnectDelayedEvent
+  | ConnectRetriedEvent
+  | ListeningEvent
+  | BindFailedEvent
+  | AcceptedEvent
+  | AcceptFailedEvent
+  | ClosedEvent
+  | CloseFailedEvent
+  | DisconnectedEvent
+  | AllEvents
   deriving (Eq, Ord, Show)
 
 -- | A 0MQ context representation.
@@ -184,3 +203,19 @@ fromSwitch :: Integral a => Switch -> a
 fromSwitch Default = -1
 fromSwitch Off     = 0
 fromSwitch On      = 1
+
+toZMQEventType :: EventType -> ZMQEventType
+toZMQEventType AllEvents           = allEvents
+toZMQEventType ConnectedEvent      = connected
+toZMQEventType ConnectDelayedEvent = connectDelayed
+toZMQEventType ConnectRetriedEvent = connectRetried
+toZMQEventType ListeningEvent      = listening
+toZMQEventType BindFailedEvent     = bindFailed
+toZMQEventType AcceptedEvent       = accepted
+toZMQEventType AcceptFailedEvent   = acceptFailed
+toZMQEventType ClosedEvent         = closed
+toZMQEventType CloseFailedEvent    = closeFailed
+toZMQEventType DisconnectedEvent   = disconnected
+
+events2cint :: [EventType] -> CInt
+events2cint = fromIntegral . foldr ((.|.) . eventTypeVal . toZMQEventType) 0

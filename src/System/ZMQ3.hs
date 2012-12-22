@@ -75,8 +75,10 @@ module System.ZMQ3 (
   , Context
   , Socket
   , Flag (SendMore)
+  , Switch (..)
   , Timeout
   , Event (..)
+  , EventType (..)
 
     -- ** Type Classes
   , SocketType
@@ -111,6 +113,8 @@ module System.ZMQ3 (
   , receive
   , receiveMulti
   , version
+  , socketMonitor
+  , monitor
 
   , System.ZMQ3.subscribe
   , System.ZMQ3.unsubscribe
@@ -198,7 +202,7 @@ import Prelude hiding (init)
 import qualified Prelude as P
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, when, void)
+import Control.Monad (unless, when, void, forever)
 import Data.Restricted
 import Data.IORef (atomicModifyIORef)
 import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
@@ -712,6 +716,56 @@ receiveMulti sock = recvall []
 
     next acc True  = recvall acc
     next acc False = return (reverse acc)
+
+data EventMsg =
+    Connected      !String !Fd
+  | ConnectDelayed !String !Fd
+  | ConnectRetried !String !Int
+  | Listening      !String !Fd
+  | BindFailed     !String !Fd
+  | Accepted       !String !Fd
+  | AcceptFailed   !String !Int
+  | Closed         !String !Fd
+  | CloseFailed    !String !Int
+  | Disconnected   !String !Int
+  deriving (Eq, Show)
+
+socketMonitor :: [EventType] -> String -> Socket a -> IO ()
+socketMonitor es addr soc =
+    onSocket "socketMonitor" soc $ \s ->
+    withCString addr $ \a ->
+        throwIfMinus1_ "zmq_socket_monitor" $
+            c_zmq_socket_monitor s a (events2cint es)
+
+monitor :: String -> Context -> (EventMsg -> IO ()) -> IO ()
+monitor addr cx f =
+    withSocket cx Pair $ \p -> do
+        connect p addr
+        forever $ recv p >>= f
+  where
+    recv :: Socket Pair -> IO EventMsg
+    recv soc =
+        bracket messageInit messageClose $ \m ->
+        onSocket "recv" soc $ \s -> do
+            retry "recv" (waitRead soc) $ c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+            ptr <- c_zmq_msg_data (msgPtr m)
+            str <- peekByteOff ptr zmqEventAddrOffset >>= peekCString
+            dat <- peekByteOff ptr zmqEventDataOffset :: IO CInt
+            tag <- peek ptr :: IO CInt
+            return $ eventMsg str dat (ZMQEventType tag)
+
+    eventMsg str dat tag
+        | tag == connected      = Connected      str (Fd . fromIntegral $ dat)
+        | tag == connectDelayed = ConnectDelayed str (Fd . fromIntegral $ dat)
+        | tag == connectRetried = ConnectRetried str (fromIntegral dat)
+        | tag == listening      = Listening      str (Fd . fromIntegral $ dat)
+        | tag == bindFailed     = BindFailed     str (Fd . fromIntegral $ dat)
+        | tag == accepted       = Accepted       str (Fd . fromIntegral $ dat)
+        | tag == acceptFailed   = AcceptFailed   str (fromIntegral dat)
+        | tag == closed         = Closed         str (Fd . fromIntegral $ dat)
+        | tag == closeFailed    = CloseFailed    str (fromIntegral dat)
+        | tag == disconnected   = Disconnected   str (fromIntegral dat)
+        | otherwise             = error $ "unknown event type: " ++ (show . eventTypeVal $ tag)
 
 -- Convert bit-masked word into Event.
 toEvent :: Word32 -> Event
