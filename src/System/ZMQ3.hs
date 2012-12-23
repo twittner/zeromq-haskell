@@ -175,7 +175,7 @@ module System.ZMQ3 (
   , setSendBuffer
   , setSendHighWM
   , setSendTimeout
---  , setTcpAcceptFilter
+  , setTcpAcceptFilter
   , setTcpKeepAlive
   , setTcpKeepAliveCount
   , setTcpKeepAliveIdle
@@ -643,6 +643,18 @@ setReceiveHighWM = setInt32OptFromRestricted B.receiveHighWM
 -- | Cf. @zmq_setsockopt ZMQ_SNDHWM@
 setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setSendHighWM = setInt32OptFromRestricted B.sendHighWM
+
+-- | Cf. @zmq_setsockopt ZMQ_TCP_ACCEPT_FILTER@
+setTcpAcceptFilter :: Maybe String -> Socket a -> IO ()
+setTcpAcceptFilter Nothing sock = onSocket "setTcpAcceptFilter" sock $ \s ->
+    throwIfMinus1Retry_ "setStrOpt" $
+        c_zmq_setsockopt s (optVal tcpAcceptFilter) nullPtr 0
+setTcpAcceptFilter (Just dat) sock = onSocket "setTcpAcceptFilter" sock $ \s ->
+    throwIfMinus1Retry_ "setStrOpt" $
+        withCStringLen dat $ \(ptr, len) ->
+            c_zmq_setsockopt s (optVal tcpAcceptFilter)
+                               (castPtr ptr)
+                               (fromIntegral len)
 
 -- | Cf. @zmq_setsockopt ZMQ_TCP_KEEPALIVE@
 setTcpKeepAlive :: Switch -> Socket a -> IO ()
