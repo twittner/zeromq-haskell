@@ -119,6 +119,14 @@ module System.ZMQ3 (
   , System.ZMQ3.subscribe
   , System.ZMQ3.unsubscribe
 
+    -- * Context Options (Read)
+  , ioThreads
+  , maxSockets
+
+    -- * Context Options (Write)
+  , setIoThreads
+  , setMaxSockets
+
     -- * Socket Options (Read)
   , System.ZMQ3.affinity
   , System.ZMQ3.backlog
@@ -193,7 +201,6 @@ module System.ZMQ3 (
   , close
   , waitRead
   , waitWrite
-  , socketMonitor
 
     -- * Utils
   , proxy
@@ -448,6 +455,14 @@ moreToReceive s = (== 1) <$> getInt32Option B.receiveMore s
 
 -- Read
 
+-- | Cf. @zmq_ctx_get ZMQ_IO_THREADS@
+ioThreads :: Context -> IO Word
+ioThreads = ctxIntOption "ioThreads" _ioThreads
+
+-- | Cf. @zmq_ctx_get ZMQ_MAX_SOCKETS@
+maxSockets :: Context -> IO Word
+maxSockets = ctxIntOption "maxSockets" _maxSockets
+
 -- | Cf. @zmq_getsockopt ZMQ_IDENTITY@
 identity :: Socket a -> IO String
 identity s = getStrOpt s B.identity
@@ -544,6 +559,14 @@ tcpKeepAliveInterval :: Socket a -> IO Int
 tcpKeepAliveInterval = getInt32Option B.tcpKeepAliveInterval
 
 -- Write
+
+-- | Cf. @zmq_ctx_set ZMQ_IO_THREADS@
+setIoThreads :: Word -> Context -> IO ()
+setIoThreads n = setCtxIntOption "ioThreads" _ioThreads n
+
+-- | Cf. @zmq_ctx_set ZMQ_MAX_SOCKETS@
+setMaxSockets :: Word -> Context -> IO ()
+setMaxSockets n = setCtxIntOption "maxSockets" _maxSockets n
 
 -- | Cf. @zmq_setsockopt ZMQ_IDENTITY@
 setIdentity :: Restricted N1 N254 String -> Socket a -> IO ()

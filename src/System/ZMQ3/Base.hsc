@@ -110,6 +110,13 @@ newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
   , xpubVerbose          = ZMQ_XPUB_VERBOSE
 }
 
+newtype ZMQCtxOption = ZMQCtxOption { ctxOptVal :: CInt } deriving (Eq, Ord)
+
+#{enum ZMQCtxOption, ZMQCtxOption
+  , _ioThreads = ZMQ_IO_THREADS
+  , _maxSockets = ZMQ_MAX_SOCKETS
+}
+
 newtype ZMQEventType = ZMQEventType { eventTypeVal :: CInt } deriving (Eq, Ord)
 
 #{enum ZMQEventType, ZMQEventType

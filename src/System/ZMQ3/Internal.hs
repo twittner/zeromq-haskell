@@ -20,6 +20,8 @@ module System.ZMQ3.Internal
     , getStrOpt
     , getInt32Option
     , setInt32OptFromRestricted
+    , ctxIntOption
+    , setCtxIntOption
 
     , toZMQFlag
     , combine
@@ -198,6 +200,14 @@ getInt32Option o s = fromIntegral <$> getIntOpt s o (0 :: CInt)
 
 setInt32OptFromRestricted :: Integral i => ZMQOption -> Restricted l u i -> Socket b -> IO ()
 setInt32OptFromRestricted o x s = setIntOpt s o ((fromIntegral . rvalue $ x) :: CInt)
+
+ctxIntOption :: Integral i => String -> ZMQCtxOption -> Context -> IO i
+ctxIntOption name opt ctx = fromIntegral <$>
+    (throwIfMinus1 name $ c_zmq_ctx_get (_ctx ctx) (ctxOptVal opt))
+
+setCtxIntOption :: Integral i => String -> ZMQCtxOption -> i -> Context -> IO ()
+setCtxIntOption name opt val ctx = throwIfMinus1_ name $
+    c_zmq_ctx_set (_ctx ctx) (ctxOptVal opt) (fromIntegral val)
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag DontWait = dontWait
