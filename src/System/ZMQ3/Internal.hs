@@ -7,6 +7,7 @@ module System.ZMQ3.Internal
     , Size
     , Switch (..)
     , EventType (..)
+    , EventMsg (..)
 
     , messageOf
     , messageOfLazy
@@ -29,6 +30,7 @@ module System.ZMQ3.Internal
     , toSwitch
     , fromSwitch
     , events2cint
+    , eventMessage
 
     ) where
 
@@ -47,6 +49,7 @@ import qualified Data.ByteString.Unsafe as UB
 import Data.IORef (newIORef)
 import Data.Restricted
 
+import System.Posix.Types (Fd(..))
 import System.ZMQ3.Base
 import System.ZMQ3.Error
 
@@ -81,8 +84,22 @@ data EventType =
   | AllEvents
   deriving (Eq, Ord, Show)
 
+-- | Event Message to receive when monitoring socket events.
+data EventMsg =
+    Connected      !SB.ByteString !Fd
+  | ConnectDelayed !SB.ByteString !Fd
+  | ConnectRetried !SB.ByteString !Int
+  | Listening      !SB.ByteString !Fd
+  | BindFailed     !SB.ByteString !Fd
+  | Accepted       !SB.ByteString !Fd
+  | AcceptFailed   !SB.ByteString !Int
+  | Closed         !SB.ByteString !Fd
+  | CloseFailed    !SB.ByteString !Int
+  | Disconnected   !SB.ByteString !Int
+  deriving (Eq, Show)
+
 -- | A 0MQ context representation.
-newtype Context = Context { ctx :: ZMQCtx }
+newtype Context = Context { _ctx :: ZMQCtx }
 
 -- | A 0MQ Socket.
 data Socket a = Socket {
@@ -219,3 +236,17 @@ toZMQEventType DisconnectedEvent   = disconnected
 
 events2cint :: [EventType] -> CInt
 events2cint = fromIntegral . foldr ((.|.) . eventTypeVal . toZMQEventType) 0
+
+eventMessage :: Integral a => SB.ByteString -> a -> ZMQEventType -> EventMsg
+eventMessage str dat tag
+    | tag == connected      = Connected      str (Fd . fromIntegral $ dat)
+    | tag == connectDelayed = ConnectDelayed str (Fd . fromIntegral $ dat)
+    | tag == connectRetried = ConnectRetried str (fromIntegral dat)
+    | tag == listening      = Listening      str (Fd . fromIntegral $ dat)
+    | tag == bindFailed     = BindFailed     str (Fd . fromIntegral $ dat)
+    | tag == accepted       = Accepted       str (Fd . fromIntegral $ dat)
+    | tag == acceptFailed   = AcceptFailed   str (fromIntegral dat)
+    | tag == closed         = Closed         str (Fd . fromIntegral $ dat)
+    | tag == closeFailed    = CloseFailed    str (fromIntegral dat)
+    | tag == disconnected   = Disconnected   str (fromIntegral dat)
+    | otherwise             = error $ "unknown event type: " ++ (show . eventTypeVal $ tag)

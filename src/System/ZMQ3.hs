@@ -79,6 +79,7 @@ module System.ZMQ3 (
   , Timeout
   , Event (..)
   , EventType (..)
+  , EventMsg (..)
 
     -- ** Type Classes
   , SocketType
@@ -113,7 +114,6 @@ module System.ZMQ3 (
   , receive
   , receiveMulti
   , version
-  , socketMonitor
   , monitor
 
   , System.ZMQ3.subscribe
@@ -193,6 +193,7 @@ module System.ZMQ3 (
   , close
   , waitRead
   , waitWrite
+  , socketMonitor
 
     -- * Utils
   , proxy
@@ -202,7 +203,7 @@ import Prelude hiding (init)
 import qualified Prelude as P
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, when, void, forever)
+import Control.Monad (unless, when, void)
 import Data.Restricted
 import Data.IORef (atomicModifyIORef)
 import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
@@ -392,7 +393,7 @@ term = destroy
 -- | Terminate a 0MQ context (cf. zmq_ctx_destroy).  You should normally
 -- prefer to use 'withContext' instead.
 destroy :: Context -> IO ()
-destroy = throwIfMinus1Retry_ "term" . c_zmq_ctx_destroy . ctx
+destroy = throwIfMinus1Retry_ "term" . c_zmq_ctx_destroy . _ctx
 
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
@@ -717,55 +718,38 @@ receiveMulti sock = recvall []
     next acc True  = recvall acc
     next acc False = return (reverse acc)
 
-data EventMsg =
-    Connected      !String !Fd
-  | ConnectDelayed !String !Fd
-  | ConnectRetried !String !Int
-  | Listening      !String !Fd
-  | BindFailed     !String !Fd
-  | Accepted       !String !Fd
-  | AcceptFailed   !String !Int
-  | Closed         !String !Fd
-  | CloseFailed    !String !Int
-  | Disconnected   !String !Int
-  deriving (Eq, Show)
-
+-- | Setup socket monitoring, i.e. a 'Pair' socket which
+-- sends monitoring events about the given 'Socket' to the
+-- given address.
 socketMonitor :: [EventType] -> String -> Socket a -> IO ()
-socketMonitor es addr soc =
-    onSocket "socketMonitor" soc $ \s ->
+socketMonitor es addr soc = onSocket "socketMonitor" soc $ \s ->
     withCString addr $ \a ->
         throwIfMinus1_ "zmq_socket_monitor" $
             c_zmq_socket_monitor s a (events2cint es)
 
-monitor :: String -> Context -> (EventMsg -> IO ()) -> IO ()
-monitor addr cx f =
-    withSocket cx Pair $ \p -> do
-        connect p addr
-        forever $ recv p >>= f
+-- | Monitor socket events.
+-- This function returns a function which can be invoked to retrieve
+-- the next socket event, potentially blocking until the next one becomes
+-- available. When applied to 'False', monitoring will terminate, i.e.
+-- internal monitoring resources will be disposed. Consequently after
+-- 'monitor' has been invoked, the returned function must be applied
+-- /once/ to 'False'.
+monitor :: [EventType] -> Context -> Socket a -> IO (Bool -> IO (Maybe EventMsg))
+monitor es ctx sock = do
+    let addr = "inproc://" ++ show (_socket sock)
+    s <- socket ctx Pair
+    socketMonitor es addr sock
+    connect s addr
+    next s <$> messageInit
   where
-    recv :: Socket Pair -> IO EventMsg
-    recv soc =
-        bracket messageInit messageClose $ \m ->
-        onSocket "recv" soc $ \s -> do
-            retry "recv" (waitRead soc) $ c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
-            ptr <- c_zmq_msg_data (msgPtr m)
-            str <- peekByteOff ptr zmqEventAddrOffset >>= peekCString
-            dat <- peekByteOff ptr zmqEventDataOffset :: IO CInt
-            tag <- peek ptr :: IO CInt
-            return $ eventMsg str dat (ZMQEventType tag)
-
-    eventMsg str dat tag
-        | tag == connected      = Connected      str (Fd . fromIntegral $ dat)
-        | tag == connectDelayed = ConnectDelayed str (Fd . fromIntegral $ dat)
-        | tag == connectRetried = ConnectRetried str (fromIntegral dat)
-        | tag == listening      = Listening      str (Fd . fromIntegral $ dat)
-        | tag == bindFailed     = BindFailed     str (Fd . fromIntegral $ dat)
-        | tag == accepted       = Accepted       str (Fd . fromIntegral $ dat)
-        | tag == acceptFailed   = AcceptFailed   str (fromIntegral dat)
-        | tag == closed         = Closed         str (Fd . fromIntegral $ dat)
-        | tag == closeFailed    = CloseFailed    str (fromIntegral dat)
-        | tag == disconnected   = Disconnected   str (fromIntegral dat)
-        | otherwise             = error $ "unknown event type: " ++ (show . eventTypeVal $ tag)
+    next soc m False = messageClose m `finally` close soc >> return Nothing
+    next soc m True  = onSocket "recv" soc $ \s -> do
+        retry "recv" (waitRead soc) $ c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+        ptr <- c_zmq_msg_data (msgPtr m)
+        str <- peekByteOff ptr zmqEventAddrOffset >>= SB.packCString
+        dat <- peekByteOff ptr zmqEventDataOffset :: IO CInt
+        tag <- peek ptr :: IO CInt
+        return . Just $ eventMessage str dat (ZMQEventType tag)
 
 -- Convert bit-masked word into Event.
 toEvent :: Word32 -> Event
