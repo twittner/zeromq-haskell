@@ -5,8 +5,10 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
-Version 0.2   - Add addtional functionality from 3.2 stable release, e.g.
+Version 0.2   - Add additional functionality from 3.2 stable release, e.g.
                 zmq_proxy support, new socket options, socket monitoring etc.
+                *API Change*: withContext no longer accepts the number of
+                I/O threads as first argument.
 
 Version 0.1.4 - Expose 'waitRead' and 'waitWrite'.
 
