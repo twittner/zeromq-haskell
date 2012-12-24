@@ -16,7 +16,7 @@ main = do
         size    = read $ args !! 1
         count   = read $ args !! 2
         message = SB.replicate size 0x65
-    ZMQ.withContext 1 $ \c ->
+    ZMQ.withContext $ \c ->
         ZMQ.withSocket c ZMQ.Pub $ \s -> do
             ZMQ.connect s connTo
             replicateM_ count $ ZMQ.send s [] message

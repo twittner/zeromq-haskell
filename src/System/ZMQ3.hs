@@ -2,7 +2,7 @@
 -- Module      : System.ZMQ3
 -- Copyright   : (c) 2010-2012 Toralf Wittner
 -- License     : MIT
--- Maintainer  : toralf.wittner@gmail.com
+-- Maintainer  : Toralf Wittner <tw@dtex.org>
 -- Stability   : experimental
 -- Portability : non-portable
 --
@@ -385,7 +385,10 @@ version =
     tupleUp a b c = (fromIntegral a, fromIntegral b, fromIntegral c)
 
 init :: Size -> IO Context
-init _ = context
+init n = do
+    c <- context
+    setIoThreads n c
+    return c
 {-# DEPRECATED init "Use context" #-}
 
 -- | Initialize a 0MQ context (cf. zmq_ctx_new for details).  You should

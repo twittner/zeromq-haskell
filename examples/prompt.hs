@@ -16,7 +16,7 @@ main = do
         exitFailure
     let addr = args !! 0
         name = SB.append (SB.fromString $ args !! 1) ": "
-    ZMQ.withContext 1 $ \c ->
+    ZMQ.withContext $ \c ->
         ZMQ.withSocket c ZMQ.Pub $ \s -> do
             ZMQ.bind s addr
             forever $ do

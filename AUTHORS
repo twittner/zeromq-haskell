@@ -5,4 +5,4 @@ Ville Tirronen      added support for ZMG_SNDMORE
 Jeremy Fitzhardinge integrated with GHC's I/O manager
 Bryan O'Sullivan    added resource wrappers, socket finalizer
 Ben Lever           fixed and tweaked some of the test examples
-
+Alexander Vershilov added support for zmq_proxy

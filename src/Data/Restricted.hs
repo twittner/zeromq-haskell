@@ -8,7 +8,7 @@
 -- Module      : Data.Restricted
 -- Copyright   : (c) 2011-2012 Toralf Wittner
 -- License     : MIT
--- Maintainer  : toralf.wittner@gmail.com
+-- Maintainer  : Toralf Wittner <tw@dtex.org>
 -- Stability   : experimental
 -- Portability : non-portable
 --

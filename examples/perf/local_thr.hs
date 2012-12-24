@@ -16,7 +16,7 @@ main = do
     let bindTo = args !! 0
         size   = read $ args !! 1 :: Int
         count  = read $ args !! 2 :: Int
-    ZMQ.withContext 1 $ \c ->
+    ZMQ.withContext $ \c ->
         ZMQ.withSocket c ZMQ.Sub $ \s -> do
             ZMQ.subscribe s ""
             ZMQ.bind s bindTo

@@ -1,13 +1,4 @@
 {-# LANGUAGE CPP, ForeignFunctionInterface #-}
--- |
--- Module      : System.ZMQ3.Base
--- Copyright   : (c) 2010-2012 Toralf Wittner
--- License     : MIT
--- Maintainer  : toralf.wittner@gmail.com
--- Stability   : experimental
--- Portability : non-portable
---
-
 module System.ZMQ3.Base where
 
 import Foreign

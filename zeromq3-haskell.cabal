@@ -5,7 +5,7 @@ category:           System, FFI
 license:            MIT
 license-file:       LICENSE
 author:             Toralf Wittner
-maintainer:         toralf.wittner@gmail.com
+maintainer:         Toralf Wittner <tw@dtex.org>
 copyright:          Copyright (c) 2010 - 2012 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
