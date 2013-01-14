@@ -18,5 +18,5 @@ main = do
             subscribe ""
             mapM connect args
             forever $ do
-                receive >>= CS.putStrLn
+                receive >>= liftIO . CS.putStrLn
                 liftIO $ hFlush stdout
