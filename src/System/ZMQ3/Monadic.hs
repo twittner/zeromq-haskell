@@ -37,6 +37,7 @@ module System.ZMQ3.Monadic (
   -- * General Operations
   , version
   , runContext
+  , liftContext
   , forkContext
   , runSocket
 
@@ -153,11 +154,11 @@ data CtxEnv = CtxEnv {
   }
 
 newtype Context a = Context {
-    _ctxenv :: ReaderT CtxEnv IO a
+    _unctx :: ReaderT CtxEnv IO a
   } deriving (Functor, Applicative, Monad, MonadIO)
 
 runContext :: MonadIO m => Context a -> m a
-runContext c = liftIO $ bracket make destroy (runReaderT (_ctxenv c))
+runContext c = liftIO $ bracket make destroy (runReaderT (_unctx c))
   where
     make = CtxEnv <$> newIORef 1 <*> Z.context
 
@@ -166,7 +167,7 @@ forkContext c = Context $ do
     env <- ask
     _   <- liftIO $ atomicModifyIORef' (_refcount env) $ \n -> (succ n, ())
     liftIO $ forkIO $
-        (runReaderT (_ctxenv c) env >> return ()) `finally` destroy env
+        (runReaderT (_unctx c) env >> return ()) `finally` destroy env
 
 ioThreads :: Context Word
 ioThreads = onContext Z.ioThreads
@@ -183,13 +184,24 @@ setMaxSockets = onContext . Z.setMaxSockets
 version :: Context (Int, Int, Int)
 version = liftIO Z.version
 
+data SockEnv t = SockEnv {
+    _ctxenv :: !CtxEnv
+  , _socket :: !(Z.Socket t)
+  }
+
 newtype Socket t a = Socket {
-    _socket :: ReaderT (Z.Socket t) IO a
+    _unsock :: ReaderT (SockEnv t) IO a
   } deriving (Functor, Applicative, Monad, MonadIO)
 
+liftContext :: Context a -> Socket t a
+liftContext c = Socket $ asks _ctxenv >>= liftIO . runReaderT (_unctx c)
+
 runSocket :: Z.SocketType t => t -> Socket t a -> Context a
-runSocket t s = onContext $ \c ->
-    bracket (Z.socket c t) Z.close (runReaderT (_socket s))
+runSocket t s = Context $ ask >>= \env ->
+    liftIO $ bracket (open env) close (runReaderT (_unsock s))
+  where
+    open e = SockEnv e <$> Z.socket (_context e) t
+    close  = Z.close . _socket
 
 subscribe :: Z.Subscriber t => String -> Socket t ()
 subscribe = onSocket . flip Z.subscribe
@@ -392,4 +404,4 @@ destroy env = do
         Z.destroy (_context env)
 
 onSocket :: (Z.Socket t -> IO a) -> Socket t a
-onSocket f = Socket $ ask >>= liftIO . f
+onSocket f = Socket $ asks _socket >>= liftIO . f
