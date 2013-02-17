@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
+{-# LANGUAGE OverloadedStrings      #-}
 
 -- |
 -- Module      : Data.Restricted
@@ -36,6 +37,8 @@ module Data.Restricted (
 ) where
 
 import Data.Int
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
 
 -- | Type level restriction.
 data Restricted l u v = Restricted !v deriving Show
@@ -129,6 +132,13 @@ instance Restriction N1 N254 String where
 
     restrict s | length s < 1 = Restricted " "
                | otherwise    = Restricted (take 254 s)
+
+instance Restriction N1 N254 ByteString where
+    toRestricted s | check (1, 254) (B.length s) = Just $ Restricted s
+                   | otherwise                   = Nothing
+
+    restrict s | B.length s < 1 = Restricted " "
+               | otherwise      = Restricted (B.take 254 s)
 
 -- Helpers
 

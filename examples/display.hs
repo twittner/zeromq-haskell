@@ -1,4 +1,4 @@
-import Control.Applicative
+{-# LANGUAGE OverloadedStrings #-}
 import Control.Monad
 import System.Exit
 import System.IO

@@ -267,10 +267,10 @@ receive = liftIO . Z.receive
 receiveMulti :: (MonadZMQ m, Z.Receiver t) => Z.Socket t -> m [ByteString]
 receiveMulti = liftIO . Z.receiveMulti
 
-subscribe :: (MonadZMQ m, Z.Subscriber t) => Z.Socket t -> String -> m ()
+subscribe :: (MonadZMQ m, Z.Subscriber t) => Z.Socket t -> ByteString -> m ()
 subscribe s = liftIO . Z.subscribe s
 
-unsubscribe :: (MonadZMQ m, Z.Subscriber t) => Z.Socket t -> String -> m ()
+unsubscribe :: (MonadZMQ m, Z.Subscriber t) => Z.Socket t -> ByteString -> m ()
 unsubscribe s = liftIO . Z.unsubscribe s
 
 proxy :: MonadZMQ m => Z.Socket a -> Z.Socket b -> Maybe (Z.Socket c) -> m ()
@@ -293,7 +293,7 @@ events = liftIO . Z.events
 fileDescriptor :: MonadZMQ m => Z.Socket t -> m Fd
 fileDescriptor = liftIO . Z.fileDescriptor
 
-identity :: MonadZMQ m => Z.Socket t -> m String
+identity :: MonadZMQ m => Z.Socket t -> m ByteString
 identity = liftIO . Z.identity
 
 ipv4Only :: MonadZMQ m => Z.Socket t -> m Bool
@@ -367,7 +367,7 @@ setBacklog b = liftIO . Z.setBacklog b
 setDelayAttachOnConnect :: MonadZMQ m => Bool -> Z.Socket t -> m ()
 setDelayAttachOnConnect d = liftIO . Z.setDelayAttachOnConnect d
 
-setIdentity :: MonadZMQ m => Restricted N1 N254 String -> Z.Socket t -> m ()
+setIdentity :: MonadZMQ m => Restricted N1 N254 ByteString -> Z.Socket t -> m ()
 setIdentity i = liftIO . Z.setIdentity i
 
 setIpv4Only :: MonadZMQ m => Bool -> Z.Socket t -> m ()
@@ -415,7 +415,7 @@ setSendHighWM i = liftIO . Z.setSendHighWM i
 setSendTimeout :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
 setSendTimeout i = liftIO . Z.setSendTimeout i
 
-setTcpAcceptFilter :: MonadZMQ m => Maybe String -> Z.Socket t -> m ()
+setTcpAcceptFilter :: MonadZMQ m => Maybe ByteString -> Z.Socket t -> m ()
 setTcpAcceptFilter s = liftIO . Z.setTcpAcceptFilter s
 
 setTcpKeepAlive :: MonadZMQ m => Z.Switch -> Z.Socket t -> m ()

@@ -426,12 +426,12 @@ close :: Socket a -> IO ()
 close = closeSock . _socketRepr
 
 -- | Subscribe Socket to given subscription.
-subscribe :: Subscriber a => Socket a -> String -> IO ()
-subscribe s = setStrOpt s B.subscribe
+subscribe :: Subscriber a => Socket a -> SB.ByteString -> IO ()
+subscribe s = setByteStringOpt s B.subscribe
 
 -- | Unsubscribe Socket from given subscription.
-unsubscribe :: Subscriber a => Socket a -> String -> IO ()
-unsubscribe s = setStrOpt s B.unsubscribe
+unsubscribe :: Subscriber a => Socket a -> SB.ByteString -> IO ()
+unsubscribe s = setByteStringOpt s B.unsubscribe
 
 -- Read Only
 
@@ -458,8 +458,8 @@ maxSockets :: Context -> IO Word
 maxSockets = ctxIntOption "maxSockets" _maxSockets
 
 -- | Cf. @zmq_getsockopt ZMQ_IDENTITY@
-identity :: Socket a -> IO String
-identity s = getStrOpt s B.identity
+identity :: Socket a -> IO SB.ByteString
+identity s = getByteStringOpt s B.identity
 
 -- | Cf. @zmq_getsockopt ZMQ_AFFINITY@
 affinity :: Socket a -> IO Word64
@@ -563,8 +563,8 @@ setMaxSockets :: Word -> Context -> IO ()
 setMaxSockets n = setCtxIntOption "maxSockets" _maxSockets n
 
 -- | Cf. @zmq_setsockopt ZMQ_IDENTITY@
-setIdentity :: Restricted N1 N254 String -> Socket a -> IO ()
-setIdentity x s = setStrOpt s B.identity (rvalue x)
+setIdentity :: Restricted N1 N254 SB.ByteString -> Socket a -> IO ()
+setIdentity x s = setByteStringOpt s B.identity (rvalue x)
 
 -- | Cf. @zmq_setsockopt ZMQ_AFFINITY@
 setAffinity :: Word64 -> Socket a -> IO ()
@@ -639,16 +639,11 @@ setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
 setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 
 -- | Cf. @zmq_setsockopt ZMQ_TCP_ACCEPT_FILTER@
-setTcpAcceptFilter :: Maybe String -> Socket a -> IO ()
+setTcpAcceptFilter :: Maybe SB.ByteString -> Socket a -> IO ()
 setTcpAcceptFilter Nothing sock = onSocket "setTcpAcceptFilter" sock $ \s ->
     throwIfMinus1Retry_ "setStrOpt" $
         c_zmq_setsockopt s (optVal tcpAcceptFilter) nullPtr 0
-setTcpAcceptFilter (Just dat) sock = onSocket "setTcpAcceptFilter" sock $ \s ->
-    throwIfMinus1Retry_ "setStrOpt" $
-        withCStringLen dat $ \(ptr, len) ->
-            c_zmq_setsockopt s (optVal tcpAcceptFilter)
-                               (castPtr ptr)
-                               (fromIntegral len)
+setTcpAcceptFilter (Just dat) sock = setByteStringOpt sock tcpAcceptFilter dat
 
 -- | Cf. @zmq_setsockopt ZMQ_TCP_KEEPALIVE@
 setTcpKeepAlive :: Switch -> Socket a -> IO ()

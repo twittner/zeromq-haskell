@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 import Control.Concurrent
 import Control.Monad
 import System.IO
