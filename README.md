@@ -1,9 +1,14 @@
-This library provides Haskell bindings to 0MQ 3.x (http://zeromq.org).
+This library provides Haskell bindings to 0MQ 3.2.x (http://zeromq.org).
 
 Current status
 --------------
 
 This software currently has *beta* status, i.e. it had seen limited testing.
+
+Version 0.3.0 - Add monadic layer on top of System.ZMQ3 and substitute
+                String for ByteString in a number of cases, where the 0MQ
+                API speaks of "binary data", i.e. subscribe/unsubscribe,
+                identity/setIdentity and setTcpAcceptFilter.
 
 Version 0.2   - Add additional functionality from 3.2 stable release, e.g.
                 zmq_proxy support, new socket options, socket monitoring etc.
@@ -68,4 +73,3 @@ Bugs
 If you find any bugs or other shortcomings I would greatly appreciate a bug
 report, preferably via http://github.com/twittner/zeromq-haskell/issues or
 e-mail to tw@dtex.org
-
