@@ -1,5 +1,4 @@
 import Control.Applicative
-import Control.Exception
 import Control.Monad
 import System.Exit
 import System.IO
@@ -13,10 +12,10 @@ main = do
     when (length args < 1) $ do
         hPutStrLn stderr "usage: display <address> [<address>, ...]"
         exitFailure
-    runContext $
-        runSocket Sub $ do
-            subscribe ""
-            mapM connect args
-            forever $ do
-                receive >>= liftIO . CS.putStrLn
-                liftIO $ hFlush stdout
+    runZMQ $ do
+        sub <- socket Sub
+        subscribe sub ""
+        mapM_ (connect sub) args
+        forever $ do
+            receive sub >>= liftIO . CS.putStrLn
+            liftIO $ hFlush stdout

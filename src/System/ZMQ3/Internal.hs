@@ -1,6 +1,8 @@
 module System.ZMQ3.Internal
     ( Context(..)
     , Socket(..)
+    , SocketRepr(..)
+    , SocketType(..)
     , Message(..)
     , Flag(..)
     , Timeout
@@ -25,7 +27,8 @@ module System.ZMQ3.Internal
 
     , toZMQFlag
     , combine
-    , mkSocket
+    , mkSocketRepr
+    , closeSock
     , onSocket
 
     , bool2cint
@@ -39,9 +42,9 @@ module System.ZMQ3.Internal
 import Control.Applicative
 import Control.Monad (foldM_, when)
 import Control.Exception
-import Data.IORef (IORef, mkWeakIORef, readIORef)
+import Data.IORef (IORef, mkWeakIORef, readIORef, atomicModifyIORef)
 
-import Foreign
+import Foreign hiding (throwIfNull)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CSize)
 
@@ -104,10 +107,17 @@ data EventMsg =
 newtype Context = Context { _ctx :: ZMQCtx }
 
 -- | A 0MQ Socket.
-data Socket a = Socket {
-      _socket   :: ZMQSocket
-    , _sockLive :: IORef Bool
-    }
+newtype Socket a = Socket
+  { _socketRepr :: SocketRepr }
+
+data SocketRepr = SocketRepr
+  { _socket   :: ZMQSocket
+  , _sockLive :: IORef Bool
+  }
+
+-- | Socket types.
+class SocketType a where
+    zmqSocketType :: a -> ZMQSocketType
 
 -- A 0MQ Message representation.
 newtype Message = Message { msgPtr :: ZMQMsgPtr }
@@ -115,18 +125,25 @@ newtype Message = Message { msgPtr :: ZMQMsgPtr }
 -- internal helpers:
 
 onSocket :: String -> Socket a -> (ZMQSocket -> IO b) -> IO b
-onSocket _func (Socket sock _state) act = act sock
+onSocket _func (Socket (SocketRepr sock _state)) act = act sock
 {-# INLINE onSocket #-}
 
-mkSocket :: ZMQSocket -> IO (Socket a)
-mkSocket s = do
+mkSocketRepr :: SocketType t => t -> Context -> IO SocketRepr
+mkSocketRepr t c = do
+    let ty = typeVal (zmqSocketType t)
+    s   <- throwIfNull "mkSocketRepr" (c_zmq_socket (_ctx c) ty)
     ref <- newIORef True
     addFinalizer ref $ do
         alive <- readIORef ref
         when alive $ c_zmq_close s >> return ()
-    return (Socket s ref)
+    return (SocketRepr s ref)
   where
     addFinalizer r f = mkWeakIORef r f >> return ()
+
+closeSock :: SocketRepr -> IO ()
+closeSock (SocketRepr s status) = do
+  alive <- atomicModifyIORef status (\b -> (False, b))
+  when alive $ throwIfMinus1_ "close" . c_zmq_close $ s
 
 messageOf :: SB.ByteString -> IO Message
 messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do

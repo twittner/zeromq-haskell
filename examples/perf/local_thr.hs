@@ -1,9 +1,10 @@
+import Control.Concurrent
 import Control.Monad
 import System.IO
 import System.Exit
 import System.Environment
 import Data.Time.Clock
-import qualified System.ZMQ3 as ZMQ
+import System.ZMQ3.Monadic
 import qualified Data.ByteString as SB
 import Text.Printf
 
@@ -14,25 +15,25 @@ main = do
         hPutStrLn stderr usage
         exitFailure
     let bindTo = args !! 0
-        size   = read $ args !! 1 :: Int
-        count  = read $ args !! 2 :: Int
-    ZMQ.withContext $ \c ->
-        ZMQ.withSocket c ZMQ.Sub $ \s -> do
-            ZMQ.subscribe s ""
-            ZMQ.bind s bindTo
-            receive s size
-            start <- getCurrentTime
-            loop s (count - 1) size
-            end <- getCurrentTime
-            printStat start end size count
+        size   = read $ args !! 1
+        count  = read $ args !! 2
+    runZMQ $ do
+        s <- socket Sub
+        subscribe s ""
+        bind s bindTo
+        receive' s size
+        start <- liftIO $ getCurrentTime
+        loop s count size
+        end <- liftIO $ getCurrentTime
+        liftIO $ printStat start end size count
   where
-    receive s sz = do
-        msg <- ZMQ.receive s
+    receive' s sz = do
+        msg <- receive s
         when (SB.length msg /= sz) $
             error "message of incorrect size received"
 
-    loop s c sz = unless (c <= 0) $ do
-        receive s sz
+    loop s c sz = unless (c < 0) $ do
+        receive' s sz
         loop s (c - 1) sz
 
     printStat :: UTCTime -> UTCTime -> Int -> Int -> IO ()

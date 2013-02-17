@@ -210,9 +210,8 @@ import Prelude hiding (init)
 import qualified Prelude as P
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, when, void)
+import Control.Monad (unless, void)
 import Data.Restricted
-import Data.IORef (atomicModifyIORef)
 import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt)
@@ -309,10 +308,6 @@ data Pull = Pull
 -- node becomes available for sending; messages are not discarded.
 data Push = Push
 
--- | Socket types.
-class SocketType a where
-    zmqSocketType :: a -> ZMQSocketType
-
 -- | Sockets which can 'subscribe'.
 class Subscriber a
 
@@ -403,7 +398,7 @@ term = destroy
 -- | Terminate a 0MQ context (cf. zmq_ctx_destroy).  You should normally
 -- prefer to use 'withContext' instead.
 destroy :: Context -> IO ()
-destroy = throwIfMinus1Retry_ "term" . c_zmq_ctx_destroy . _ctx
+destroy c = throwIfMinus1Retry_ "term" . c_zmq_ctx_destroy . _ctx $ c
 
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
@@ -423,16 +418,12 @@ withSocket c t = bracket (socket c t) close
 -- | Create a new 0MQ socket within the given context. 'withSocket' provides
 -- automatic socket closing and may be safer to use.
 socket :: SocketType a => Context -> a -> IO (Socket a)
-socket (Context c) t = do
-  let zt = typeVal . zmqSocketType $ t
-  throwIfNull "socket" (c_zmq_socket c zt) >>= mkSocket
+socket c t = Socket <$> mkSocketRepr t c
 
 -- | Close a 0MQ socket. 'withSocket' provides automatic socket closing and may
 -- be safer to use.
 close :: Socket a -> IO ()
-close sock@(Socket _ status) = onSocket "close" sock $ \s -> do
-  alive <- atomicModifyIORef status (\b -> (False, b))
-  when alive $ throwIfMinus1_ "close" . c_zmq_close $ s
+close = closeSock . _socketRepr
 
 -- | Subscribe Socket to given subscription.
 subscribe :: Subscriber a => Socket a -> String -> IO ()
@@ -774,7 +765,7 @@ socketMonitor es addr soc = onSocket "socketMonitor" soc $ \s ->
 -- /once/ to 'False'.
 monitor :: [EventType] -> Context -> Socket a -> IO (Bool -> IO (Maybe EventMsg))
 monitor es ctx sock = do
-    let addr = "inproc://" ++ show (_socket sock)
+    let addr = "inproc://" ++ show (_socket . _socketRepr $ sock)
     s <- socket ctx Pair
     socketMonitor es addr sock
     connect s addr
@@ -836,4 +827,4 @@ proxy front back capture =
     onSocket "proxy-back" back $ \b ->
       void (c_zmq_proxy f b c)
   where
-    c = maybe nullPtr _socket capture
+    c = maybe nullPtr (_socket . _socketRepr) capture

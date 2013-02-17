@@ -8,7 +8,6 @@ import System.Exit
 import System.Environment
 import System.ZMQ3.Monadic
 import qualified Data.ByteString.UTF8 as SB
-import qualified Data.ByteString.Char8 as SB
 
 main :: IO ()
 main = do
@@ -18,9 +17,9 @@ main = do
         exitFailure
     let addr = head args
         name = fromString (args !! 1) <> ": "
-    runContext $
-        runSocket Pub $ do
-            bind addr
-            forever $ do
-                line <- liftIO $ SB.fromString <$> getLine
-                send [] (name <> line)
+    runZMQ $ do
+        pub <- socket Pub
+        bind pub addr
+        forever $ do
+            line <- liftIO $ SB.fromString <$> getLine
+            send pub [] (name <> line)

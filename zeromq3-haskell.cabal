@@ -44,7 +44,7 @@ library
                         , containers
                         , bytestring
                         , transformers
-
+                        , MonadCatchIO-transformers
     if os(freebsd)
         extra-libraries:  zmq, pthread
     else
@@ -59,6 +59,7 @@ test-suite zeromq-haskell-tests
                     , containers
                     , bytestring
                     , transformers
+                    , MonadCatchIO-transformers
                     , test-framework >= 0.4
                     , test-framework-quickcheck2 >= 0.2
                     , QuickCheck >= 2.4
