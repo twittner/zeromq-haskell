@@ -13,8 +13,13 @@ module System.ZMQ3.Monadic (
     ZMQ
   , MonadZMQ (..)
   , Z.Socket
+  , Z.Flag (SendMore)
   , Z.Switch (..)
+  , Z.Timeout
   , Z.Event (..)
+  , Z.EventType (..)
+  , Z.EventMsg (..)
+  , Z.Poll (..)
 
   -- ** Type Classes
   , Z.SocketType
@@ -62,6 +67,8 @@ module System.ZMQ3.Monadic (
   , subscribe
   , unsubscribe
   , proxy
+  , monitor
+  , poll
 
   -- * Socket Options (Read)
   , affinity
@@ -275,6 +282,12 @@ unsubscribe s = liftIO . Z.unsubscribe s
 
 proxy :: MonadZMQ m => Z.Socket a -> Z.Socket b -> Maybe (Z.Socket c) -> m ()
 proxy a b = liftIO . Z.proxy a b
+
+poll :: MonadZMQ m => [Z.Poll] -> Z.Timeout -> m [Z.Poll]
+poll xs = liftIO . Z.poll xs
+
+monitor :: MonadZMQ m => [Z.EventType] -> Z.Socket t -> m (Bool -> IO (Maybe Z.EventMsg))
+monitor es s = onContext $ \ctx -> Z.monitor es ctx s
 
 -- * Socket Options (Read)
 

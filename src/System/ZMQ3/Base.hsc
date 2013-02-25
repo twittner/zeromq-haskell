@@ -239,3 +239,8 @@ foreign import ccall unsafe "zmq.h zmq_strerror"
 
 foreign import ccall unsafe "zmq.h zmq_proxy"
     c_zmq_proxy :: ZMQSocket -> ZMQSocket -> ZMQSocket -> IO CInt
+
+-- poll
+
+foreign import ccall safe "zmq.h zmq_poll"
+    c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
