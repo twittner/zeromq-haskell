@@ -10,6 +10,6 @@ thr: local_thr.hs remote_thr.hs
 
 .PHONY: clean
 clean:
-	@rm *.o *.hi
-	@rm local_lat remote_lat local_thr remote_thr
+	-rm -f *.o *.hi
+	-rm -f local_lat remote_lat local_thr remote_thr
 

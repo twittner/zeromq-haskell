@@ -6,6 +6,6 @@ chat: display.hs prompt.hs
 
 .PHONY: clean
 clean:
-	@rm *.o *.hi
-	@rm display prompt
+	-rm -f *.o *.hi
+	-rm -f display prompt
 
