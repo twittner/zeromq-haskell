@@ -29,6 +29,7 @@ module System.ZMQ3.Internal
 
     , toZMQFlag
     , combine
+    , combineFlags
     , mkSocketRepr
     , closeSock
     , onSocket
@@ -243,8 +244,11 @@ toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag DontWait = dontWait
 toZMQFlag SendMore = sndMore
 
-combine :: [Flag] -> CInt
-combine = fromIntegral . foldr ((.|.) . flagVal . toZMQFlag) 0
+combineFlags :: [Flag] -> CInt
+combineFlags = fromIntegral . combine . map (flagVal . toZMQFlag)
+
+combine :: (Integral i, Bits i) => [i] -> i
+combine = foldr (.|.) 0
 
 bool2cint :: Bool -> CInt
 bool2cint True  = 1

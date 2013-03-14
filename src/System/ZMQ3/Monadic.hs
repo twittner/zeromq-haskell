@@ -68,7 +68,7 @@ module System.ZMQ3.Monadic (
   , unsubscribe
   , proxy
   , monitor
-  , poll
+  , Z.poll
 
   -- * Socket Options (Read)
   , affinity
@@ -283,9 +283,6 @@ unsubscribe s = liftIO . Z.unsubscribe s
 proxy :: MonadZMQ m => Z.Socket a -> Z.Socket b -> Maybe (Z.Socket c) -> m ()
 proxy a b = liftIO . Z.proxy a b
 
-poll :: MonadZMQ m => [Z.Poll] -> Z.Timeout -> m [Z.Poll]
-poll xs = liftIO . Z.poll xs
-
 monitor :: MonadZMQ m => [Z.EventType] -> Z.Socket t -> m (Bool -> IO (Maybe Z.EventMsg))
 monitor es s = onContext $ \ctx -> Z.monitor es ctx s
 
@@ -300,7 +297,7 @@ backlog = liftIO . Z.backlog
 delayAttachOnConnect :: MonadZMQ m => Z.Socket t -> m Bool
 delayAttachOnConnect = liftIO . Z.delayAttachOnConnect
 
-events :: MonadZMQ m => Z.Socket t -> m Z.Event
+events :: MonadZMQ m => Z.Socket t -> m [Z.Event]
 events = liftIO . Z.events
 
 fileDescriptor :: MonadZMQ m => Z.Socket t -> m Fd
