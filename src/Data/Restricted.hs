@@ -4,6 +4,7 @@
 {-# LANGUAGE UndecidableInstances   #-}
 {-# LANGUAGE TypeSynonymInstances   #-}
 {-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE CPP                    #-}
 
 -- |
 -- Module      : Data.Restricted
@@ -39,6 +40,12 @@ module Data.Restricted (
 import Data.Int
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as B
+
+#if MIN_VERSION_bytestring(0,10,0)
+#define SPACE " "
+#else
+#define SPACE (B.singleton 32)
+#endif
 
 -- | Type level restriction.
 data Restricted l u v = Restricted !v deriving Show
@@ -137,7 +144,7 @@ instance Restriction N1 N254 ByteString where
     toRestricted s | check (1, 254) (B.length s) = Just $ Restricted s
                    | otherwise                   = Nothing
 
-    restrict s | B.length s < 1 = Restricted " "
+    restrict s | B.length s < 1 = Restricted SPACE 
                | otherwise      = Restricted (B.take 254 s)
 
 -- Helpers
@@ -176,3 +183,4 @@ lbfit lb a | a >= lb   = a
 ubfit :: Integral a => a -> a -> a
 ubfit ub a | a <= ub   = a
            | otherwise = ub
+

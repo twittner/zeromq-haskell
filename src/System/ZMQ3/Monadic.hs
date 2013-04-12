@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+{-# LANGUAGE CPP #-}
 -- |
 -- Module      : System.ZMQ3.Monadic
 -- Copyright   : (c) 2013 Toralf Wittner
@@ -142,6 +143,7 @@ module System.ZMQ3.Monadic (
 
 ) where
 
+import Prelude hiding (catch)
 import Control.Applicative
 import Control.Concurrent (forkIO)
 import Control.Monad
@@ -464,3 +466,15 @@ destroy env = do
         Z.destroy (_context env)
   where
     close' s = I.closeSock s `E.catch` (\e -> print (e :: E.SomeException))
+
+-- Back compatibility hacks
+#if !MIN_VERSION_base(4,6,0)
+-- | Strict version of 'atomicModifyIORef'.  This forces both the value stored
+-- in the 'IORef' as well as the value returned.
+atomicModifyIORef' :: IORef a -> (a -> (a,b)) -> IO b
+atomicModifyIORef' ref f = do
+    b <- atomicModifyIORef ref
+            (\x -> let (a, b) = f x
+                    in (a, a `seq` b))
+    b `seq` return b
+#endif
