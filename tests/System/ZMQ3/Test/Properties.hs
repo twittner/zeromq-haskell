@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module System.ZMQ3.Test.Properties where
 
 import Control.Applicative
@@ -13,8 +15,7 @@ import Data.Restricted
 import Data.Maybe (fromJust)
 import Data.ByteString (ByteString)
 import Control.Concurrent
-import Control.Concurrent.MVar
-import System.ZMQ3
+import System.ZMQ3.Monadic
 import System.Posix.Types (Fd(..))
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Char8 as CB
@@ -50,81 +51,82 @@ tests = [
         testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive Req Rep)
       , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive Push Pull)
       , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive Pair Pair)
-      , testProperty "publish/subscribe (Pub/Sub)"          (prop_pub_sub Pub Sub)
+
+      --, testProperty "publish/subscribe (Pub/Sub)"          (prop_pub_sub Pub Sub)
+      -- Disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270].
       ]
   ]
 
 prop_get_socket_option :: SocketType t => t -> GetOpt -> Property
 prop_get_socket_option t opt = monadicIO $ run $ do
-    withContext 1 $ \c ->
-        withSocket c t $ \s ->
-            case opt of
-                Events _      -> events s         >> return ()
-                Filedesc _    -> fileDescriptor s >> return ()
-                ReceiveMore _ -> moreToReceive s  >> return ()
+    runZMQ $ do
+        s <- socket t
+        case opt of
+            Events _      -> events s         >> return ()
+            Filedesc _    -> fileDescriptor s >> return ()
+            ReceiveMore _ -> moreToReceive s  >> return ()
 
 prop_set_get_socket_option :: SocketType t => t -> SetOpt -> Property
 prop_set_get_socket_option t opt = monadicIO $ do
-    r <- run $
-        withContext 1 $ \c ->
-            withSocket c t $ \s ->
-                case opt of
-                    Identity val        -> (== (rvalue val)) <$> (setIdentity val s >> identity s)
-                    Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
-                    Affinity val        -> (eq val)          <$> (setAffinity val s >> affinity s)
-                    Backlog val         -> (eq (rvalue val)) <$> (setBacklog val s >> backlog s)
-                    Linger val          -> (eq (rvalue val)) <$> (setLinger val s >> linger s)
-                    Rate val            -> (eq (rvalue val)) <$> (setRate val s >> rate s)
-                    ReceiveBuf val      -> (eq (rvalue val)) <$> (setReceiveBuffer val s >> receiveBuffer s)
-                    ReconnectIVL val    -> (eq (rvalue val)) <$> (setReconnectInterval val s >> reconnectInterval s)
-                    ReconnectIVLMax val -> (eq (rvalue val)) <$> (setReconnectIntervalMax val s >> reconnectIntervalMax s)
-                    RecoveryIVL val     -> (eq (rvalue val)) <$> (setRecoveryInterval val s >> recoveryInterval s)
-                    SendBuf val         -> (eq (rvalue val)) <$> (setSendBuffer val s >> sendBuffer s)
-                    MaxMessageSize val  -> (eq (rvalue val)) <$> (setMaxMessageSize val s >> maxMessageSize s)
-                    McastHops val       -> (eq (rvalue val)) <$> (setMcastHops val s >> mcastHops s)
-                    ReceiveHighWM val   -> (eq (rvalue val)) <$> (setReceiveHighWM val s >> receiveHighWM s)
-                    ReceiveTimeout val  -> (eq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
-                    SendHighWM val      -> (eq (rvalue val)) <$> (setSendHighWM val s >> sendHighWM s)
-                    SendTimeout val     -> (eq (rvalue val)) <$> (setSendTimeout val s >> sendTimeout s)
+    r <- run $ runZMQ $ do
+        s <- socket t
+        case opt of
+            Identity val        -> (== (rvalue val)) <$> (setIdentity val s >> identity s)
+            Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
+            Affinity val        -> (eq val)          <$> (setAffinity val s >> affinity s)
+            Backlog val         -> (eq (rvalue val)) <$> (setBacklog val s >> backlog s)
+            Linger val          -> (eq (rvalue val)) <$> (setLinger val s >> linger s)
+            Rate val            -> (eq (rvalue val)) <$> (setRate val s >> rate s)
+            ReceiveBuf val      -> (eq (rvalue val)) <$> (setReceiveBuffer val s >> receiveBuffer s)
+            ReconnectIVL val    -> (eq (rvalue val)) <$> (setReconnectInterval val s >> reconnectInterval s)
+            ReconnectIVLMax val -> (eq (rvalue val)) <$> (setReconnectIntervalMax val s >> reconnectIntervalMax s)
+            RecoveryIVL val     -> (eq (rvalue val)) <$> (setRecoveryInterval val s >> recoveryInterval s)
+            SendBuf val         -> (eq (rvalue val)) <$> (setSendBuffer val s >> sendBuffer s)
+            MaxMessageSize val  -> (eq (rvalue val)) <$> (setMaxMessageSize val s >> maxMessageSize s)
+            McastHops val       -> (eq (rvalue val)) <$> (setMcastHops val s >> mcastHops s)
+            ReceiveHighWM val   -> (eq (rvalue val)) <$> (setReceiveHighWM val s >> receiveHighWM s)
+            ReceiveTimeout val  -> (eq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
+            SendHighWM val      -> (eq (rvalue val)) <$> (setSendHighWM val s >> sendHighWM s)
+            SendTimeout val     -> (eq (rvalue val)) <$> (setSendTimeout val s >> sendTimeout s)
     assert r
   where
     eq :: (Integral i, Integral k) => i -> k -> Bool
-    eq i k  = fromIntegral i == fromIntegral k
+    eq i k  = (fromIntegral i :: Int) == (fromIntegral k :: Int)
 
-prop_subscribe :: (Subscriber a, SocketType a) => a -> String -> Property
+prop_subscribe :: (Subscriber a, SocketType a) => a -> ByteString -> Property
 prop_subscribe t subs = monadicIO $ run $
-    withContext 1 $ \c ->
-        withSocket c t $ \s -> do
-            subscribe s subs
-            unsubscribe s subs
+    runZMQ $ do
+        s <- socket t
+        subscribe s subs
+        unsubscribe s subs
 
 prop_send_receive :: (SocketType a, SocketType b, Receiver b, Sender a) => a -> b -> ByteString -> Property
 prop_send_receive a b msg = monadicIO $ do
-    msg' <- run $ withContext 0 $ \c ->
-                    withSocket c a $ \sender ->
-                    withSocket c b $ \receiver -> do
-                        sync <- newEmptyMVar :: IO (MVar ByteString)
-                        bind receiver "inproc://endpoint"
-                        forkIO $ receive receiver >>= putMVar sync
-                        connect sender "inproc://endpoint"
-                        send sender [] msg
-                        takeMVar sync
+    msg' <- run $ runZMQ $ do
+        sender   <- socket a
+        receiver <- socket b
+        sync     <- liftIO newEmptyMVar
+        bind receiver "inproc://endpoint"
+        async $ receive receiver >>= liftIO . putMVar sync
+        connect sender "inproc://endpoint"
+        send sender [] msg
+        liftIO $ takeMVar sync
     assert (msg == msg')
 
 prop_pub_sub :: (SocketType a, Subscriber b, SocketType b, Sender a, Receiver b) => a -> b -> ByteString -> Property
 prop_pub_sub a b msg = monadicIO $ do
-    msg' <- run $ withContext 0 $ \c ->
-                    withSocket c a $ \pub ->
-                    withSocket c b $ \sub -> do
-                        subscribe sub ""
-                        bind sub "inproc://endpoint"
-                        connect pub "inproc://endpoint"
-                        send pub [] msg
-                        receive sub
+    msg' <- run $ runZMQ $ do
+        pub <- socket a
+        sub <- socket b
+        subscribe sub ""
+        bind sub "inproc://endpoint"
+        connect pub "inproc://endpoint"
+        send pub [] msg
+        receive sub
     assert (msg == msg')
 
 instance Arbitrary ByteString where
-    arbitrary = CB.pack <$> arbitrary
+    arbitrary = CB.pack . filter (/= '\0') <$> arbitrary
 
 data GetOpt =
     Events          Int
@@ -135,7 +137,7 @@ data GetOpt =
 data SetOpt =
     Affinity        Word64
   | Backlog         (Restricted N0 Int32 Int)
-  | Identity        (Restricted N1 N254 String)
+  | Identity        (Restricted N1 N254 ByteString)
   | Ipv4Only        Bool
   | Linger          (Restricted Nneg1 Int32 Int)
   | MaxMessageSize  (Restricted Nneg1 Int64 Int64)
@@ -177,7 +179,7 @@ instance Arbitrary SetOpt where
       , SendHighWM      . toR0     <$> (arbitrary :: Gen Int32) `suchThat` (>=  0)
       , SendTimeout     . toRneg1  <$> (arbitrary :: Gen Int32) `suchThat` (>= -1)
       , MaxMessageSize  . toRneg1' <$> (arbitrary :: Gen Int64) `suchThat` (>= -1)
-      , Identity . fromJust . toRestricted . show <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
+      , Identity . fromJust . toRestricted <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
       ]
 
 toR1 :: Int32 -> Restricted N1 Int32 Int
