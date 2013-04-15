@@ -54,15 +54,16 @@ test-suite zeromq-haskell-tests
     type:             exitcode-stdio-1.0
     hs-source-dirs:   tests
     main-is:          tests.hs
+    other-modules:    Test.Tools
     build-depends:    zeromq3-haskell
                     , base >= 3 && < 5
                     , containers
                     , bytestring
                     , transformers
                     , MonadCatchIO-transformers
-                    , test-framework >= 0.4
-                    , test-framework-quickcheck2 >= 0.2
-                    , QuickCheck >= 2.4
+                    , QuickCheck >= 2.6
+                    , checkers >= 0.3
+                    , ansi-terminal >= 0.6
     ghc-options:      -Wall -threaded -rtsopts
 
 source-repository head

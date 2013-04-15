@@ -3,12 +3,13 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module System.ZMQ3.Test.Properties where
 
-import Control.Applicative
-import Test.Framework (Test, testGroup)
-import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
+import Test.QuickCheck.Checkers
+import Test.QuickCheck.Classes
 import Test.QuickCheck.Monadic
+import Test.Tools
 
+import Control.Applicative
 import Data.Int
 import Data.Word
 import Data.Restricted
@@ -20,42 +21,45 @@ import System.Posix.Types (Fd(..))
 import qualified Data.ByteString as SB
 import qualified Data.ByteString.Char8 as CB
 
-tests :: [Test]
-tests = [
-    testGroup "0MQ Socket Properties" [
-        testProperty "get socket option (Pair)"   (prop_get_socket_option Pair)
-      , testProperty "get socket option (Pub)"    (prop_get_socket_option Pub)
-      , testProperty "get socket option (Sub)"    (prop_get_socket_option Sub)
-      , testProperty "get socket option (XPub)"   (prop_get_socket_option XPub)
-      , testProperty "get socket option (XSub)"   (prop_get_socket_option XSub)
-      , testProperty "get socket option (Req)"    (prop_get_socket_option Req)
-      , testProperty "get socket option (Rep)"    (prop_get_socket_option Rep)
-      , testProperty "get socket option (Dealer)" (prop_get_socket_option Dealer)
-      , testProperty "get socket option (Router)" (prop_get_socket_option Router)
-      , testProperty "get socket option (Pull)"   (prop_get_socket_option Pull)
-      , testProperty "get socket option (Push)"   (prop_get_socket_option Push)
-      , testProperty "set/get socket option (Pair)"   (prop_set_get_socket_option Pair)
-      , testProperty "set/get socket option (Pub)"    (prop_set_get_socket_option Pub)
-      , testProperty "set/get socket option (Sub)"    (prop_set_get_socket_option Sub)
-      , testProperty "set/get socket option (XPub)"   (prop_set_get_socket_option XPub)
-      , testProperty "set/get socket option (XSub)"   (prop_set_get_socket_option XSub)
-      , testProperty "set/get socket option (Req)"    (prop_set_get_socket_option Req)
-      , testProperty "set/get socket option (Rep)"    (prop_set_get_socket_option Rep)
-      , testProperty "set/get socket option (Dealer)" (prop_set_get_socket_option Dealer)
-      , testProperty "set/get socket option (Router)" (prop_set_get_socket_option Router)
-      , testProperty "set/get socket option (Pull)"   (prop_set_get_socket_option Pull)
-      , testProperty "set/get socket option (Push)"   (prop_set_get_socket_option Push)
-      , testProperty "(un-)subscribe"                 (prop_subscribe Sub)
-      ]
-  , testGroup "0MQ Messages" [
-        testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive Req Rep)
-      , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive Push Pull)
-      , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive Pair Pair)
+tests :: IO ()
+tests = do
+      quickBatch' ("0MQ Socket Properties"
+        , [ ("get socket option (Pair)",       property $ prop_get_socket_option Pair)
+          , ("get socket option (Pub)",        property $ prop_get_socket_option Pub)
+          , ("get socket option (Sub)",        property $ prop_get_socket_option Sub)
+          , ("get socket option (XPub)",       property $ prop_get_socket_option XPub)
+          , ("get socket option (XSub)",       property $ prop_get_socket_option XSub)
+          , ("get socket option (Req)",        property $ prop_get_socket_option Req)
+          , ("get socket option (Rep)",        property $ prop_get_socket_option Rep)
+          , ("get socket option (Dealer)",     property $ prop_get_socket_option Dealer)
+          , ("get socket option (Router)",     property $ prop_get_socket_option Router)
+          , ("get socket option (Pull)",       property $ prop_get_socket_option Pull)
+          , ("get socket option (Push)",       property $ prop_get_socket_option Push)
+          , ("set;get socket option (Pair)",   property $ prop_set_get_socket_option Pair)
+          , ("set;get socket option (Pub)",    property $ prop_set_get_socket_option Pub)
+          , ("set;get socket option (Sub)",    property $ prop_set_get_socket_option Sub)
+          , ("set;get socket option (XPub)",   property $ prop_set_get_socket_option XPub)
+          , ("set;get socket option (XSub)",   property $ prop_set_get_socket_option XSub)
+          , ("set;get socket option (Req)",    property $ prop_set_get_socket_option Req)
+          , ("set;get socket option (Rep)",    property $ prop_set_get_socket_option Rep)
+          , ("set;get socket option (Dealer)", property $ prop_set_get_socket_option Dealer)
+          , ("set;get socket option (Router)", property $ prop_set_get_socket_option Router)
+          , ("set;get socket option (Pull)",   property $ prop_set_get_socket_option Pull)
+          , ("set;get socket option (Push)",   property $ prop_set_get_socket_option Push)
+          , ("(un-)subscribe",                 property $ prop_subscribe Sub)
+          ])
 
-      --, testProperty "publish/subscribe (Pub/Sub)"          (prop_pub_sub Pub Sub)
-      -- Disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270].
-      ]
-  ]
+      quickBatch' ("0MQ Messages"
+        , [ ("msg send == msg received (Req/Rep)",   property $ prop_send_receive Req Rep)
+          , ("msg send == msg received (Push/Pull)", property $ prop_send_receive Push Pull)
+          , ("msg send == msg received (Pair/Pair)", property $ prop_send_receive Pair Pair)
+
+          -- , ("publish/subscribe", prop_pub_sub Pub Sub)
+          -- (Disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270].)
+          ])
+
+      quickBatch' prop_zmq_functor
+      quickBatch' prop_zmq_monad
 
 prop_get_socket_option :: SocketType t => t -> GetOpt -> Property
 prop_get_socket_option t opt = monadicIO $ run $ do
@@ -73,25 +77,25 @@ prop_set_get_socket_option t opt = monadicIO $ do
         case opt of
             Identity val        -> (== (rvalue val)) <$> (setIdentity val s >> identity s)
             Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
-            Affinity val        -> (eq val)          <$> (setAffinity val s >> affinity s)
-            Backlog val         -> (eq (rvalue val)) <$> (setBacklog val s >> backlog s)
-            Linger val          -> (eq (rvalue val)) <$> (setLinger val s >> linger s)
-            Rate val            -> (eq (rvalue val)) <$> (setRate val s >> rate s)
-            ReceiveBuf val      -> (eq (rvalue val)) <$> (setReceiveBuffer val s >> receiveBuffer s)
-            ReconnectIVL val    -> (eq (rvalue val)) <$> (setReconnectInterval val s >> reconnectInterval s)
-            ReconnectIVLMax val -> (eq (rvalue val)) <$> (setReconnectIntervalMax val s >> reconnectIntervalMax s)
-            RecoveryIVL val     -> (eq (rvalue val)) <$> (setRecoveryInterval val s >> recoveryInterval s)
-            SendBuf val         -> (eq (rvalue val)) <$> (setSendBuffer val s >> sendBuffer s)
-            MaxMessageSize val  -> (eq (rvalue val)) <$> (setMaxMessageSize val s >> maxMessageSize s)
-            McastHops val       -> (eq (rvalue val)) <$> (setMcastHops val s >> mcastHops s)
-            ReceiveHighWM val   -> (eq (rvalue val)) <$> (setReceiveHighWM val s >> receiveHighWM s)
-            ReceiveTimeout val  -> (eq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
-            SendHighWM val      -> (eq (rvalue val)) <$> (setSendHighWM val s >> sendHighWM s)
-            SendTimeout val     -> (eq (rvalue val)) <$> (setSendTimeout val s >> sendTimeout s)
+            Affinity val        -> (ieq val)          <$> (setAffinity val s >> affinity s)
+            Backlog val         -> (ieq (rvalue val)) <$> (setBacklog val s >> backlog s)
+            Linger val          -> (ieq (rvalue val)) <$> (setLinger val s >> linger s)
+            Rate val            -> (ieq (rvalue val)) <$> (setRate val s >> rate s)
+            ReceiveBuf val      -> (ieq (rvalue val)) <$> (setReceiveBuffer val s >> receiveBuffer s)
+            ReconnectIVL val    -> (ieq (rvalue val)) <$> (setReconnectInterval val s >> reconnectInterval s)
+            ReconnectIVLMax val -> (ieq (rvalue val)) <$> (setReconnectIntervalMax val s >> reconnectIntervalMax s)
+            RecoveryIVL val     -> (ieq (rvalue val)) <$> (setRecoveryInterval val s >> recoveryInterval s)
+            SendBuf val         -> (ieq (rvalue val)) <$> (setSendBuffer val s >> sendBuffer s)
+            MaxMessageSize val  -> (ieq (rvalue val)) <$> (setMaxMessageSize val s >> maxMessageSize s)
+            McastHops val       -> (ieq (rvalue val)) <$> (setMcastHops val s >> mcastHops s)
+            ReceiveHighWM val   -> (ieq (rvalue val)) <$> (setReceiveHighWM val s >> receiveHighWM s)
+            ReceiveTimeout val  -> (ieq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
+            SendHighWM val      -> (ieq (rvalue val)) <$> (setSendHighWM val s >> sendHighWM s)
+            SendTimeout val     -> (ieq (rvalue val)) <$> (setSendTimeout val s >> sendTimeout s)
     assert r
   where
-    eq :: (Integral i, Integral k) => i -> k -> Bool
-    eq i k  = (fromIntegral i :: Int) == (fromIntegral k :: Int)
+    ieq :: (Integral i, Integral k) => i -> k -> Bool
+    ieq i k  = (fromIntegral i :: Int) == (fromIntegral k :: Int)
 
 prop_subscribe :: (Subscriber a, SocketType a) => a -> ByteString -> Property
 prop_subscribe t subs = monadicIO $ run $
@@ -125,8 +129,23 @@ prop_pub_sub a b msg = monadicIO $ do
         receive sub
     assert (msg == msg')
 
+prop_zmq_functor :: TestBatch
+prop_zmq_functor = functor (undefined :: ZMQ (Int, Int, Int))
+
+prop_zmq_monad :: TestBatch
+prop_zmq_monad = monad (undefined :: ZMQ (Int, Int, Int))
+
 instance Arbitrary ByteString where
     arbitrary = CB.pack . filter (/= '\0') <$> arbitrary
+
+instance Arbitrary (ZMQ Int) where
+    arbitrary = return <$> arbitrary
+
+instance Show (ZMQ Int) where
+    show _ = "zmq"
+
+instance (Eq a, EqProp a) => EqProp (ZMQ a) where
+    za =-= zb = monadicIO $ run (eq <$> runZMQ za <*> runZMQ zb)
 
 data GetOpt =
     Events          Int
