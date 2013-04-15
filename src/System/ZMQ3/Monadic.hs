@@ -172,10 +172,8 @@ newtype ZMQ a = ZMQ {
 class ( Monad m
       , MonadIO m
       , MonadCatchIO m
-      , MonadPlus m
       , Functor m
       , Applicative m
-      , Alternative m
       ) => MonadZMQ m
   where
     liftZMQ :: ZMQ a -> m a
@@ -201,14 +199,6 @@ instance Functor ZMQ where
 instance Applicative ZMQ where
     pure  = return
     (<*>) = ap
-
-instance MonadPlus ZMQ where
-    mzero = ZMQ $! mzero
-    (ZMQ m) `mplus` (ZMQ n) = ZMQ $! m `mplus` n
-
-instance Alternative ZMQ where
-    empty = mzero
-    (<|>) = mplus
 
 runZMQ :: MonadIO m => ZMQ a -> m a
 runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))

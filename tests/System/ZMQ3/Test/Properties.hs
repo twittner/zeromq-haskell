@@ -54,12 +54,15 @@ tests = do
           , ("msg send == msg received (Push/Pull)", property $ prop_send_receive Push Pull)
           , ("msg send == msg received (Pair/Pair)", property $ prop_send_receive Pair Pair)
 
-          -- , ("publish/subscribe", prop_pub_sub Pub Sub)
-          -- (Disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270].)
+          -- , ("publish/subscribe", property $ prop_pub_sub Pub Sub)
+          -- (disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270])
           ])
 
-      quickBatch' prop_zmq_functor
-      quickBatch' prop_zmq_monad
+      quickBatch' ("System.ZMQ3.Monadic"
+        , unbatch prop_zmq_functor
+          ++ unbatch prop_zmq_applicative
+          ++ unbatch prop_zmq_monad
+          )
 
 prop_get_socket_option :: SocketType t => t -> GetOpt -> Property
 prop_get_socket_option t opt = monadicIO $ run $ do
@@ -132,16 +135,19 @@ prop_pub_sub a b msg = monadicIO $ do
 prop_zmq_functor :: TestBatch
 prop_zmq_functor = functor (undefined :: ZMQ (Int, Int, Int))
 
+prop_zmq_applicative :: TestBatch
+prop_zmq_applicative = applicative (undefined :: ZMQ (Int, Int, Int))
+
 prop_zmq_monad :: TestBatch
 prop_zmq_monad = monad (undefined :: ZMQ (Int, Int, Int))
 
 instance Arbitrary ByteString where
     arbitrary = CB.pack . filter (/= '\0') <$> arbitrary
 
-instance Arbitrary (ZMQ Int) where
+instance Arbitrary a => Arbitrary (ZMQ a) where
     arbitrary = return <$> arbitrary
 
-instance Show (ZMQ Int) where
+instance Show (ZMQ a) where
     show _ = "zmq"
 
 instance (Eq a, EqProp a) => EqProp (ZMQ a) where
