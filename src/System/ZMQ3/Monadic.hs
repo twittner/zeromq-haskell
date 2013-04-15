@@ -158,6 +158,7 @@ import qualified Data.ByteString.Lazy as Lazy
 import qualified Control.Exception as E
 import qualified System.ZMQ3 as Z
 import qualified System.ZMQ3.Internal as I
+import qualified Control.Monad.CatchIO as M
 
 data ZMQEnv = ZMQEnv
   { _refcount :: !(IORef Word)
@@ -189,7 +190,7 @@ instance MonadIO ZMQ where
     liftIO m = ZMQ $! liftIO m
 
 instance MonadCatchIO ZMQ where
-    catch (ZMQ m) f = ZMQ $! m `catch` (_unzmq . f)
+    catch (ZMQ m) f = ZMQ $! m `M.catch` (_unzmq . f)
     block (ZMQ m) = ZMQ $! block m
     unblock (ZMQ m) = ZMQ $! unblock m
 
@@ -208,7 +209,7 @@ runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))
 async :: ZMQ a -> ZMQ ()
 async z = ZMQ $ do
     e <- ask
-    liftIO $ atomicModifyIORef' (_refcount e) $ \n -> (succ n, ())
+    liftIO $ atomicModifyIORef (_refcount e) $ \n -> (succ n, ())
     liftIO . forkIO $ (runReaderT (_unzmq z) e >> return ()) `E.finally` destroy e
     return ()
 
@@ -229,7 +230,7 @@ socket t = liftZMQ $! ZMQ $ do
     c <- asks _context
     s <- asks _sockets
     x <- liftIO $ I.mkSocketRepr t c
-    liftIO $ atomicModifyIORef' s $ \ss -> (x:ss, ())
+    liftIO $ atomicModifyIORef s $ \ss -> (x:ss, ())
     return (I.Socket x)
 
 version :: MonadZMQ m => m (Int, Int, Int)
@@ -448,7 +449,7 @@ onContext f = liftZMQ $! ZMQ $! asks _context >>= liftIO . f
 
 destroy :: ZMQEnv -> IO ()
 destroy env = do
-    n <- atomicModifyIORef' (_refcount env) $ \n -> (pred n, n)
+    n <- atomicModifyIORef (_refcount env) $ \n -> (pred n, n)
     when (n == 1) $ do
         readIORef (_sockets env) >>= mapM_ close'
         Z.destroy (_context env)

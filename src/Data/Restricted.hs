@@ -137,7 +137,7 @@ instance Restriction N1 N254 ByteString where
     toRestricted s | check (1, 254) (B.length s) = Just $ Restricted s
                    | otherwise                   = Nothing
 
-    restrict s | B.length s < 1 = Restricted " "
+    restrict s | B.length s < 1 = Restricted (B.singleton 0x20)
                | otherwise      = Restricted (B.take 254 s)
 
 -- Helpers

@@ -1,11 +1,11 @@
 module Test.Tools (quickBatch', checkBatch') where
 
-import Control.Exception (catch, SomeException)
 import Control.Monad
 import System.Console.ANSI
 import System.Exit
 import Test.QuickCheck
 import Test.QuickCheck.Checkers
+import qualified Control.Exception as E
 
 quickBatch' :: TestBatch -> IO ()
 quickBatch' = checkBatch' (stdArgs { maxSuccess = 500 })
@@ -16,8 +16,8 @@ checkBatch' args (name, tsts) = do
     forM_ tsts $ \(s, p) -> do
         write White ("    " ++ s ++ ": ")
         r <- quickCheckWithResult (args { chatty = False}) p
-             `catch`
-             ((\e -> write Red (show e) >> exitFailure) :: SomeException -> IO a)
+             `E.catch`
+             ((\e -> write Red (show e) >> exitFailure) :: E.SomeException -> IO a)
         case r of
             Success _ _ m           -> write Green m
             GaveUp  _ _ m           -> write Magenta m >> exitFailure
