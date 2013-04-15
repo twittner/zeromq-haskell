@@ -670,17 +670,17 @@ setXPubVerbose x s = setIntOpt s B.xpubVerbose (bool2cint x)
 -- | Bind the socket to the given address (cf. zmq_bind)
 bind :: Socket a -> String -> IO ()
 bind sock str = onSocket "bind" sock $
-    throwIfMinus1_ "bind" . withCString str . c_zmq_bind
+    throwIfMinus1Retry_ "bind" . withCString str . c_zmq_bind
 
 -- | Unbind the socket from the given address (cf. zmq_unbind)
 unbind :: Socket a -> String -> IO ()
 unbind sock str = onSocket "unbind" sock $
-    throwIfMinus1_ "unbind" . withCString str . c_zmq_unbind
+    throwIfMinus1Retry_ "unbind" . withCString str . c_zmq_unbind
 
 -- | Connect the socket to the given address (cf. zmq_connect).
 connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
-    throwIfMinus1_ "connect" . withCString str . c_zmq_connect
+    throwIfMinus1Retry_ "connect" . withCString str . c_zmq_connect
 
 -- | Send the given 'SB.ByteString' over the socket (cf. zmq_sendmsg).
 --
