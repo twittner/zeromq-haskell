@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+{-# LANGUAGE RankNTypes #-}
 -- |
 -- Module      : System.ZMQ3.Monadic
 -- Copyright   : (c) 2013 Toralf Wittner
@@ -6,13 +6,15 @@
 -- Maintainer  : Toralf Wittner <tw@dtex.org>
 -- Stability   : experimental
 -- Portability : non-portable
-
-module System.ZMQ3.Monadic (
-
-  -- * Type Definitions
+--
+-- This modules exposes a monadic interface of 'System.ZMQ3'. Actions run
+-- inside a 'ZMQ' monad and 'Socket's are guaranteed not to leak outside
+-- their corresponding 'runZMQ' scope. Running 'ZMQ' computations
+-- asynchronously is directly supported through 'async'.
+module System.ZMQ3.Monadic
+  ( -- * Type Definitions
     ZMQ
-  , MonadZMQ (..)
-  , Z.Socket
+  , Socket
   , Z.Flag (SendMore)
   , Z.Switch (..)
   , Z.Timeout
@@ -139,8 +141,8 @@ module System.ZMQ3.Monadic (
   -- * Low-level Functions
   , waitRead
   , waitWrite
-
-) where
+  )
+where
 
 import Control.Applicative
 import Control.Concurrent (forkIO)
@@ -166,286 +168,302 @@ data ZMQEnv = ZMQEnv
   , _sockets  :: !(IORef [I.SocketRepr])
   }
 
-newtype ZMQ a = ZMQ {
-    _unzmq :: ReaderT ZMQEnv IO a
-  }
+-- | The ZMQ monad is modeled after 'Control.Monad.ST' and encapsulates
+-- a 'System.ZMQ3.Context'. It uses the uninstantiated type variable 'z' to
+-- distinguish different invoctions of 'runZMQ' and to prevent
+-- unintented use of 'Socket's outside their scope. Cf. the paper
+-- of John Launchbury and Simon Peyton Jones /Lazy Functional State Threads/.
+newtype ZMQ z a = ZMQ { _unzmq :: ReaderT ZMQEnv IO a }
 
-class ( Monad m
-      , MonadIO m
-      , MonadCatchIO m
-      , Functor m
-      , Applicative m
-      ) => MonadZMQ m
-  where
-    liftZMQ :: ZMQ a -> m a
+-- | The ZMQ socket, parameterised by 'SocketType' and belonging to
+-- a particular 'ZMQ' thread.
+newtype Socket z t = Socket { _unsocket :: Z.Socket t }
 
-instance MonadZMQ ZMQ where
-    liftZMQ = id
-
-instance Monad ZMQ where
+instance Monad (ZMQ z) where
     return = ZMQ . return
     (ZMQ m) >>= f = ZMQ $! m >>= _unzmq . f
 
-instance MonadIO ZMQ where
+instance MonadIO (ZMQ z) where
     liftIO m = ZMQ $! liftIO m
 
-instance MonadCatchIO ZMQ where
+instance MonadCatchIO (ZMQ z) where
     catch (ZMQ m) f = ZMQ $! m `M.catch` (_unzmq . f)
-    block (ZMQ m) = ZMQ $! block m
+    block (ZMQ m)   = ZMQ $! block m
     unblock (ZMQ m) = ZMQ $! unblock m
 
-instance Functor ZMQ where
+instance Functor (ZMQ z) where
     fmap = liftM
 
-instance Applicative ZMQ where
+instance Applicative (ZMQ z) where
     pure  = return
     (<*>) = ap
 
-runZMQ :: MonadIO m => ZMQ a -> m a
+-- | Return the value computed by the given 'ZMQ' monad. Rank-2
+-- polymorphism is used to prevent leaking of 'z'.
+-- An invocation of 'runZMQ' will internally create a 'System.ZMQ3.Context'
+-- and all actions are executed relative to this context. On finish the
+-- context will be disposed, but see 'async'.
+runZMQ :: MonadIO m => (forall z. ZMQ z a) -> m a
 runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))
   where
     make = ZMQEnv <$> newIORef 1 <*> Z.context <*> newIORef []
 
-async :: ZMQ a -> ZMQ ()
+-- | Run the given 'ZMQ' computation asynchronously, i.e. this function
+-- runs the computation in a new thread using 'forkIO'.
+-- /N.B./ reference counting is used to prolong the lifetime of the
+-- 'System.ZMQ.Context' encapsulated in 'ZMQ' as necessary, e.g.:
+--
+-- @
+-- runZMQ $ do
+--     s <- socket Pair
+--     async $ do
+--         liftIO (threadDelay 10000000)
+--         identity s >>= liftIO . print
+-- @
+--
+-- Here, 'runZMQ' will finish before the code section in 'async', but due to
+-- reference counting, the 'System.ZMQ3.Context' will only be disposed after
+-- 'async' finishes as well.
+async :: ZMQ z a -> ZMQ z ()
 async z = ZMQ $ do
     e <- ask
     liftIO $ atomicModifyIORef (_refcount e) $ \n -> (succ n, ())
-    liftIO . forkIO $ (runReaderT (_unzmq z) e >> return ()) `E.finally` destroy e
+    _ <- liftIO . forkIO $ (runReaderT (_unzmq z) e >> return ()) `E.finally` destroy e
     return ()
 
-ioThreads :: MonadZMQ m => m Word
+ioThreads :: ZMQ z Word
 ioThreads = onContext Z.ioThreads
 
-setIoThreads :: MonadZMQ m => Word -> m ()
+setIoThreads :: Word -> ZMQ z ()
 setIoThreads = onContext . Z.setIoThreads
 
-maxSockets :: MonadZMQ m => m Word
+maxSockets :: ZMQ z Word
 maxSockets = onContext Z.maxSockets
 
-setMaxSockets :: MonadZMQ m => Word -> m ()
+setMaxSockets :: Word -> ZMQ z ()
 setMaxSockets = onContext . Z.setMaxSockets
 
-socket :: (MonadZMQ m, Z.SocketType t) => t -> m (Z.Socket t)
-socket t = liftZMQ $! ZMQ $ do
+socket :: Z.SocketType t => t -> ZMQ z (Socket z t)
+socket t = ZMQ $ do
     c <- asks _context
     s <- asks _sockets
     x <- liftIO $ I.mkSocketRepr t c
     liftIO $ atomicModifyIORef s $ \ss -> (x:ss, ())
-    return (I.Socket x)
+    return (Socket (I.Socket x))
 
-version :: MonadZMQ m => m (Int, Int, Int)
+version :: ZMQ z (Int, Int, Int)
 version = liftIO $! Z.version
 
 -- * Socket operations
 
-close :: MonadZMQ m => Z.Socket t -> m ()
-close = liftIO . Z.close
+close :: Socket z t -> ZMQ z ()
+close = liftIO . Z.close . _unsocket
 
-bind :: MonadZMQ m => Z.Socket t -> String -> m ()
-bind s = liftIO . Z.bind s
+bind :: Socket z t -> String -> ZMQ z ()
+bind s = liftIO . Z.bind (_unsocket s)
 
-unbind :: MonadZMQ m => Z.Socket t -> String -> m ()
-unbind s = liftIO . Z.unbind s
+unbind :: Socket z t -> String -> ZMQ z ()
+unbind s = liftIO . Z.unbind (_unsocket s)
 
-connect :: MonadZMQ m => Z.Socket t -> String -> m ()
-connect s = liftIO . Z.connect s
+connect :: Socket z t -> String -> ZMQ z ()
+connect s = liftIO . Z.connect (_unsocket s)
 
-send :: (MonadZMQ m, Z.Sender t) => Z.Socket t -> [Z.Flag] -> ByteString -> m ()
-send s f = liftIO . Z.send s f
+send :: Z.Sender t => Socket z t -> [Z.Flag] -> ByteString -> ZMQ z ()
+send s f = liftIO . Z.send (_unsocket s) f
 
-send' :: (MonadZMQ m, Z.Sender t) => Z.Socket t -> [Z.Flag] -> Lazy.ByteString -> m ()
-send' s f = liftIO . Z.send' s f
+send' :: Z.Sender t => Socket z t -> [Z.Flag] -> Lazy.ByteString -> ZMQ z ()
+send' s f = liftIO . Z.send' (_unsocket s) f
 
-sendMulti :: (MonadZMQ m, Z.Sender t) => Z.Socket t -> [ByteString] -> m ()
-sendMulti s = liftIO . Z.sendMulti s
+sendMulti :: Z.Sender t => Socket z t -> [ByteString] -> ZMQ z ()
+sendMulti s = liftIO . Z.sendMulti (_unsocket s)
 
-receive :: (MonadZMQ m, Z.Receiver t) => Z.Socket t -> m ByteString
-receive = liftIO . Z.receive
+receive :: Z.Receiver t => Socket z t -> ZMQ z ByteString
+receive = liftIO . Z.receive . _unsocket
 
-receiveMulti :: (MonadZMQ m, Z.Receiver t) => Z.Socket t -> m [ByteString]
-receiveMulti = liftIO . Z.receiveMulti
+receiveMulti :: Z.Receiver t => Socket z t -> ZMQ z [ByteString]
+receiveMulti = liftIO . Z.receiveMulti . _unsocket
 
-subscribe :: (MonadZMQ m, Z.Subscriber t) => Z.Socket t -> ByteString -> m ()
-subscribe s = liftIO . Z.subscribe s
+subscribe :: Z.Subscriber t => Socket z t -> ByteString -> ZMQ z ()
+subscribe s = liftIO . Z.subscribe (_unsocket s)
 
-unsubscribe :: (MonadZMQ m, Z.Subscriber t) => Z.Socket t -> ByteString -> m ()
-unsubscribe s = liftIO . Z.unsubscribe s
+unsubscribe :: Z.Subscriber t => Socket z t -> ByteString -> ZMQ z ()
+unsubscribe s = liftIO . Z.unsubscribe (_unsocket s)
 
-proxy :: MonadZMQ m => Z.Socket a -> Z.Socket b -> Maybe (Z.Socket c) -> m ()
-proxy a b = liftIO . Z.proxy a b
+proxy :: Socket z a -> Socket z b -> Maybe (Socket z c) -> ZMQ z ()
+proxy a b c = liftIO $ Z.proxy (_unsocket a) (_unsocket b) (_unsocket <$> c)
 
-monitor :: MonadZMQ m => [Z.EventType] -> Z.Socket t -> m (Bool -> IO (Maybe Z.EventMsg))
-monitor es s = onContext $ \ctx -> Z.monitor es ctx s
+monitor :: [Z.EventType] -> Socket z t -> ZMQ z (Bool -> IO (Maybe Z.EventMsg))
+monitor es s = onContext $ \ctx -> Z.monitor es ctx (_unsocket s)
 
 -- * Socket Options (Read)
 
-affinity :: MonadZMQ m => Z.Socket t -> m Word64
-affinity = liftIO . Z.affinity
+affinity :: Socket z t -> ZMQ z Word64
+affinity = liftIO . Z.affinity . _unsocket
 
-backlog :: MonadZMQ m => Z.Socket t -> m Int
-backlog = liftIO . Z.backlog
+backlog :: Socket z t -> ZMQ z Int
+backlog = liftIO . Z.backlog . _unsocket
 
-delayAttachOnConnect :: MonadZMQ m => Z.Socket t -> m Bool
-delayAttachOnConnect = liftIO . Z.delayAttachOnConnect
+delayAttachOnConnect :: Socket z t -> ZMQ z Bool
+delayAttachOnConnect = liftIO . Z.delayAttachOnConnect . _unsocket
 
-events :: MonadZMQ m => Z.Socket t -> m [Z.Event]
-events = liftIO . Z.events
+events :: Socket z t -> ZMQ z [Z.Event]
+events = liftIO . Z.events . _unsocket
 
-fileDescriptor :: MonadZMQ m => Z.Socket t -> m Fd
-fileDescriptor = liftIO . Z.fileDescriptor
+fileDescriptor :: Socket z t -> ZMQ z Fd
+fileDescriptor = liftIO . Z.fileDescriptor . _unsocket
 
-identity :: MonadZMQ m => Z.Socket t -> m ByteString
-identity = liftIO . Z.identity
+identity :: Socket z t -> ZMQ z ByteString
+identity = liftIO . Z.identity . _unsocket
 
-ipv4Only :: MonadZMQ m => Z.Socket t -> m Bool
-ipv4Only = liftIO . Z.ipv4Only
+ipv4Only :: Socket z t -> ZMQ z Bool
+ipv4Only = liftIO . Z.ipv4Only . _unsocket
 
-lastEndpoint :: MonadZMQ m => Z.Socket t -> m String
-lastEndpoint = liftIO . Z.lastEndpoint
+lastEndpoint :: Socket z t -> ZMQ z String
+lastEndpoint = liftIO . Z.lastEndpoint . _unsocket
 
-linger :: MonadZMQ m => Z.Socket t -> m Int
-linger = liftIO . Z.linger
+linger :: Socket z t -> ZMQ z Int
+linger = liftIO . Z.linger . _unsocket
 
-maxMessageSize :: MonadZMQ m => Z.Socket t -> m Int64
-maxMessageSize = liftIO . Z.maxMessageSize
+maxMessageSize :: Socket z t -> ZMQ z Int64
+maxMessageSize = liftIO . Z.maxMessageSize . _unsocket
 
-mcastHops :: MonadZMQ m => Z.Socket t -> m Int
-mcastHops = liftIO . Z.mcastHops
+mcastHops :: Socket z t -> ZMQ z Int
+mcastHops = liftIO . Z.mcastHops . _unsocket
 
-moreToReceive :: MonadZMQ m => Z.Socket t -> m Bool
-moreToReceive = liftIO . Z.moreToReceive
+moreToReceive :: Socket z t -> ZMQ z Bool
+moreToReceive = liftIO . Z.moreToReceive . _unsocket
 
-rate :: MonadZMQ m => Z.Socket t -> m Int
-rate = liftIO . Z.rate
+rate :: Socket z t -> ZMQ z Int
+rate = liftIO . Z.rate . _unsocket
 
-receiveBuffer :: MonadZMQ m => Z.Socket t -> m Int
-receiveBuffer = liftIO . Z.receiveBuffer
+receiveBuffer :: Socket z t -> ZMQ z Int
+receiveBuffer = liftIO . Z.receiveBuffer . _unsocket
 
-receiveHighWM :: MonadZMQ m => Z.Socket t -> m Int
-receiveHighWM = liftIO . Z.receiveHighWM
+receiveHighWM :: Socket z t -> ZMQ z Int
+receiveHighWM = liftIO . Z.receiveHighWM . _unsocket
 
-receiveTimeout :: MonadZMQ m => Z.Socket t -> m Int
-receiveTimeout = liftIO . Z.receiveTimeout
+receiveTimeout :: Socket z t -> ZMQ z Int
+receiveTimeout = liftIO . Z.receiveTimeout . _unsocket
 
-reconnectInterval :: MonadZMQ m => Z.Socket t -> m Int
-reconnectInterval = liftIO . Z.reconnectInterval
+reconnectInterval :: Socket z t -> ZMQ z Int
+reconnectInterval = liftIO . Z.reconnectInterval . _unsocket
 
-reconnectIntervalMax :: MonadZMQ m => Z.Socket t -> m Int
-reconnectIntervalMax = liftIO . Z.reconnectIntervalMax
+reconnectIntervalMax :: Socket z t -> ZMQ z Int
+reconnectIntervalMax = liftIO . Z.reconnectIntervalMax . _unsocket
 
-recoveryInterval :: MonadZMQ m => Z.Socket t -> m Int
-recoveryInterval = liftIO . Z.recoveryInterval
+recoveryInterval :: Socket z t -> ZMQ z Int
+recoveryInterval = liftIO . Z.recoveryInterval . _unsocket
 
-sendBuffer :: MonadZMQ m => Z.Socket t -> m Int
-sendBuffer = liftIO . Z.sendBuffer
+sendBuffer :: Socket z t -> ZMQ z Int
+sendBuffer = liftIO . Z.sendBuffer . _unsocket
 
-sendHighWM :: MonadZMQ m => Z.Socket t -> m Int
-sendHighWM = liftIO . Z.sendHighWM
+sendHighWM :: Socket z t -> ZMQ z Int
+sendHighWM = liftIO . Z.sendHighWM . _unsocket
 
-sendTimeout :: MonadZMQ m => Z.Socket t -> m Int
-sendTimeout = liftIO . Z.sendTimeout
+sendTimeout :: Socket z t -> ZMQ z Int
+sendTimeout = liftIO . Z.sendTimeout . _unsocket
 
-tcpKeepAlive :: MonadZMQ m => Z.Socket t -> m Z.Switch
-tcpKeepAlive = liftIO . Z.tcpKeepAlive
+tcpKeepAlive :: Socket z t -> ZMQ z Z.Switch
+tcpKeepAlive = liftIO . Z.tcpKeepAlive . _unsocket
 
-tcpKeepAliveCount :: MonadZMQ m => Z.Socket t -> m Int
-tcpKeepAliveCount = liftIO . Z.tcpKeepAliveCount
+tcpKeepAliveCount :: Socket z t -> ZMQ z Int
+tcpKeepAliveCount = liftIO . Z.tcpKeepAliveCount . _unsocket
 
-tcpKeepAliveIdle :: MonadZMQ m => Z.Socket t -> m Int
-tcpKeepAliveIdle = liftIO . Z.tcpKeepAliveIdle
+tcpKeepAliveIdle :: Socket z t -> ZMQ z Int
+tcpKeepAliveIdle = liftIO . Z.tcpKeepAliveIdle . _unsocket
 
-tcpKeepAliveInterval :: MonadZMQ m => Z.Socket t -> m Int
-tcpKeepAliveInterval = liftIO . Z.tcpKeepAliveInterval
+tcpKeepAliveInterval :: Socket z t -> ZMQ z Int
+tcpKeepAliveInterval = liftIO . Z.tcpKeepAliveInterval . _unsocket
 
 -- * Socket Options (Write)
 
-setAffinity :: MonadZMQ m => Word64 -> Z.Socket t -> m ()
-setAffinity a = liftIO . Z.setAffinity a
+setAffinity :: Word64 -> Socket z t -> ZMQ z ()
+setAffinity a = liftIO . Z.setAffinity a . _unsocket
 
-setBacklog :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setBacklog b = liftIO . Z.setBacklog b
+setBacklog :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setBacklog b = liftIO . Z.setBacklog b . _unsocket
 
-setDelayAttachOnConnect :: MonadZMQ m => Bool -> Z.Socket t -> m ()
-setDelayAttachOnConnect d = liftIO . Z.setDelayAttachOnConnect d
+setDelayAttachOnConnect :: Bool -> Socket z t -> ZMQ z ()
+setDelayAttachOnConnect d = liftIO . Z.setDelayAttachOnConnect d . _unsocket
 
-setIdentity :: MonadZMQ m => Restricted N1 N254 ByteString -> Z.Socket t -> m ()
-setIdentity i = liftIO . Z.setIdentity i
+setIdentity :: Restricted N1 N254 ByteString -> Socket z t -> ZMQ z ()
+setIdentity i = liftIO . Z.setIdentity i . _unsocket
 
-setIpv4Only :: MonadZMQ m => Bool -> Z.Socket t -> m ()
-setIpv4Only i = liftIO . Z.setIpv4Only i
+setIpv4Only :: Bool -> Socket z t -> ZMQ z ()
+setIpv4Only i = liftIO . Z.setIpv4Only i . _unsocket
 
-setLinger :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
-setLinger l = liftIO . Z.setLinger l
+setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setLinger l = liftIO . Z.setLinger l . _unsocket
 
-setMaxMessageSize :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int64 i -> Z.Socket t -> m ()
-setMaxMessageSize s = liftIO . Z.setMaxMessageSize s
+setMaxMessageSize :: Integral i => Restricted Nneg1 Int64 i -> Socket z t -> ZMQ z ()
+setMaxMessageSize s = liftIO . Z.setMaxMessageSize s . _unsocket
 
-setMcastHops :: (MonadZMQ m, Integral i) => Restricted N1 Int32 i -> Z.Socket t -> m ()
-setMcastHops k = liftIO . Z.setMcastHops k
+setMcastHops :: Integral i => Restricted N1 Int32 i -> Socket z t -> ZMQ z ()
+setMcastHops k = liftIO . Z.setMcastHops k . _unsocket
 
-setRate :: (MonadZMQ m, Integral i) => Restricted N1 Int32 i -> Z.Socket t -> m ()
-setRate r = liftIO . Z.setRate r
+setRate :: Integral i => Restricted N1 Int32 i -> Socket z t -> ZMQ z ()
+setRate r = liftIO . Z.setRate r . _unsocket
 
-setReceiveBuffer :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setReceiveBuffer k = liftIO . Z.setReceiveBuffer k
+setReceiveBuffer :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReceiveBuffer k = liftIO . Z.setReceiveBuffer k . _unsocket
 
-setReceiveHighWM :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setReceiveHighWM k = liftIO . Z.setReceiveHighWM k
+setReceiveHighWM :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReceiveHighWM k = liftIO . Z.setReceiveHighWM k . _unsocket
 
-setReceiveTimeout :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
-setReceiveTimeout t = liftIO . Z.setReceiveTimeout t
+setReceiveTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setReceiveTimeout t = liftIO . Z.setReceiveTimeout t . _unsocket
 
-setReconnectInterval :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setReconnectInterval i = liftIO . Z.setReconnectInterval i
+setReconnectInterval :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReconnectInterval i = liftIO . Z.setReconnectInterval i . _unsocket
 
-setReconnectIntervalMax :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setReconnectIntervalMax i = liftIO . Z.setReconnectIntervalMax i
+setReconnectIntervalMax :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReconnectIntervalMax i = liftIO . Z.setReconnectIntervalMax i . _unsocket
 
-setRecoveryInterval :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setRecoveryInterval i = liftIO . Z.setRecoveryInterval i
+setRecoveryInterval :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setRecoveryInterval i = liftIO . Z.setRecoveryInterval i . _unsocket
 
-setRouterMandatory :: MonadZMQ m => Bool -> Z.Socket Z.Router -> m ()
-setRouterMandatory b = liftIO . Z.setRouterMandatory b
+setRouterMandatory :: Bool -> Socket z Z.Router -> ZMQ z ()
+setRouterMandatory b = liftIO . Z.setRouterMandatory b . _unsocket
 
-setSendBuffer :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setSendBuffer i = liftIO . Z.setSendBuffer i
+setSendBuffer :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setSendBuffer i = liftIO . Z.setSendBuffer i . _unsocket
 
-setSendHighWM :: (MonadZMQ m, Integral i) => Restricted N0 Int32 i -> Z.Socket t -> m ()
-setSendHighWM i = liftIO . Z.setSendHighWM i
+setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setSendHighWM i = liftIO . Z.setSendHighWM i . _unsocket
 
-setSendTimeout :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
-setSendTimeout i = liftIO . Z.setSendTimeout i
+setSendTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setSendTimeout i = liftIO . Z.setSendTimeout i . _unsocket
 
-setTcpAcceptFilter :: MonadZMQ m => Maybe ByteString -> Z.Socket t -> m ()
-setTcpAcceptFilter s = liftIO . Z.setTcpAcceptFilter s
+setTcpAcceptFilter :: Maybe ByteString -> Socket z t -> ZMQ z ()
+setTcpAcceptFilter s = liftIO . Z.setTcpAcceptFilter s . _unsocket
 
-setTcpKeepAlive :: MonadZMQ m => Z.Switch -> Z.Socket t -> m ()
-setTcpKeepAlive s = liftIO . Z.setTcpKeepAlive s
+setTcpKeepAlive :: Z.Switch -> Socket z t -> ZMQ z ()
+setTcpKeepAlive s = liftIO . Z.setTcpKeepAlive s . _unsocket
 
-setTcpKeepAliveCount :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
-setTcpKeepAliveCount c = liftIO . Z.setTcpKeepAliveCount c
+setTcpKeepAliveCount :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setTcpKeepAliveCount c = liftIO . Z.setTcpKeepAliveCount c . _unsocket
 
-setTcpKeepAliveIdle :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
-setTcpKeepAliveIdle i = liftIO . Z.setTcpKeepAliveIdle i
+setTcpKeepAliveIdle :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setTcpKeepAliveIdle i = liftIO . Z.setTcpKeepAliveIdle i . _unsocket
 
-setTcpKeepAliveInterval :: (MonadZMQ m, Integral i) => Restricted Nneg1 Int32 i -> Z.Socket t -> m ()
-setTcpKeepAliveInterval i = liftIO . Z.setTcpKeepAliveInterval i
+setTcpKeepAliveInterval :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setTcpKeepAliveInterval i = liftIO . Z.setTcpKeepAliveInterval i . _unsocket
 
-setXPubVerbose :: MonadZMQ m => Bool -> Z.Socket Z.XPub -> m ()
-setXPubVerbose b = liftIO . Z.setXPubVerbose b
+setXPubVerbose :: Bool -> Socket z Z.XPub -> ZMQ z ()
+setXPubVerbose b = liftIO . Z.setXPubVerbose b . _unsocket
 
 -- * Low Level Functions
 
-waitRead :: MonadZMQ m => Z.Socket t -> m ()
-waitRead = liftIO . Z.waitRead
+waitRead :: Socket z t -> ZMQ z ()
+waitRead = liftIO . Z.waitRead . _unsocket
 
-waitWrite :: MonadZMQ m => Z.Socket t -> m ()
-waitWrite = liftIO . Z.waitWrite
+waitWrite :: Socket z t -> ZMQ z ()
+waitWrite = liftIO . Z.waitWrite . _unsocket
 
 -- * Internal
 
-onContext :: MonadZMQ m => (Z.Context -> IO a) -> m a
-onContext f = liftZMQ $! ZMQ $! asks _context >>= liftIO . f
+onContext :: (Z.Context -> IO a) -> ZMQ z a
+onContext f = ZMQ $! asks _context >>= liftIO . f
 
 destroy :: ZMQEnv -> IO ()
 destroy env = do
