@@ -1,15 +1,15 @@
 name:               zeromq3-haskell
-version:            0.3.0
+version:            0.3.1
 synopsis:           Bindings to ZeroMQ 3.x
 category:           System, FFI
 license:            MIT
 license-file:       LICENSE
 author:             Toralf Wittner
 maintainer:         Toralf Wittner <tw@dtex.org>
-copyright:          Copyright (c) 2010 - 2012 zeromq-haskell authors
+copyright:          Copyright (c) 2010 - 2013 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
-tested-With:        GHC == 7.6.1
+tested-With:        GHC == 7.6.2
 cabal-version:      >= 1.8
 build-type:         Simple
 extra-source-files: README.md

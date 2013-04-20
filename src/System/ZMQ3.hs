@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 -- |
 -- Module      : System.ZMQ3
--- Copyright   : (c) 2010-2012 Toralf Wittner
+-- Copyright   : (c) 2010-2013 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : Toralf Wittner <tw@dtex.org>
 -- Stability   : experimental

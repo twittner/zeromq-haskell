@@ -7,7 +7,7 @@
 
 -- |
 -- Module      : Data.Restricted
--- Copyright   : (c) 2011-2012 Toralf Wittner
+-- Copyright   : (c) 2011-2013 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : Toralf Wittner <tw@dtex.org>
 -- Stability   : experimental
