@@ -1,4 +1,5 @@
 This library provides Haskell bindings to 0MQ 3.2.x (http://zeromq.org).
+API documentation can be found at: http://twittner.github.io/zeromq-haskell/
 
 Current status
 --------------
