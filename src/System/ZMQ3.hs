@@ -713,6 +713,7 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
 -- 0MQ guarantees atomic delivery of a multi-part message
 -- (cf. zmq_sendmsg for details).
 sendMulti :: Sender a => Socket a -> [SB.ByteString] -> IO ()
+sendMulti _      [] = return ()
 sendMulti sock msgs = do
     mapM_ (send sock [SendMore]) (P.init msgs)
     send sock [] (last msgs)
@@ -782,6 +783,7 @@ monitor es ctx sock = do
 -- (cf. zmq_poll). Sockets which have seen no activity have 'None' in
 -- their 'PollEvent' field.
 poll :: MonadIO m => Timeout -> [Poll m] -> m [[Event]]
+poll _    [] = return []
 poll to desc = do
     let len = length desc
     let ps  = map toZMQPoll desc
