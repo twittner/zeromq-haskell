@@ -145,7 +145,7 @@ module System.ZMQ3.Monadic
 where
 
 import Control.Applicative
-import Control.Concurrent (forkIO)
+import Control.Concurrent.Async (Async)
 import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
@@ -156,11 +156,13 @@ import Data.Restricted
 import Data.Word
 import Data.ByteString (ByteString)
 import System.Posix.Types (Fd)
-import qualified Data.ByteString.Lazy as Lazy
-import qualified Control.Exception as E
-import qualified System.ZMQ3 as Z
-import qualified System.ZMQ3.Internal as I
-import qualified Control.Monad.CatchIO as M
+
+import qualified Control.Concurrent.Async as A
+import qualified Control.Exception        as E
+import qualified Control.Monad.CatchIO    as M
+import qualified Data.ByteString.Lazy     as Lazy
+import qualified System.ZMQ3              as Z
+import qualified System.ZMQ3.Internal     as I
 
 data ZMQEnv = ZMQEnv
   { _refcount :: !(IORef Word)
@@ -209,7 +211,7 @@ runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))
     make = ZMQEnv <$> newIORef 1 <*> Z.context <*> newIORef []
 
 -- | Run the given 'ZMQ' computation asynchronously, i.e. this function
--- runs the computation in a new thread using 'forkIO'.
+-- runs the computation in a new thread using 'Control.Concurrent.Async.async'.
 -- /N.B./ reference counting is used to prolong the lifetime of the
 -- 'System.ZMQ.Context' encapsulated in 'ZMQ' as necessary, e.g.:
 --
@@ -224,12 +226,11 @@ runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))
 -- Here, 'runZMQ' will finish before the code section in 'async', but due to
 -- reference counting, the 'System.ZMQ3.Context' will only be disposed after
 -- 'async' finishes as well.
-async :: ZMQ z a -> ZMQ z ()
+async :: ZMQ z a -> ZMQ z (Async a)
 async z = ZMQ $ do
     e <- ask
     liftIO $ atomicModifyIORef (_refcount e) $ \n -> (succ n, ())
-    _ <- liftIO . forkIO $ (runReaderT (_unzmq z) e >> return ()) `E.finally` destroy e
-    return ()
+    liftIO . A.async $ (runReaderT (_unzmq z) e) `E.finally` destroy e
 
 ioThreads :: ZMQ z Word
 ioThreads = onContext Z.ioThreads

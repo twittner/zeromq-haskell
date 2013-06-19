@@ -41,6 +41,7 @@ library
     extensions:           CPP
                         , ForeignFunctionInterface
     build-depends:        base >= 3 && < 5
+                        , async
                         , containers
                         , bytestring
                         , transformers
