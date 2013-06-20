@@ -152,6 +152,7 @@ import Control.Monad.IO.Class
 import Control.Monad.CatchIO
 import Data.Int
 import Data.IORef
+import Data.List.NonEmpty (NonEmpty)
 import Data.Restricted
 import Data.Word
 import Data.ByteString (ByteString)
@@ -275,7 +276,7 @@ send s f = liftIO . Z.send (_unsocket s) f
 send' :: Z.Sender t => Socket z t -> [Z.Flag] -> Lazy.ByteString -> ZMQ z ()
 send' s f = liftIO . Z.send' (_unsocket s) f
 
-sendMulti :: Z.Sender t => Socket z t -> [ByteString] -> ZMQ z ()
+sendMulti :: Z.Sender t => Socket z t -> NonEmpty ByteString -> ZMQ z ()
 sendMulti s = liftIO . Z.sendMulti (_unsocket s)
 
 receive :: Z.Receiver t => Socket z t -> ZMQ z ByteString

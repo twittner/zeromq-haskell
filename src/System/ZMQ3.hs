@@ -202,23 +202,26 @@ module System.ZMQ3 (
 ) where
 
 import Prelude hiding (init)
-import qualified Prelude as P
 import Control.Applicative
 import Control.Exception
 import Control.Monad (unless, void)
 import Control.Monad.IO.Class
 import Data.List (intersect, foldl')
+import Data.List.NonEmpty (NonEmpty)
 import Data.Restricted
 import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
-import qualified Data.ByteString as SB
-import qualified Data.ByteString.Lazy as LB
 import System.Posix.Types (Fd(..))
 import System.ZMQ3.Base
-import qualified System.ZMQ3.Base as B
 import System.ZMQ3.Internal
 import System.ZMQ3.Error
+
+import qualified Data.ByteString      as SB
+import qualified Data.ByteString.Lazy as LB
+import qualified Data.List.NonEmpty   as S
+import qualified Prelude              as P
+import qualified System.ZMQ3.Base     as B
 
 import GHC.Conc (threadWaitRead, threadWaitWrite)
 
@@ -712,11 +715,10 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
 -- This function applies the 'SendMore' 'Flag' between all message parts.
 -- 0MQ guarantees atomic delivery of a multi-part message
 -- (cf. zmq_sendmsg for details).
-sendMulti :: Sender a => Socket a -> [SB.ByteString] -> IO ()
-sendMulti _      [] = return ()
+sendMulti :: Sender a => Socket a -> NonEmpty SB.ByteString -> IO ()
 sendMulti sock msgs = do
-    mapM_ (send sock [SendMore]) (P.init msgs)
-    send sock [] (last msgs)
+    mapM_ (send sock [SendMore]) (S.init msgs)
+    send sock [] (S.last msgs)
 
 -- | Receive a 'ByteString' from socket (cf. zmq_recvmsg).
 --

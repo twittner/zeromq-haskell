@@ -1,5 +1,5 @@
 name:               zeromq3-haskell
-version:            0.3.1
+version:            0.4
 synopsis:           Bindings to ZeroMQ 3.x
 category:           System, FFI
 license:            MIT
@@ -44,6 +44,7 @@ library
                         , async
                         , containers
                         , bytestring
+                        , semigroups
                         , transformers
                         , MonadCatchIO-transformers
     if os(freebsd)
