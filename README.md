@@ -6,23 +6,26 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
-Version 0.3.0 - Add monadic layer on top of System.ZMQ3 and substitute
+Version 0.4   - Return `Async a` in `System.ZMQ3.Monadic.async`. Also require
+                `Data.List.NonEmpty` in `System.ZMQ3.sendMulti`.
+
+Version 0.3   - Add monadic layer on top of System.ZMQ3 and substitute
                 String for ByteString in a number of cases, where the 0MQ
-                API speaks of "binary data", i.e. subscribe/unsubscribe,
-                identity/setIdentity and setTcpAcceptFilter.
+                API speaks of "binary data", i.e. `subscribe`/`unsubscribe`,
+                `identity`/`setIdentity` and `setTcpAcceptFilter`.
 
 Version 0.2   - Add additional functionality from 3.2 stable release, e.g.
                 zmq_proxy support, new socket options, socket monitoring etc.
-                *API Change*: withContext no longer accepts the number of
+                *API Change*: `withContext` no longer accepts the number of
                 I/O threads as first argument.
 
-Version 0.1.4 - Expose 'waitRead' and 'waitWrite'.
+Version 0.1.4 - Expose `waitRead` and `waitWrite`.
 
-Version 0.1.3 - Deprecated 'Xreq', 'XRep' in favour of 'Dealer' and 'Router'
+Version 0.1.3 - Deprecated `Xreq`, `XRep` in favour of `Dealer` and `Router`
                 as in libzmq. Fixes to compile and run with GHC 7.4.1.
 
-Version 0.1.2 - Add 'sendMulti' and 'receiveMulti'. Rename 'SndMore' to
-                'SendMore'.
+Version 0.1.2 - Add `sendMulti` and `receiveMulti`. Rename `SndMore` to
+                `SendMore`.
 
 Version 0.1.1 - Include better error message when trying to build against
                 invalid 0MQ version.
