@@ -204,7 +204,7 @@ module System.ZMQ3 (
 import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless, void)
+import Control.Monad (unless)
 import Control.Monad.IO.Class
 import Data.List (intersect, foldl')
 import Data.List.NonEmpty (NonEmpty)
@@ -862,8 +862,8 @@ waitWrite = wait' threadWaitWrite pollOut
 -- messages, received on both frontend and backend, to the capture socket.
 proxy :: Socket a -> Socket b -> Maybe (Socket c) -> IO ()
 proxy front back capture =
-  onSocket "proxy-front" front $ \f ->
-    onSocket "proxy-back" back $ \b ->
-      void (c_zmq_proxy f b c)
+    onSocket "proxy-front" front $ \f ->
+    onSocket "proxy-back"  back  $ \b ->
+        throwIfMinus1Retry_ "c_zmq_proxy" $ c_zmq_proxy f b c
   where
     c = maybe nullPtr (_socket . _socketRepr) capture
