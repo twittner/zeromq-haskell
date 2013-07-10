@@ -6,6 +6,9 @@ Current status
 
 This software currently has *beta* status, i.e. it had seen limited testing.
 
+Version 0.5   - `Poll` has an additional type-parameter representing the socket
+                type. This integrates `poll` with the monadic layer.
+
 Version 0.4   - Return `Async a` in `System.ZMQ3.Monadic.async`. Also require
                 `Data.List.NonEmpty` in `System.ZMQ3.sendMulti`.
 
