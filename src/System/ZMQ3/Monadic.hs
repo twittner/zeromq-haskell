@@ -28,6 +28,7 @@ module System.ZMQ3.Monadic
   , Z.Sender
   , Z.Receiver
   , Z.Subscriber
+  , Z.SocketLike
 
   -- ** Socket Types
   , Z.Pair(..)
@@ -181,6 +182,9 @@ newtype ZMQ z a = ZMQ { _unzmq :: ReaderT ZMQEnv IO a }
 -- | The ZMQ socket, parameterised by 'SocketType' and belonging to
 -- a particular 'ZMQ' thread.
 newtype Socket z t = Socket { _unsocket :: Z.Socket t }
+
+instance I.SocketLike (Socket z) where
+    toSocket = _unsocket
 
 instance Monad (ZMQ z) where
     return = ZMQ . return

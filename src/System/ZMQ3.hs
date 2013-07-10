@@ -80,6 +80,7 @@ module System.ZMQ3 (
   , Sender
   , Receiver
   , Subscriber
+  , SocketLike
 
     -- ** Socket Types
   , Pair(..)
@@ -368,9 +369,9 @@ data Event =
 -- | Type representing a descriptor, poll is waiting for
 -- (either a 0MQ socket or a file descriptor) plus the type
 -- of event to wait for.
-data Poll m where
-    Sock :: Socket s -> [Event] -> Maybe ([Event] -> m ()) -> Poll m
-    File :: Fd -> [Event] -> Maybe ([Event] -> m ()) -> Poll m
+data Poll s m where
+    Sock :: s t -> [Event] -> Maybe ([Event] -> m ()) -> Poll s m
+    File :: Fd -> [Event] -> Maybe ([Event] -> m ()) -> Poll s m
 
 -- | Return the runtime version of the underlying 0MQ library as a
 -- (major, minor, patch) triple.
@@ -784,7 +785,7 @@ monitor es ctx sock = do
 -- same list of 'Poll' descriptors with an "updated" 'PollEvent' field
 -- (cf. zmq_poll). Sockets which have seen no activity have 'None' in
 -- their 'PollEvent' field.
-poll :: MonadIO m => Timeout -> [Poll m] -> m [[Event]]
+poll :: (SocketLike s, MonadIO m) => Timeout -> [Poll s m] -> m [[Event]]
 poll _    [] = return []
 poll to desc = do
     let len = length desc
@@ -795,14 +796,14 @@ poll to desc = do
         peekArray len ptr
     mapM fromZMQPoll (zip desc ps')
   where
-    toZMQPoll :: MonadIO m => Poll m -> ZMQPoll
-    toZMQPoll (Sock (Socket (SocketRepr s _)) e _) =
-        ZMQPoll s 0 (combine (map fromEvent e)) 0
+    toZMQPoll :: (SocketLike s, MonadIO m) => Poll s m -> ZMQPoll
+    toZMQPoll (Sock s e _) =
+        ZMQPoll (_socket . _socketRepr . toSocket $ s) 0 (combine (map fromEvent e)) 0
 
     toZMQPoll (File (Fd s) e _) =
         ZMQPoll nullPtr (fromIntegral s) (combine (map fromEvent e)) 0
 
-    fromZMQPoll :: MonadIO m => (Poll m, ZMQPoll) -> m [Event]
+    fromZMQPoll :: (SocketLike s, MonadIO m) => (Poll s m, ZMQPoll) -> m [Event]
     fromZMQPoll (p, zp) = do
         let e = toEvents . fromIntegral . pRevents $ zp
         let (e', f) = case p of

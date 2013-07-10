@@ -1,15 +1,16 @@
 module System.ZMQ3.Internal
-    ( Context(..)
-    , Socket(..)
-    , SocketRepr(..)
-    , SocketType(..)
-    , Message(..)
-    , Flag(..)
+    ( Context    (..)
+    , Socket     (..)
+    , SocketRepr (..)
+    , SocketType (..)
+    , SocketLike (..)
+    , Message    (..)
+    , Flag       (..)
     , Timeout
     , Size
-    , Switch (..)
-    , EventType (..)
-    , EventMsg (..)
+    , Switch     (..)
+    , EventType  (..)
+    , EventMsg   (..)
 
     , messageOf
     , messageOfLazy
@@ -121,6 +122,12 @@ data SocketRepr = SocketRepr
 -- | Socket types.
 class SocketType a where
     zmqSocketType :: a -> ZMQSocketType
+
+class SocketLike s where
+    toSocket :: s t -> Socket t
+
+instance SocketLike Socket where
+    toSocket = id
 
 -- A 0MQ Message representation.
 newtype Message = Message { msgPtr :: ZMQMsgPtr }
