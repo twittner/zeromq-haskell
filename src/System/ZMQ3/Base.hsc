@@ -236,7 +236,7 @@ foreign import ccall unsafe "zmq.h zmq_strerror"
 
 -- proxy
 
-foreign import ccall unsafe "zmq.h zmq_proxy"
+foreign import ccall safe "zmq.h zmq_proxy"
     c_zmq_proxy :: ZMQSocket -> ZMQSocket -> ZMQSocket -> IO CInt
 
 -- poll
