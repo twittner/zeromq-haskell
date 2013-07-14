@@ -210,6 +210,7 @@ import Control.Monad.IO.Class
 import Data.List (intersect, foldl')
 import Data.List.NonEmpty (NonEmpty)
 import Data.Restricted
+import Data.Traversable (forM)
 import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
@@ -366,9 +367,10 @@ data Event =
   | Err    -- ^ ZMQ_POLLERR
   deriving (Eq, Ord, Read, Show)
 
--- | Type representing a descriptor, poll is waiting for
--- (either a 0MQ socket or a file descriptor) plus the type
--- of event to wait for.
+-- | A 'Poll' value contains the object to poll (a 0MQ socket or a file
+-- descriptor), the set of 'Event's which are of interest and--optionally--
+-- a callback-function which is invoked iff the set of interested events
+-- overlaps with the actual events.
 data Poll s m where
     Sock :: s t -> [Event] -> Maybe ([Event] -> m ()) -> Poll s m
     File :: Fd -> [Event] -> Maybe ([Event] -> m ()) -> Poll s m
@@ -781,10 +783,8 @@ monitor es ctx sock = do
         tag <- peek ptr :: IO CInt
         return . Just $ eventMessage str dat (ZMQEventType tag)
 
--- | Polls for events on the given 'Poll' descriptors. Returns the
--- same list of 'Poll' descriptors with an "updated" 'PollEvent' field
--- (cf. zmq_poll). Sockets which have seen no activity have 'None' in
--- their 'PollEvent' field.
+-- | Polls for events on the given 'Poll' descriptors. Returns a list of
+-- events per descriptor which have occured.
 poll :: (SocketLike s, MonadIO m) => Timeout -> [Poll s m] -> m [[Event]]
 poll _    [] = return []
 poll to desc = do
@@ -809,9 +809,7 @@ poll to desc = do
         let (e', f) = case p of
                         (Sock _ x g) -> (x, g)
                         (File _ x g) -> (x, g)
-        unless (null (e `intersect` e')) $
-            maybe (return ()) ($ e) f
-        return e
+        forM f (unless (null (e `intersect` e')) . ($ e)) >> return e
 
     fromEvent :: Event -> CShort
     fromEvent In   = fromIntegral . pollVal $ pollIn
