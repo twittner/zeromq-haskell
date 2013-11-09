@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs #-}
+
 -- |
--- Module      : System.ZMQ3
+-- Module      : System.ZMQ4
 -- Copyright   : (c) 2010-2013 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : Toralf Wittner <tw@dtex.org>
@@ -61,19 +62,19 @@
 -- correct error message. ZMQError will be thrown when native 0MQ procedures return
 -- an error status and it can be 'catch'ed as an 'Exception'.
 
-module System.ZMQ3 (
+module System.ZMQ4 (
 
     -- * Type Definitions
     Size
   , Context
   , Socket
   , Flag (SendMore)
-  , Switch (..)
+  , Switch    (..)
   , Timeout
-  , Event (..)
+  , Event     (..)
   , EventType (..)
-  , EventMsg (..)
-  , Poll (..)
+  , EventMsg  (..)
+  , Poll      (..)
 
     -- ** Type Classes
   , SocketType
@@ -83,19 +84,20 @@ module System.ZMQ3 (
   , SocketLike
 
     -- ** Socket Types
-  , Pair(..)
-  , Pub(..)
-  , Sub(..)
-  , XPub(..)
-  , XSub(..)
-  , Req(..)
-  , Rep(..)
-  , Dealer(..)
-  , Router(..)
+  , Pair   (..)
+  , Pub    (..)
+  , Sub    (..)
+  , XPub   (..)
+  , XSub   (..)
+  , Req    (..)
+  , Rep    (..)
+  , Dealer (..)
+  , Router (..)
   , XReq
   , XRep
-  , Pull(..)
-  , Push(..)
+  , Pull   (..)
+  , Push   (..)
+  , Stream (..)
 
     -- * General Operations
   , withContext
@@ -112,8 +114,8 @@ module System.ZMQ3 (
   , monitor
   , poll
 
-  , System.ZMQ3.subscribe
-  , System.ZMQ3.unsubscribe
+  , System.ZMQ4.subscribe
+  , System.ZMQ4.unsubscribe
 
     -- * Context Options (Read)
   , ioThreads
@@ -124,32 +126,32 @@ module System.ZMQ3 (
   , setMaxSockets
 
     -- * Socket Options (Read)
-  , System.ZMQ3.affinity
-  , System.ZMQ3.backlog
-  , System.ZMQ3.delayAttachOnConnect
-  , System.ZMQ3.events
-  , System.ZMQ3.fileDescriptor
-  , System.ZMQ3.identity
-  , System.ZMQ3.ipv4Only
-  , System.ZMQ3.lastEndpoint
-  , System.ZMQ3.linger
-  , System.ZMQ3.maxMessageSize
-  , System.ZMQ3.mcastHops
-  , System.ZMQ3.moreToReceive
-  , System.ZMQ3.rate
-  , System.ZMQ3.receiveBuffer
-  , System.ZMQ3.receiveHighWM
-  , System.ZMQ3.receiveTimeout
-  , System.ZMQ3.reconnectInterval
-  , System.ZMQ3.reconnectIntervalMax
-  , System.ZMQ3.recoveryInterval
-  , System.ZMQ3.sendBuffer
-  , System.ZMQ3.sendHighWM
-  , System.ZMQ3.sendTimeout
-  , System.ZMQ3.tcpKeepAlive
-  , System.ZMQ3.tcpKeepAliveCount
-  , System.ZMQ3.tcpKeepAliveIdle
-  , System.ZMQ3.tcpKeepAliveInterval
+  , System.ZMQ4.affinity
+  , System.ZMQ4.backlog
+  , System.ZMQ4.delayAttachOnConnect
+  , System.ZMQ4.events
+  , System.ZMQ4.fileDescriptor
+  , System.ZMQ4.identity
+  , System.ZMQ4.ipv4Only
+  , System.ZMQ4.lastEndpoint
+  , System.ZMQ4.linger
+  , System.ZMQ4.maxMessageSize
+  , System.ZMQ4.mcastHops
+  , System.ZMQ4.moreToReceive
+  , System.ZMQ4.rate
+  , System.ZMQ4.receiveBuffer
+  , System.ZMQ4.receiveHighWM
+  , System.ZMQ4.receiveTimeout
+  , System.ZMQ4.reconnectInterval
+  , System.ZMQ4.reconnectIntervalMax
+  , System.ZMQ4.recoveryInterval
+  , System.ZMQ4.sendBuffer
+  , System.ZMQ4.sendHighWM
+  , System.ZMQ4.sendTimeout
+  , System.ZMQ4.tcpKeepAlive
+  , System.ZMQ4.tcpKeepAliveCount
+  , System.ZMQ4.tcpKeepAliveIdle
+  , System.ZMQ4.tcpKeepAliveInterval
 
     -- * Socket Options (Write)
   , setAffinity
@@ -191,8 +193,8 @@ module System.ZMQ3 (
     -- * Low-level Functions
   , init
   , term
+  , shutdown
   , context
-  , destroy
   , socket
   , close
   , waitRead
@@ -215,15 +217,15 @@ import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
 import System.Posix.Types (Fd(..))
-import System.ZMQ3.Base
-import System.ZMQ3.Internal
-import System.ZMQ3.Error
+import System.ZMQ4.Base
+import System.ZMQ4.Internal
+import System.ZMQ4.Error
 
 import qualified Data.ByteString      as SB
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.List.NonEmpty   as S
 import qualified Prelude              as P
-import qualified System.ZMQ3.Base     as B
+import qualified System.ZMQ4.Base     as B
 
 import GHC.Conc (threadWaitRead, threadWaitWrite)
 
@@ -310,6 +312,8 @@ data Pull = Pull
 -- node becomes available for sending; messages are not discarded.
 data Push = Push
 
+data Stream = Stream
+
 -- | Sockets which can 'subscribe'.
 class Subscriber a
 
@@ -360,6 +364,10 @@ instance Receiver   Pull
 instance SocketType Push where zmqSocketType = const push
 instance Sender     Push
 
+instance SocketType Stream where zmqSocketType = const stream
+instance Sender     Stream
+instance Receiver   Stream
+
 -- | Socket events.
 data Event =
     In     -- ^ ZMQ_POLLIN (incoming messages)
@@ -399,14 +407,14 @@ init n = do
 context :: IO Context
 context = Context <$> throwIfNull "init" c_zmq_ctx_new
 
-term :: Context -> IO ()
-term = destroy
-{-# DEPRECATED term "Use destroy" #-}
-
--- | Terminate a 0MQ context (cf. zmq_ctx_destroy).  You should normally
+-- | Terminate a 0MQ context (cf. zmq_ctx_term).  You should normally
 -- prefer to use 'withContext' instead.
-destroy :: Context -> IO ()
-destroy c = throwIfMinus1Retry_ "term" . c_zmq_ctx_destroy . _ctx $ c
+term :: Context -> IO ()
+term c = throwIfMinus1Retry_ "term" . c_zmq_ctx_term . _ctx $ c
+
+-- | Shutdown a 0MQ context (cf. zmq_ctx_shutdown).
+shutdown :: Context -> IO ()
+shutdown = throwIfMinus1_ "shutdown" . c_zmq_ctx_shutdown . _ctx
 
 -- | Run an action with a 0MQ context.  The 'Context' supplied to your
 -- action will /not/ be valid after the action either returns or
@@ -414,7 +422,7 @@ destroy c = throwIfMinus1Retry_ "term" . c_zmq_ctx_destroy . _ctx $ c
 withContext :: (Context -> IO a) -> IO a
 withContext act =
   bracket (throwIfNull "withContext (new)" $ c_zmq_ctx_new)
-          (throwIfMinus1Retry_ "withContext (destroy)" . c_zmq_ctx_destroy)
+          (throwIfMinus1Retry_ "withContext (term)" . c_zmq_ctx_term)
           (act . Context)
 
 -- | Run an action with a 0MQ socket. The socket will be closed after running
@@ -778,10 +786,9 @@ monitor es ctx sock = do
     next soc m True  = onSocket "recv" soc $ \s -> do
         retry "recv" (waitRead soc) $ c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
         ptr <- c_zmq_msg_data (msgPtr m)
-        str <- peekByteOff ptr zmqEventAddrOffset >>= SB.packCString
-        dat <- peekByteOff ptr zmqEventDataOffset :: IO CInt
-        tag <- peek ptr :: IO CInt
-        return . Just $ eventMessage str dat (ZMQEventType tag)
+        evt <- peek ptr
+        str <- receive soc
+        return . Just $ eventMessage str evt
 
 -- | Polls for events on the given 'Poll' descriptors. Returns a list of
 -- events per descriptor which have occured.

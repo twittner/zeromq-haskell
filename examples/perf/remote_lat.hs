@@ -3,7 +3,7 @@ import System.IO
 import System.Exit
 import System.Environment
 import Data.Time.Clock
-import System.ZMQ3.Monadic
+import System.ZMQ4.Monadic
 import qualified Data.ByteString as SB
 
 main :: IO ()

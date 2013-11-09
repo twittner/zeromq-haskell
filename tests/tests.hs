@@ -1,4 +1,4 @@
-import qualified System.ZMQ3.Test.Properties as Properties
+import qualified System.ZMQ4.Test.Properties as Properties
 
 main :: IO ()
 main = Properties.tests

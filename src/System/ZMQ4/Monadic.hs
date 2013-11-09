@@ -1,27 +1,27 @@
 {-# LANGUAGE RankNTypes #-}
 -- |
--- Module      : System.ZMQ3.Monadic
+-- Module      : System.ZMQ4.Monadic
 -- Copyright   : (c) 2013 Toralf Wittner
 -- License     : MIT
 -- Maintainer  : Toralf Wittner <tw@dtex.org>
 -- Stability   : experimental
 -- Portability : non-portable
 --
--- This modules exposes a monadic interface of 'System.ZMQ3'. Actions run
+-- This modules exposes a monadic interface of 'System.ZMQ4'. Actions run
 -- inside a 'ZMQ' monad and 'Socket's are guaranteed not to leak outside
 -- their corresponding 'runZMQ' scope. Running 'ZMQ' computations
 -- asynchronously is directly supported through 'async'.
-module System.ZMQ3.Monadic
+module System.ZMQ4.Monadic
   ( -- * Type Definitions
     ZMQ
   , Socket
-  , Z.Flag (SendMore)
-  , Z.Switch (..)
+  , Z.Flag      (SendMore)
+  , Z.Switch    (..)
   , Z.Timeout
-  , Z.Event (..)
+  , Z.Event     (..)
   , Z.EventType (..)
-  , Z.EventMsg (..)
-  , Z.Poll (..)
+  , Z.EventMsg  (..)
+  , Z.Poll      (..)
 
   -- ** Type Classes
   , Z.SocketType
@@ -31,17 +31,18 @@ module System.ZMQ3.Monadic
   , Z.SocketLike
 
   -- ** Socket Types
-  , Z.Pair(..)
-  , Z.Pub(..)
-  , Z.Sub(..)
-  , Z.XPub(..)
-  , Z.XSub(..)
-  , Z.Req(..)
-  , Z.Rep(..)
-  , Z.Dealer(..)
-  , Z.Router(..)
-  , Z.Pull(..)
-  , Z.Push(..)
+  , Z.Pair   (..)
+  , Z.Pub    (..)
+  , Z.Sub    (..)
+  , Z.XPub   (..)
+  , Z.XSub   (..)
+  , Z.Req    (..)
+  , Z.Rep    (..)
+  , Z.Dealer (..)
+  , Z.Router (..)
+  , Z.Pull   (..)
+  , Z.Push   (..)
+  , Z.Stream (..)
 
   -- * General Operations
   , version
@@ -150,6 +151,7 @@ import Control.Concurrent.Async (Async)
 import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
+import Control.Monad.Catch
 import Control.Monad.CatchIO
 import Data.Int
 import Data.IORef
@@ -161,10 +163,11 @@ import System.Posix.Types (Fd)
 
 import qualified Control.Concurrent.Async as A
 import qualified Control.Exception        as E
+import qualified Control.Monad.Catch      as C
 import qualified Control.Monad.CatchIO    as M
 import qualified Data.ByteString.Lazy     as Lazy
-import qualified System.ZMQ3              as Z
-import qualified System.ZMQ3.Internal     as I
+import qualified System.ZMQ4              as Z
+import qualified System.ZMQ4.Internal     as I
 
 data ZMQEnv = ZMQEnv
   { _refcount :: !(IORef Word)
@@ -173,7 +176,7 @@ data ZMQEnv = ZMQEnv
   }
 
 -- | The ZMQ monad is modeled after 'Control.Monad.ST' and encapsulates
--- a 'System.ZMQ3.Context'. It uses the uninstantiated type variable 'z' to
+-- a 'System.ZMQ4.Context'. It uses the uninstantiated type variable 'z' to
 -- distinguish different invoctions of 'runZMQ' and to prevent
 -- unintented use of 'Socket's outside their scope. Cf. the paper
 -- of John Launchbury and Simon Peyton Jones /Lazy Functional State Threads/.
@@ -188,15 +191,29 @@ instance I.SocketLike (Socket z) where
 
 instance Monad (ZMQ z) where
     return = ZMQ . return
-    (ZMQ m) >>= f = ZMQ $! m >>= _unzmq . f
+    (ZMQ m) >>= f = ZMQ $ m >>= _unzmq . f
 
 instance MonadIO (ZMQ z) where
     liftIO m = ZMQ $! liftIO m
 
+instance MonadCatch (ZMQ z) where
+    throwM          = ZMQ . C.throwM
+    catch (ZMQ m) f = ZMQ $ m `C.catch` (_unzmq . f)
+
+    mask a = ZMQ . ReaderT $ \env ->
+        C.mask $ \restore ->
+            let f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
+            in runReaderT (_unzmq (a $ f)) env
+
+    uninterruptibleMask a = ZMQ . ReaderT $ \env ->
+        C.uninterruptibleMask $ \restore ->
+            let f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
+            in runReaderT (_unzmq (a $ f)) env
+
 instance MonadCatchIO (ZMQ z) where
-    catch (ZMQ m) f = ZMQ $! m `M.catch` (_unzmq . f)
-    block (ZMQ m)   = ZMQ $! block m
-    unblock (ZMQ m) = ZMQ $! unblock m
+    catch (ZMQ m) f = ZMQ $ m `M.catch` (_unzmq . f)
+    block (ZMQ m)   = ZMQ $ block m
+    unblock (ZMQ m) = ZMQ $ unblock m
 
 instance Functor (ZMQ z) where
     fmap = liftM
@@ -207,11 +224,11 @@ instance Applicative (ZMQ z) where
 
 -- | Return the value computed by the given 'ZMQ' monad. Rank-2
 -- polymorphism is used to prevent leaking of 'z'.
--- An invocation of 'runZMQ' will internally create a 'System.ZMQ3.Context'
+-- An invocation of 'runZMQ' will internally create a 'System.ZMQ4.Context'
 -- and all actions are executed relative to this context. On finish the
 -- context will be disposed, but see 'async'.
 runZMQ :: MonadIO m => (forall z. ZMQ z a) -> m a
-runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))
+runZMQ z = liftIO $ E.bracket make term (runReaderT (_unzmq z))
   where
     make = ZMQEnv <$> newIORef 1 <*> Z.context <*> newIORef []
 
@@ -229,13 +246,13 @@ runZMQ z = liftIO $ E.bracket make destroy (runReaderT (_unzmq z))
 -- @
 --
 -- Here, 'runZMQ' will finish before the code section in 'async', but due to
--- reference counting, the 'System.ZMQ3.Context' will only be disposed after
+-- reference counting, the 'System.ZMQ4.Context' will only be disposed after
 -- 'async' finishes as well.
 async :: ZMQ z a -> ZMQ z (Async a)
 async z = ZMQ $ do
     e <- ask
     liftIO $ atomicModifyIORef (_refcount e) $ \n -> (succ n, ())
-    liftIO . A.async $ (runReaderT (_unzmq z) e) `E.finally` destroy e
+    liftIO . A.async $ (runReaderT (_unzmq z) e) `E.finally` term e
 
 ioThreads :: ZMQ z Word
 ioThreads = onContext Z.ioThreads
@@ -471,11 +488,11 @@ waitWrite = liftIO . Z.waitWrite . _unsocket
 onContext :: (Z.Context -> IO a) -> ZMQ z a
 onContext f = ZMQ $! asks _context >>= liftIO . f
 
-destroy :: ZMQEnv -> IO ()
-destroy env = do
+term :: ZMQEnv -> IO ()
+term env = do
     n <- atomicModifyIORef (_refcount env) $ \n -> (pred n, n)
     when (n == 1) $ do
         readIORef (_sockets env) >>= mapM_ close'
-        Z.destroy (_context env)
+        Z.term (_context env)
   where
     close' s = I.closeSock s `E.catch` (\e -> print (e :: E.SomeException))

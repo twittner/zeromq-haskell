@@ -3,7 +3,7 @@ import Control.Monad
 import System.Exit
 import System.IO
 import System.Environment
-import System.ZMQ3.Monadic
+import System.ZMQ4.Monadic
 import qualified Data.ByteString.Char8 as CS
 
 main :: IO ()

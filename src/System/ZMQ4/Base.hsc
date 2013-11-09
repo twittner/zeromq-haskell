@@ -1,5 +1,7 @@
-{-# LANGUAGE CPP, ForeignFunctionInterface #-}
-module System.ZMQ3.Base where
+{-# LANGUAGE CPP                      #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
+
+module System.ZMQ4.Base where
 
 import Foreign
 import Foreign.C.Types
@@ -8,8 +10,8 @@ import Control.Applicative
 
 #include <zmq.h>
 
-#if ZMQ_VERSION_MAJOR != 3
-    #error *** INVALID 0MQ VERSION (must be 3.x) ***
+#if ZMQ_VERSION_MAJOR != 4
+    #error *** INVALID 0MQ VERSION (must be 4.x) ***
 #endif
 
 newtype ZMQMsg = ZMQMsg { content :: Ptr () } deriving (Eq, Ord)
@@ -63,6 +65,7 @@ newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
   , router   = ZMQ_ROUTER
   , pull     = ZMQ_PULL
   , push     = ZMQ_PUSH
+  , stream   = ZMQ_STREAM
 }
 
 newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
@@ -108,7 +111,7 @@ newtype ZMQCtxOption = ZMQCtxOption { ctxOptVal :: CInt } deriving (Eq, Ord)
   , _maxSockets = ZMQ_MAX_SOCKETS
 }
 
-newtype ZMQEventType = ZMQEventType { eventTypeVal :: CInt } deriving (Eq, Ord)
+newtype ZMQEventType = ZMQEventType { eventTypeVal :: Word16 } deriving (Eq, Ord, Show)
 
 #{enum ZMQEventType, ZMQEventType
   , connected      = ZMQ_EVENT_CONNECTED
@@ -122,11 +125,24 @@ newtype ZMQEventType = ZMQEventType { eventTypeVal :: CInt } deriving (Eq, Ord)
   , closeFailed    = ZMQ_EVENT_CLOSE_FAILED
   , disconnected   = ZMQ_EVENT_DISCONNECTED
   , allEvents      = ZMQ_EVENT_ALL
+  , monitorStopped = ZMQ_EVENT_MONITOR_STOPPED
 }
 
-zmqEventAddrOffset, zmqEventDataOffset :: Int
-zmqEventAddrOffset = #{offset zmq_event_t, data.connected.addr}
-zmqEventDataOffset = #{offset zmq_event_t, data.connected.fd}
+
+data ZMQEvent = ZMQEvent
+    { zeEvent :: {-# UNPACK #-} !ZMQEventType
+    , zeValue :: {-# UNPACK #-} !Int32
+    }
+
+instance Storable ZMQEvent where
+    alignment _ = #{alignment zmq_event_t}
+    sizeOf    _ = #{size zmq_event_t}
+    peek e = ZMQEvent
+        <$> (ZMQEventType <$> #{peek zmq_event_t, event} e)
+        <*> #{peek zmq_event_t, value} e
+    poke e (ZMQEvent (ZMQEventType a) b) = do
+        #{poke zmq_event_t, event} e a
+        #{poke zmq_event_t, value} e b
 
 newtype ZMQMsgOption = ZMQMsgOption { msgOptVal :: CInt } deriving (Eq, Ord)
 
@@ -157,8 +173,11 @@ foreign import ccall unsafe "zmq.h zmq_version"
 foreign import ccall unsafe "zmq.h zmq_ctx_new"
     c_zmq_ctx_new :: IO ZMQCtx
 
-foreign import ccall unsafe "zmq.h zmq_ctx_destroy"
-    c_zmq_ctx_destroy :: ZMQCtx -> IO CInt
+foreign import ccall unsafe "zmq.h zmq_ctx_shutdown"
+    c_zmq_ctx_shutdown :: ZMQCtx -> IO CInt
+
+foreign import ccall unsafe "zmq.h zmq_ctx_term"
+    c_zmq_ctx_term :: ZMQCtx -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_ctx_get"
     c_zmq_ctx_get :: ZMQCtx -> CInt -> IO CInt
@@ -229,7 +248,10 @@ foreign import ccall unsafe "zmq.h zmq_recvmsg"
 foreign import ccall unsafe "zmq.h zmq_socket_monitor"
     c_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
 
--- error messages
+-- errors
+
+foreign import ccall unsafe "zmq.h zmq_errno"
+    c_zmq_errno :: IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_strerror"
     c_zmq_strerror :: CInt -> IO CString

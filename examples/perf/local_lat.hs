@@ -2,7 +2,7 @@ import Control.Monad
 import System.IO
 import System.Exit
 import System.Environment
-import System.ZMQ3.Monadic
+import System.ZMQ4.Monadic
 import qualified Data.ByteString as SB
 
 main :: IO ()

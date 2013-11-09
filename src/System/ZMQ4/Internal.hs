@@ -1,4 +1,4 @@
-module System.ZMQ3.Internal
+module System.ZMQ4.Internal
     ( Context    (..)
     , Socket     (..)
     , SocketRepr (..)
@@ -59,8 +59,8 @@ import Data.IORef (newIORef)
 import Data.Restricted
 
 import System.Posix.Types (Fd(..))
-import System.ZMQ3.Base
-import System.ZMQ3.Error
+import System.ZMQ4.Base
+import System.ZMQ4.Error
 
 type Timeout = Int64
 type Size    = Word
@@ -90,21 +90,23 @@ data EventType =
   | ClosedEvent
   | CloseFailedEvent
   | DisconnectedEvent
+  | MonitorStoppedEvent
   | AllEvents
   deriving (Eq, Ord, Show)
 
 -- | Event Message to receive when monitoring socket events.
 data EventMsg =
     Connected      !SB.ByteString !Fd
-  | ConnectDelayed !SB.ByteString !Fd
+  | ConnectDelayed !SB.ByteString
   | ConnectRetried !SB.ByteString !Int
   | Listening      !SB.ByteString !Fd
-  | BindFailed     !SB.ByteString !Fd
+  | BindFailed     !SB.ByteString !Int
   | Accepted       !SB.ByteString !Fd
   | AcceptFailed   !SB.ByteString !Int
   | Closed         !SB.ByteString !Fd
   | CloseFailed    !SB.ByteString !Int
-  | Disconnected   !SB.ByteString !Int
+  | Disconnected   !SB.ByteString !Fd
+  | MonitorStopped !SB.ByteString !Int
   deriving (Eq, Show)
 
 -- | A 0MQ context representation.
@@ -284,20 +286,22 @@ toZMQEventType AcceptFailedEvent   = acceptFailed
 toZMQEventType ClosedEvent         = closed
 toZMQEventType CloseFailedEvent    = closeFailed
 toZMQEventType DisconnectedEvent   = disconnected
+toZMQEventType MonitorStoppedEvent = monitorStopped
 
 events2cint :: [EventType] -> CInt
 events2cint = fromIntegral . foldr ((.|.) . eventTypeVal . toZMQEventType) 0
 
-eventMessage :: Integral a => SB.ByteString -> a -> ZMQEventType -> EventMsg
-eventMessage str dat tag
-    | tag == connected      = Connected      str (Fd . fromIntegral $ dat)
-    | tag == connectDelayed = ConnectDelayed str (Fd . fromIntegral $ dat)
-    | tag == connectRetried = ConnectRetried str (fromIntegral dat)
-    | tag == listening      = Listening      str (Fd . fromIntegral $ dat)
-    | tag == bindFailed     = BindFailed     str (Fd . fromIntegral $ dat)
-    | tag == accepted       = Accepted       str (Fd . fromIntegral $ dat)
-    | tag == acceptFailed   = AcceptFailed   str (fromIntegral dat)
-    | tag == closed         = Closed         str (Fd . fromIntegral $ dat)
-    | tag == closeFailed    = CloseFailed    str (fromIntegral dat)
-    | tag == disconnected   = Disconnected   str (fromIntegral dat)
-    | otherwise             = error $ "unknown event type: " ++ (show . eventTypeVal $ tag)
+eventMessage :: SB.ByteString -> ZMQEvent -> EventMsg
+eventMessage str (ZMQEvent e v)
+    | e == connected      = Connected      str (Fd . fromIntegral $ v)
+    | e == connectDelayed = ConnectDelayed str
+    | e == connectRetried = ConnectRetried str (fromIntegral $ v)
+    | e == listening      = Listening      str (Fd . fromIntegral $ v)
+    | e == bindFailed     = BindFailed     str (fromIntegral $ v)
+    | e == accepted       = Accepted       str (Fd . fromIntegral $ v)
+    | e == acceptFailed   = AcceptFailed   str (fromIntegral $ v)
+    | e == closed         = Closed         str (Fd . fromIntegral $ v)
+    | e == closeFailed    = CloseFailed    str (fromIntegral $ v)
+    | e == disconnected   = Disconnected   str (fromIntegral $ v)
+    | e == monitorStopped = MonitorStopped str (fromIntegral $ v)
+    | otherwise           = error $ "unknown event type: " ++ show e
