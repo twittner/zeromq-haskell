@@ -82,6 +82,7 @@ module System.ZMQ4 (
   , Receiver
   , Subscriber
   , SocketLike
+  , Conflatable
 
     -- ** Socket Types
   , Pair   (..)
@@ -128,11 +129,14 @@ module System.ZMQ4 (
     -- * Socket Options (Read)
   , System.ZMQ4.affinity
   , System.ZMQ4.backlog
+  , System.ZMQ4.conflate
   , System.ZMQ4.delayAttachOnConnect
   , System.ZMQ4.events
   , System.ZMQ4.fileDescriptor
   , System.ZMQ4.identity
+  , System.ZMQ4.immediate
   , System.ZMQ4.ipv4Only
+  , System.ZMQ4.ipv6
   , System.ZMQ4.lastEndpoint
   , System.ZMQ4.linger
   , System.ZMQ4.maxMessageSize
@@ -156,9 +160,12 @@ module System.ZMQ4 (
     -- * Socket Options (Write)
   , setAffinity
   , setBacklog
+  , setConflate
   , setDelayAttachOnConnect
   , setIdentity
+  , setImmediate
   , setIpv4Only
+  , setIpv6
   , setLinger
   , setMaxMessageSize
   , setMcastHops
@@ -323,16 +330,21 @@ class Sender a
 -- | Sockets which can 'receive'.
 class Receiver a
 
+-- | Sockets which can be 'conflate'd.
+class Conflatable a
+
 instance SocketType Pair where zmqSocketType = const pair
 instance Sender     Pair
 instance Receiver   Pair
 
-instance SocketType Pub where zmqSocketType = const pub
-instance Sender     Pub
+instance SocketType  Pub where zmqSocketType = const pub
+instance Sender      Pub
+instance Conflatable Pub
 
-instance SocketType Sub where zmqSocketType = const sub
-instance Subscriber Sub
-instance Receiver   Sub
+instance SocketType  Sub where zmqSocketType = const sub
+instance Subscriber  Sub
+instance Receiver    Sub
+instance Conflatable Sub
 
 instance SocketType XPub where zmqSocketType = const xpub
 instance Sender     XPub
@@ -350,19 +362,22 @@ instance SocketType Rep where zmqSocketType = const response
 instance Sender     Rep
 instance Receiver   Rep
 
-instance SocketType Dealer where zmqSocketType = const dealer
-instance Sender     Dealer
-instance Receiver   Dealer
+instance SocketType  Dealer where zmqSocketType = const dealer
+instance Sender      Dealer
+instance Receiver    Dealer
+instance Conflatable Dealer
 
 instance SocketType Router where zmqSocketType = const router
 instance Sender     Router
 instance Receiver   Router
 
-instance SocketType Pull where zmqSocketType = const pull
-instance Receiver   Pull
+instance SocketType  Pull where zmqSocketType = const pull
+instance Receiver    Pull
+instance Conflatable Pull
 
-instance SocketType Push where zmqSocketType = const push
-instance Sender     Push
+instance SocketType  Push where zmqSocketType = const push
+instance Sender      Push
+instance Conflatable Push
 
 instance SocketType Stream where zmqSocketType = const stream
 instance Sender     Stream
@@ -473,6 +488,14 @@ ioThreads = ctxIntOption "ioThreads" _ioThreads
 maxSockets :: Context -> IO Word
 maxSockets = ctxIntOption "maxSockets" _maxSockets
 
+-- | Cf. @zmq_getsockopt ZMQ_CONFLATE@
+conflate :: Conflatable a => Socket a -> IO Bool
+conflate s = (== 1) <$> getInt32Option B.conflate s
+
+-- | Cf. @zmq_getsockopt ZMQ_IMMEDIATE@
+immediate :: Socket a -> IO Bool
+immediate s = (== 1) <$> getInt32Option B.immediate s
+
 -- | Cf. @zmq_getsockopt ZMQ_IDENTITY@
 identity :: Socket a -> IO SB.ByteString
 identity s = getByteStringOpt s B.identity
@@ -488,6 +511,10 @@ maxMessageSize s = getIntOpt s B.maxMessageSize 0
 -- | Cf. @zmq_getsockopt ZMQ_IPV4ONLY@
 ipv4Only :: Socket a -> IO Bool
 ipv4Only s = (== 1) <$> getInt32Option B.ipv4Only s
+
+-- | Cf. @zmq_getsockopt ZMQ_IPV6@
+ipv6 :: Socket a -> IO Bool
+ipv6 s = (== 1) <$> getInt32Option B.ipv6 s
 
 -- | Cf. @zmq_getsockopt ZMQ_BACKLOG@
 backlog :: Socket a -> IO Int
@@ -578,6 +605,14 @@ setIoThreads n = setCtxIntOption "ioThreads" _ioThreads n
 setMaxSockets :: Word -> Context -> IO ()
 setMaxSockets n = setCtxIntOption "maxSockets" _maxSockets n
 
+-- | Cf. @zmq_getsockopt ZMQ_CONFLATE@
+setConflate :: Conflatable a => Bool -> Socket a -> IO ()
+setConflate x s = setIntOpt s B.conflate (bool2cint x)
+
+-- | Cf. @zmq_getsockopt ZMQ_IMMEDIATE@
+setImmediate :: Bool -> Socket a -> IO ()
+setImmediate x s = setIntOpt s B.immediate (bool2cint x)
+
 -- | Cf. @zmq_setsockopt ZMQ_IDENTITY@
 setIdentity :: Restricted N1 N254 SB.ByteString -> Socket a -> IO ()
 setIdentity x s = setByteStringOpt s B.identity (rvalue x)
@@ -596,7 +631,11 @@ setMaxMessageSize x s = setIntOpt s B.maxMessageSize ((fromIntegral . rvalue $ x
 
 -- | Cf. @zmq_setsockopt ZMQ_IPV4ONLY@
 setIpv4Only :: Bool -> Socket a -> IO ()
-setIpv4Only x s  = setIntOpt s B.ipv4Only (bool2cint x)
+setIpv4Only x s = setIntOpt s B.ipv4Only (bool2cint x)
+
+-- | Cf. @zmq_setsockopt ZMQ_IPV6@
+setIpv6 :: Bool -> Socket a -> IO ()
+setIpv6 x s = setIntOpt s B.ipv6 (bool2cint x)
 
 -- | Cf. @zmq_setsockopt ZMQ_LINGER@
 setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
@@ -816,7 +855,7 @@ poll to desc = do
         let (e', f) = case p of
                         (Sock _ x g) -> (x, g)
                         (File _ x g) -> (x, g)
-        forM f (unless (null (e `intersect` e')) . ($ e)) >> return e
+        forM f (unless (P.null (e `intersect` e')) . ($ e)) >> return e
 
     fromEvent :: Event -> CShort
     fromEvent In   = fromIntegral . pollVal $ pollIn

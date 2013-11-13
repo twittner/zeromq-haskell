@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+
 -- |
 -- Module      : System.ZMQ4.Monadic
 -- Copyright   : (c) 2013 Toralf Wittner
@@ -29,6 +30,7 @@ module System.ZMQ4.Monadic
   , Z.Receiver
   , Z.Subscriber
   , Z.SocketLike
+  , Z.Conflatable
 
   -- ** Socket Types
   , Z.Pair   (..)
@@ -77,11 +79,14 @@ module System.ZMQ4.Monadic
   -- * Socket Options (Read)
   , affinity
   , backlog
+  , conflate
   , delayAttachOnConnect
   , events
   , fileDescriptor
   , identity
+  , immediate
   , ipv4Only
+  , ipv6
   , lastEndpoint
   , linger
   , maxMessageSize
@@ -105,9 +110,12 @@ module System.ZMQ4.Monadic
   -- * Socket Options (Write)
   , setAffinity
   , setBacklog
+  , setConflate
   , setDelayAttachOnConnect
   , setIdentity
+  , setImmediate
   , setIpv4Only
+  , setIpv6
   , setLinger
   , setMaxMessageSize
   , setMcastHops
@@ -326,6 +334,9 @@ affinity = liftIO . Z.affinity . _unsocket
 backlog :: Socket z t -> ZMQ z Int
 backlog = liftIO . Z.backlog . _unsocket
 
+conflate :: Z.Conflatable t => Socket z t -> ZMQ z Bool
+conflate = liftIO . Z.conflate . _unsocket
+
 delayAttachOnConnect :: Socket z t -> ZMQ z Bool
 delayAttachOnConnect = liftIO . Z.delayAttachOnConnect . _unsocket
 
@@ -338,8 +349,14 @@ fileDescriptor = liftIO . Z.fileDescriptor . _unsocket
 identity :: Socket z t -> ZMQ z ByteString
 identity = liftIO . Z.identity . _unsocket
 
+immediate :: Socket z t -> ZMQ z Bool
+immediate = liftIO . Z.immediate . _unsocket
+
 ipv4Only :: Socket z t -> ZMQ z Bool
 ipv4Only = liftIO . Z.ipv4Only . _unsocket
+
+ipv6 :: Socket z t -> ZMQ z Bool
+ipv6 = liftIO . Z.ipv6 . _unsocket
 
 lastEndpoint :: Socket z t -> ZMQ z String
 lastEndpoint = liftIO . Z.lastEndpoint . _unsocket
@@ -406,14 +423,23 @@ setAffinity a = liftIO . Z.setAffinity a . _unsocket
 setBacklog :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
 setBacklog b = liftIO . Z.setBacklog b . _unsocket
 
+setConflate :: Z.Conflatable t => Bool -> Socket z t -> ZMQ z ()
+setConflate i = liftIO . Z.setConflate i . _unsocket
+
 setDelayAttachOnConnect :: Bool -> Socket z t -> ZMQ z ()
 setDelayAttachOnConnect d = liftIO . Z.setDelayAttachOnConnect d . _unsocket
 
 setIdentity :: Restricted N1 N254 ByteString -> Socket z t -> ZMQ z ()
 setIdentity i = liftIO . Z.setIdentity i . _unsocket
 
+setImmediate :: Bool -> Socket z t -> ZMQ z ()
+setImmediate i = liftIO . Z.setImmediate i . _unsocket
+
 setIpv4Only :: Bool -> Socket z t -> ZMQ z ()
 setIpv4Only i = liftIO . Z.setIpv4Only i . _unsocket
+
+setIpv6 :: Bool -> Socket z t -> ZMQ z ()
+setIpv6 i = liftIO . Z.setIpv6 i . _unsocket
 
 setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
 setLinger l = liftIO . Z.setLinger l . _unsocket
