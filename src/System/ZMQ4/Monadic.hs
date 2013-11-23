@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes                         #-}
+{-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 
 -- |
 -- Module      : System.ZMQ4.Monadic
@@ -16,21 +17,24 @@ module System.ZMQ4.Monadic
   ( -- * Type Definitions
     ZMQ
   , Socket
-  , Z.Flag      (SendMore)
-  , Z.Switch    (..)
+  , Z.Flag              (SendMore)
+  , Z.Switch            (..)
   , Z.Timeout
-  , Z.Event     (..)
-  , Z.EventType (..)
-  , Z.EventMsg  (..)
-  , Z.Poll      (..)
+  , Z.Event             (..)
+  , Z.EventType         (..)
+  , Z.EventMsg          (..)
+  , Z.Poll              (..)
+  , Z.KeyFormat         (..)
+  , Z.SecurityMechanism (..)
 
-  -- ** Type Classes
+  -- ** Socket type-classes
   , Z.SocketType
   , Z.Sender
   , Z.Receiver
   , Z.Subscriber
   , Z.SocketLike
   , Z.Conflatable
+  , Z.SendProbe
 
   -- ** Socket Types
   , Z.Pair   (..)
@@ -80,6 +84,9 @@ module System.ZMQ4.Monadic
   , affinity
   , backlog
   , conflate
+  , curvePublicKey
+  , curveSecretKey
+  , curveServerKey
   , delayAttachOnConnect
   , events
   , fileDescriptor
@@ -91,7 +98,11 @@ module System.ZMQ4.Monadic
   , linger
   , maxMessageSize
   , mcastHops
+  , mechanism
   , moreToReceive
+  , plainServer
+  , plainPassword
+  , plainUserName
   , rate
   , receiveBuffer
   , receiveHighWM
@@ -106,11 +117,16 @@ module System.ZMQ4.Monadic
   , tcpKeepAliveCount
   , tcpKeepAliveIdle
   , tcpKeepAliveInterval
+  , zapDomain
 
   -- * Socket Options (Write)
   , setAffinity
   , setBacklog
   , setConflate
+  , setCurveServer
+  , setCurvePublicKey
+  , setCurveSecretKey
+  , setCurveServerKey
   , setDelayAttachOnConnect
   , setIdentity
   , setImmediate
@@ -119,6 +135,10 @@ module System.ZMQ4.Monadic
   , setLinger
   , setMaxMessageSize
   , setMcastHops
+  , setPlainServer
+  , setPlainPassword
+  , setPlainUserName
+  , setProbeRouter
   , setRate
   , setReceiveBuffer
   , setReceiveHighWM
@@ -126,6 +146,8 @@ module System.ZMQ4.Monadic
   , setReconnectInterval
   , setReconnectIntervalMax
   , setRecoveryInterval
+  , setReqCorrelate
+  , setReqRelaxed
   , setRouterMandatory
   , setSendBuffer
   , setSendHighWM
@@ -151,8 +173,9 @@ module System.ZMQ4.Monadic
   -- * Low-level Functions
   , waitRead
   , waitWrite
-  )
-where
+  , I.z85Encode
+  , I.z85Decode
+  ) where
 
 import Control.Applicative
 import Control.Concurrent.Async (Async)
@@ -337,8 +360,18 @@ backlog = liftIO . Z.backlog . _unsocket
 conflate :: Z.Conflatable t => Socket z t -> ZMQ z Bool
 conflate = liftIO . Z.conflate . _unsocket
 
+curvePublicKey :: Z.KeyFormat f -> Socket z t -> ZMQ z ByteString
+curvePublicKey f = liftIO . Z.curvePublicKey f . _unsocket
+
+curveSecretKey :: Z.KeyFormat f -> Socket z t -> ZMQ z ByteString
+curveSecretKey f = liftIO . Z.curveSecretKey f . _unsocket
+
+curveServerKey :: Z.KeyFormat f -> Socket z t -> ZMQ z ByteString
+curveServerKey f = liftIO . Z.curveServerKey f . _unsocket
+
 delayAttachOnConnect :: Socket z t -> ZMQ z Bool
 delayAttachOnConnect = liftIO . Z.delayAttachOnConnect . _unsocket
+{-# DEPRECATED delayAttachOnConnect "Use immediate" #-}
 
 events :: Socket z t -> ZMQ z [Z.Event]
 events = liftIO . Z.events . _unsocket
@@ -354,6 +387,7 @@ immediate = liftIO . Z.immediate . _unsocket
 
 ipv4Only :: Socket z t -> ZMQ z Bool
 ipv4Only = liftIO . Z.ipv4Only . _unsocket
+{-# DEPRECATED ipv4Only "Use ipv6" #-}
 
 ipv6 :: Socket z t -> ZMQ z Bool
 ipv6 = liftIO . Z.ipv6 . _unsocket
@@ -370,8 +404,20 @@ maxMessageSize = liftIO . Z.maxMessageSize . _unsocket
 mcastHops :: Socket z t -> ZMQ z Int
 mcastHops = liftIO . Z.mcastHops . _unsocket
 
+mechanism :: Socket z t -> ZMQ z Z.SecurityMechanism
+mechanism = liftIO . Z.mechanism . _unsocket
+
 moreToReceive :: Socket z t -> ZMQ z Bool
 moreToReceive = liftIO . Z.moreToReceive . _unsocket
+
+plainServer :: Socket z t -> ZMQ z Bool
+plainServer = liftIO . Z.plainServer . _unsocket
+
+plainPassword :: Socket z t -> ZMQ z ByteString
+plainPassword = liftIO . Z.plainPassword . _unsocket
+
+plainUserName :: Socket z t -> ZMQ z ByteString
+plainUserName = liftIO . Z.plainUserName . _unsocket
 
 rate :: Socket z t -> ZMQ z Int
 rate = liftIO . Z.rate . _unsocket
@@ -415,21 +461,37 @@ tcpKeepAliveIdle = liftIO . Z.tcpKeepAliveIdle . _unsocket
 tcpKeepAliveInterval :: Socket z t -> ZMQ z Int
 tcpKeepAliveInterval = liftIO . Z.tcpKeepAliveInterval . _unsocket
 
+zapDomain :: Socket z t -> ZMQ z ByteString
+zapDomain = liftIO . Z.zapDomain . _unsocket
+
 -- * Socket Options (Write)
 
 setAffinity :: Word64 -> Socket z t -> ZMQ z ()
 setAffinity a = liftIO . Z.setAffinity a . _unsocket
 
-setBacklog :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setBacklog :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setBacklog b = liftIO . Z.setBacklog b . _unsocket
 
 setConflate :: Z.Conflatable t => Bool -> Socket z t -> ZMQ z ()
 setConflate i = liftIO . Z.setConflate i . _unsocket
 
+setCurvePublicKey :: Z.KeyFormat f -> Restricted f ByteString -> Socket z t -> ZMQ z ()
+setCurvePublicKey f k = liftIO . Z.setCurvePublicKey f k . _unsocket
+
+setCurveSecretKey :: Z.KeyFormat f -> Restricted f ByteString -> Socket z t -> ZMQ z ()
+setCurveSecretKey f k = liftIO . Z.setCurveSecretKey f k . _unsocket
+
+setCurveServer :: Bool -> Socket z t -> ZMQ z ()
+setCurveServer b = liftIO . Z.setCurveServer b . _unsocket
+
+setCurveServerKey :: Z.KeyFormat f -> Restricted f ByteString -> Socket z t -> ZMQ z ()
+setCurveServerKey f k = liftIO . Z.setCurveServerKey f k . _unsocket
+
 setDelayAttachOnConnect :: Bool -> Socket z t -> ZMQ z ()
 setDelayAttachOnConnect d = liftIO . Z.setDelayAttachOnConnect d . _unsocket
+{-# DEPRECATED setDelayAttachOnConnect "Use setImmediate" #-}
 
-setIdentity :: Restricted N1 N254 ByteString -> Socket z t -> ZMQ z ()
+setIdentity :: Restricted (N1, N254) ByteString -> Socket z t -> ZMQ z ()
 setIdentity i = liftIO . Z.setIdentity i . _unsocket
 
 setImmediate :: Bool -> Socket z t -> ZMQ z ()
@@ -437,50 +499,69 @@ setImmediate i = liftIO . Z.setImmediate i . _unsocket
 
 setIpv4Only :: Bool -> Socket z t -> ZMQ z ()
 setIpv4Only i = liftIO . Z.setIpv4Only i . _unsocket
+{-# DEPRECATED setIpv4Only "Use setIpv6" #-}
 
 setIpv6 :: Bool -> Socket z t -> ZMQ z ()
 setIpv6 i = liftIO . Z.setIpv6 i . _unsocket
 
-setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setLinger :: Integral i => Restricted (Nneg1, Int32) i -> Socket z t -> ZMQ z ()
 setLinger l = liftIO . Z.setLinger l . _unsocket
 
-setMaxMessageSize :: Integral i => Restricted Nneg1 Int64 i -> Socket z t -> ZMQ z ()
+setMaxMessageSize :: Integral i => Restricted (Nneg1, Int64) i -> Socket z t -> ZMQ z ()
 setMaxMessageSize s = liftIO . Z.setMaxMessageSize s . _unsocket
 
-setMcastHops :: Integral i => Restricted N1 Int32 i -> Socket z t -> ZMQ z ()
+setMcastHops :: Integral i => Restricted (N1, Int32) i -> Socket z t -> ZMQ z ()
 setMcastHops k = liftIO . Z.setMcastHops k . _unsocket
 
-setRate :: Integral i => Restricted N1 Int32 i -> Socket z t -> ZMQ z ()
+setPlainServer :: Bool -> Socket z t -> ZMQ z ()
+setPlainServer b = liftIO . Z.setPlainServer b . _unsocket
+
+setPlainPassword :: Restricted (N1, N254) ByteString -> Socket z t -> ZMQ z ()
+setPlainPassword s = liftIO . Z.setPlainPassword s . _unsocket
+
+setPlainUserName :: Restricted (N1, N254) ByteString -> Socket z t -> ZMQ z ()
+setPlainUserName s = liftIO . Z.setPlainUserName s . _unsocket
+
+setProbeRouter :: Z.SendProbe t => Bool -> Socket z t -> ZMQ z ()
+setProbeRouter b = liftIO . Z.setProbeRouter b . _unsocket
+
+setRate :: Integral i => Restricted (N1, Int32) i -> Socket z t -> ZMQ z ()
 setRate r = liftIO . Z.setRate r . _unsocket
 
-setReceiveBuffer :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReceiveBuffer :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setReceiveBuffer k = liftIO . Z.setReceiveBuffer k . _unsocket
 
-setReceiveHighWM :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReceiveHighWM :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setReceiveHighWM k = liftIO . Z.setReceiveHighWM k . _unsocket
 
-setReceiveTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setReceiveTimeout :: Integral i => Restricted (Nneg1, Int32) i -> Socket z t -> ZMQ z ()
 setReceiveTimeout t = liftIO . Z.setReceiveTimeout t . _unsocket
 
-setReconnectInterval :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReconnectInterval :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setReconnectInterval i = liftIO . Z.setReconnectInterval i . _unsocket
 
-setReconnectIntervalMax :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setReconnectIntervalMax :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setReconnectIntervalMax i = liftIO . Z.setReconnectIntervalMax i . _unsocket
 
-setRecoveryInterval :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setRecoveryInterval :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setRecoveryInterval i = liftIO . Z.setRecoveryInterval i . _unsocket
+
+setReqCorrelate :: Bool -> Socket z Z.Req -> ZMQ z ()
+setReqCorrelate b = liftIO . Z.setReqCorrelate b . _unsocket
+
+setReqRelaxed :: Bool -> Socket z Z.Req -> ZMQ z ()
+setReqRelaxed b = liftIO . Z.setReqRelaxed b . _unsocket
 
 setRouterMandatory :: Bool -> Socket z Z.Router -> ZMQ z ()
 setRouterMandatory b = liftIO . Z.setRouterMandatory b . _unsocket
 
-setSendBuffer :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setSendBuffer :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setSendBuffer i = liftIO . Z.setSendBuffer i . _unsocket
 
-setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket z t -> ZMQ z ()
+setSendHighWM :: Integral i => Restricted (N0, Int32) i -> Socket z t -> ZMQ z ()
 setSendHighWM i = liftIO . Z.setSendHighWM i . _unsocket
 
-setSendTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setSendTimeout :: Integral i => Restricted (Nneg1, Int32) i -> Socket z t -> ZMQ z ()
 setSendTimeout i = liftIO . Z.setSendTimeout i . _unsocket
 
 setTcpAcceptFilter :: Maybe ByteString -> Socket z t -> ZMQ z ()
@@ -489,13 +570,13 @@ setTcpAcceptFilter s = liftIO . Z.setTcpAcceptFilter s . _unsocket
 setTcpKeepAlive :: Z.Switch -> Socket z t -> ZMQ z ()
 setTcpKeepAlive s = liftIO . Z.setTcpKeepAlive s . _unsocket
 
-setTcpKeepAliveCount :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setTcpKeepAliveCount :: Integral i => Restricted (Nneg1, Int32) i -> Socket z t -> ZMQ z ()
 setTcpKeepAliveCount c = liftIO . Z.setTcpKeepAliveCount c . _unsocket
 
-setTcpKeepAliveIdle :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setTcpKeepAliveIdle :: Integral i => Restricted (Nneg1, Int32) i -> Socket z t -> ZMQ z ()
 setTcpKeepAliveIdle i = liftIO . Z.setTcpKeepAliveIdle i . _unsocket
 
-setTcpKeepAliveInterval :: Integral i => Restricted Nneg1 Int32 i -> Socket z t -> ZMQ z ()
+setTcpKeepAliveInterval :: Integral i => Restricted (Nneg1, Int32) i -> Socket z t -> ZMQ z ()
 setTcpKeepAliveInterval i = liftIO . Z.setTcpKeepAliveInterval i . _unsocket
 
 setXPubVerbose :: Bool -> Socket z Z.XPub -> ZMQ z ()

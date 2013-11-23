@@ -9,83 +9,29 @@
 -- Portability : non-portable
 --
 -- 0MQ haskell binding. The API closely follows the C-API of 0MQ with
--- the main difference that sockets are typed.
--- The documentation of the individual socket types is copied from
--- 0MQ's man pages authored by Martin Sustrik. For details please
--- refer to <http://api.zeromq.org>
+-- the main difference being that sockets are typed.
 --
--- Differences to zeromq-haskell 2.x
+-- /Notes/
 --
--- /Socket Types/
---
--- * 'System.ZMQ.Up' and 'System.ZMQ.Down' no longer exist.
---
--- * 'XReq' is renamed to 'Dealer' and 'XRep' is renamed to 'Router'
--- (in accordance with libzmq). 'XReq' and 'XRep' are available as
--- deprecated aliases.
---
--- * Renamed type-classes:
--- @'SType' -\> 'SocketType'@, @'SubsType' -\> 'Subscriber'@.
---
--- * New type-classes:
--- 'Sender', 'Receiver'
---
--- /Socket Options/
---
--- Instead of a single 'SocketOption' data-type, getter and setter
--- functions are provided, e.g. one would write: @'affinity' sock@ instead of
--- @getOption sock (Affinity 0)@
---
--- /Restrictions/
---
--- Many option setters use a 'Restriction' to further constrain the
+-- Many option settings use a 'Restriction' to further constrain the
 -- range of possible values of their integral types. For example
 -- the maximum message size can be given as -1, which means no limit
 -- or by greater values, which denote the message size in bytes. The
 -- type of 'setMaxMessageSize' is therefore:
 --
--- @setMaxMessageSize :: 'Integral' i => 'Restricted' 'Nneg1' 'Int64' i -> 'Socket' a -> 'IO' ()@
+-- @setMaxMessageSize :: Integral i
+--                    => Restricted (Nneg1, Int64) i
+--                    -> Socket a
+--                    -> IO ()@
 --
 -- which means any integral value in the range of @-1@ to
--- (@'maxBound' :: 'Int64'@) can be given. To create a restricted
+-- (@maxBound :: Int64@) can be given. To create a restricted
 -- value from plain value, use 'toRestricted' or 'restrict'.
---
--- /Devices/
---
--- Devices are no longer present in 0MQ 3.x and consequently have been
--- removed form this binding as well.
---
--- /Error Handling/
---
--- The type 'ZMQError' is introduced, together with inspection functions 'errno',
--- 'source' and 'message'. @zmq_strerror@ is used underneath to retrieve the
--- correct error message. ZMQError will be thrown when native 0MQ procedures return
--- an error status and it can be 'catch'ed as an 'Exception'.
 
-module System.ZMQ4 (
-
-    -- * Type Definitions
-    Size
-  , Context
-  , Socket
-  , Flag (SendMore)
-  , Switch    (..)
-  , Timeout
-  , Event     (..)
-  , EventType (..)
-  , EventMsg  (..)
-  , Poll      (..)
-
-    -- ** Type Classes
-  , SocketType
-  , Sender
-  , Receiver
-  , Subscriber
-  , SocketLike
-  , Conflatable
-
+module System.ZMQ4
+  ( -- * Type Definitions
     -- ** Socket Types
-  , Pair   (..)
+    Pair   (..)
   , Pub    (..)
   , Sub    (..)
   , XPub   (..)
@@ -99,6 +45,29 @@ module System.ZMQ4 (
   , Pull   (..)
   , Push   (..)
   , Stream (..)
+
+    -- ** Socket type-classes
+  , SocketType
+  , Sender
+  , Receiver
+  , Subscriber
+  , SocketLike
+  , Conflatable
+  , SendProbe
+
+    -- ** Various type definitions
+  , Size
+  , Context
+  , Socket
+  , Flag              (SendMore)
+  , Switch            (..)
+  , Timeout
+  , Event             (..)
+  , EventType         (..)
+  , EventMsg          (..)
+  , Poll              (..)
+  , KeyFormat         (..)
+  , SecurityMechanism (..)
 
     -- * General Operations
   , withContext
@@ -130,6 +99,9 @@ module System.ZMQ4 (
   , System.ZMQ4.affinity
   , System.ZMQ4.backlog
   , System.ZMQ4.conflate
+  , System.ZMQ4.curvePublicKey
+  , System.ZMQ4.curveSecretKey
+  , System.ZMQ4.curveServerKey
   , System.ZMQ4.delayAttachOnConnect
   , System.ZMQ4.events
   , System.ZMQ4.fileDescriptor
@@ -141,7 +113,11 @@ module System.ZMQ4 (
   , System.ZMQ4.linger
   , System.ZMQ4.maxMessageSize
   , System.ZMQ4.mcastHops
+  , System.ZMQ4.mechanism
   , System.ZMQ4.moreToReceive
+  , System.ZMQ4.plainServer
+  , System.ZMQ4.plainPassword
+  , System.ZMQ4.plainUserName
   , System.ZMQ4.rate
   , System.ZMQ4.receiveBuffer
   , System.ZMQ4.receiveHighWM
@@ -156,11 +132,16 @@ module System.ZMQ4 (
   , System.ZMQ4.tcpKeepAliveCount
   , System.ZMQ4.tcpKeepAliveIdle
   , System.ZMQ4.tcpKeepAliveInterval
+  , System.ZMQ4.zapDomain
 
     -- * Socket Options (Write)
   , setAffinity
   , setBacklog
   , setConflate
+  , setCurveServer
+  , setCurvePublicKey
+  , setCurveSecretKey
+  , setCurveServerKey
   , setDelayAttachOnConnect
   , setIdentity
   , setImmediate
@@ -169,6 +150,10 @@ module System.ZMQ4 (
   , setLinger
   , setMaxMessageSize
   , setMcastHops
+  , setPlainServer
+  , setPlainPassword
+  , setPlainUserName
+  , setProbeRouter
   , setRate
   , setReceiveBuffer
   , setReceiveHighWM
@@ -176,6 +161,8 @@ module System.ZMQ4 (
   , setReconnectInterval
   , setReconnectIntervalMax
   , setRecoveryInterval
+  , setReqCorrelate
+  , setReqRelaxed
   , setRouterMandatory
   , setSendBuffer
   , setSendHighWM
@@ -206,10 +193,12 @@ module System.ZMQ4 (
   , close
   , waitRead
   , waitWrite
+  , z85Encode
+  , z85Decode
 
     -- * Utils
   , proxy
-) where
+  ) where
 
 import Prelude hiding (init)
 import Control.Applicative
@@ -236,90 +225,53 @@ import qualified System.ZMQ4.Base     as B
 
 import GHC.Conc (threadWaitRead, threadWaitWrite)
 
--- | Socket to communicate with a single peer. Allows for only a
--- single connect or a single bind. There's no message routing
--- or message filtering involved. /Compatible peer sockets/: 'Pair'.
+-----------------------------------------------------------------------------
+-- Socket Types
+
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PAIR>
 data Pair = Pair
 
--- | Socket to distribute data. 'receive' function is not
--- implemented for this socket type. Messages are distributed in
--- fanout fashion to all the peers. /Compatible peer sockets/: 'Sub'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PUB>
 data Pub = Pub
 
--- | Socket to subscribe for data. 'send' function is not implemented
--- for this socket type. Initially, socket is subscribed for no
--- messages. Use 'subscribe' to specify which messages to subscribe for.
--- /Compatible peer sockets/: 'Pub'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_SUB>
 data Sub = Sub
 
--- | Same as 'Pub' except that you can receive subscriptions from the
--- peers in form of incoming messages. Subscription message is a byte 1
--- (for subscriptions) or byte 0 (for unsubscriptions) followed by the
--- subscription body.
--- /Compatible peer sockets/: 'Sub', 'XSub'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_XPUB>
 data XPub = XPub
 
--- | Same as 'Sub' except that you subscribe by sending subscription
--- messages to the socket. Subscription message is a byte 1 (for subscriptions)
--- or byte 0 (for unsubscriptions) followed by the subscription body.
--- /Compatible peer sockets/: 'Pub', 'XPub'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_XSUB>
 data XSub = XSub
 
--- | Socket to send requests and receive replies. Requests are
--- load-balanced among all the peers. This socket type allows only an
--- alternated sequence of send's and recv's.
--- /Compatible peer sockets/: 'Rep', 'Router'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_REQ>
 data Req = Req
 
--- | Socket to receive requests and send replies. This socket type
--- allows only an alternated sequence of receive's and send's. Each
--- send is routed to the peer that issued the last received request.
--- /Compatible peer sockets/: 'Req', 'Dealer'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_REP>
 data Rep = Rep
 
--- | Each message sent is round-robined among all connected peers,
--- and each message received is fair-queued from all connected peers.
--- /Compatible peer sockets/: 'Router', 'Req', 'Rep'.
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_DEALER>
 data Dealer = Dealer
 
--- | /Deprecated Alias/
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_ROUTER>
+data Router = Router
+
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PULL>
+data Pull = Pull
+
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PUSH>
+data Push = Push
+
+-- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_STREAM>
+data Stream = Stream
+
 type XReq = Dealer
 {-# DEPRECATED XReq "Use Dealer" #-}
 
--- | When receiving messages a Router socket shall prepend a message
--- part containing the identity of the originating peer to
--- the message before passing it to the application. Messages
--- received are fair-queued from among all connected peers. When
--- sending messages a Router socket shall remove the first part of
--- the message and use it to determine the identity of the peer the
--- message shall be routed to. If the peer does not exist anymore
--- the message shall be silently discarded.
--- /Compatible peer sockets/: 'Dealer', 'Req', 'Rep'.
-data Router = Router
-
--- | /Deprecated Alias/
 type XRep = Router
 {-# DEPRECATED XRep "Use Router" #-}
 
--- | A socket of type Pull is used by a pipeline node to receive
--- messages from upstream pipeline nodes. Messages are fair-queued from
--- among all connected upstream nodes. The zmq_send() function is not
--- implemented for this socket type.
-data Pull = Pull
-
--- | A socket of type Push is used by a pipeline node to send messages
--- to downstream pipeline nodes. Messages are load-balanced to all connected
--- downstream nodes. The zmq_recv() function is not implemented for this
--- socket type.
---
--- When a Push socket enters an exceptional state due to having reached
--- the high water mark for all downstream nodes, or if there are no
--- downstream nodes at all, then any zmq_send(3) operations on the socket
--- shall block until the exceptional state ends or at least one downstream
--- node becomes available for sending; messages are not discarded.
-data Push = Push
-
-data Stream = Stream
+-----------------------------------------------------------------------------
+-- Socket Type Classifications
 
 -- | Sockets which can 'subscribe'.
 class Subscriber a
@@ -332,6 +284,9 @@ class Receiver a
 
 -- | Sockets which can be 'conflate'd.
 class Conflatable a
+
+-- | Sockets which can send probes (cf. 'setProbeRouter').
+class SendProbe a
 
 instance SocketType Pair where zmqSocketType = const pair
 instance Sender     Pair
@@ -357,6 +312,7 @@ instance Receiver   XSub
 instance SocketType Req where zmqSocketType = const request
 instance Sender     Req
 instance Receiver   Req
+instance SendProbe  Req
 
 instance SocketType Rep where zmqSocketType = const response
 instance Sender     Rep
@@ -366,10 +322,12 @@ instance SocketType  Dealer where zmqSocketType = const dealer
 instance Sender      Dealer
 instance Receiver    Dealer
 instance Conflatable Dealer
+instance SendProbe   Dealer
 
 instance SocketType Router where zmqSocketType = const router
 instance Sender     Router
 instance Receiver   Router
+instance SendProbe  Router
 
 instance SocketType  Pull where zmqSocketType = const pull
 instance Receiver    Pull
@@ -383,11 +341,13 @@ instance SocketType Stream where zmqSocketType = const stream
 instance Sender     Stream
 instance Receiver   Stream
 
+-----------------------------------------------------------------------------
+
 -- | Socket events.
 data Event =
-    In     -- ^ ZMQ_POLLIN (incoming messages)
-  | Out    -- ^ ZMQ_POLLOUT (outgoing messages, i.e. at least 1 byte can be written)
-  | Err    -- ^ ZMQ_POLLERR
+    In     -- ^ @ZMQ_POLLIN@ (incoming messages)
+  | Out    -- ^ @ZMQ_POLLOUT@ (outgoing messages, i.e. at least 1 byte can be written)
+  | Err    -- ^ @ZMQ_POLLERR@
   deriving (Eq, Ord, Read, Show)
 
 -- | A 'Poll' value contains the object to poll (a 0MQ socket or a file
@@ -417,17 +377,18 @@ init n = do
     return c
 {-# DEPRECATED init "Use context" #-}
 
--- | Initialize a 0MQ context (cf. zmq_ctx_new for details).  You should
--- normally prefer to use 'withContext' instead.
+-- | Initialize a 0MQ context.
+-- Equivalent to <http://api.zeromq.org/4-0:zmq-ctx-new zmq_ctx_new>.
 context :: IO Context
 context = Context <$> throwIfNull "init" c_zmq_ctx_new
 
--- | Terminate a 0MQ context (cf. zmq_ctx_term).  You should normally
--- prefer to use 'withContext' instead.
+-- | Terminate a 0MQ context.
+-- Equivalent to <http://api.zeromq.org/4-0:zmq-ctx-term zmq_ctx_term>.
 term :: Context -> IO ()
 term c = throwIfMinus1Retry_ "term" . c_zmq_ctx_term . _ctx $ c
 
--- | Shutdown a 0MQ context (cf. zmq_ctx_shutdown).
+-- | Shutdown a 0MQ context.
+-- Equivalent to <http://api.zeromq.org/4-0:zmq-ctx-shutdown zmq_ctx_shutdown>.
 shutdown :: Context -> IO ()
 shutdown = throwIfMinus1_ "shutdown" . c_zmq_ctx_shutdown . _ctx
 
@@ -466,276 +427,351 @@ unsubscribe s = setByteStringOpt s B.unsubscribe
 
 -- Read Only
 
--- | Cf. @zmq_getsockopt ZMQ_EVENTS@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_EVENTS>.
 events :: Socket a -> IO [Event]
 events s = toEvents <$> getIntOpt s B.events 0
 
--- | Cf. @zmq_getsockopt ZMQ_FD@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_FD>.
 fileDescriptor :: Socket a -> IO Fd
 fileDescriptor s = Fd . fromIntegral <$> getInt32Option B.filedesc s
 
--- | Cf. @zmq_getsockopt ZMQ_RCVMORE@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RCVMORE>.
 moreToReceive :: Socket a -> IO Bool
 moreToReceive s = (== 1) <$> getInt32Option B.receiveMore s
 
 -- Read
 
--- | Cf. @zmq_ctx_get ZMQ_IO_THREADS@
+-- | <http://api.zeromq.org/4-0:zmq-ctx-get zmq_ctx_get ZMQ_IO_THREADS>.
 ioThreads :: Context -> IO Word
 ioThreads = ctxIntOption "ioThreads" _ioThreads
 
--- | Cf. @zmq_ctx_get ZMQ_MAX_SOCKETS@
+-- | <http://api.zeromq.org/4-0:zmq-ctx-get zmq_ctx_get ZMQ_MAX_SOCKETS>.
 maxSockets :: Context -> IO Word
 maxSockets = ctxIntOption "maxSockets" _maxSockets
 
--- | Cf. @zmq_getsockopt ZMQ_CONFLATE@
+-- | Restricts the outgoing and incoming socket buffers to a single message.
 conflate :: Conflatable a => Socket a -> IO Bool
 conflate s = (== 1) <$> getInt32Option B.conflate s
 
--- | Cf. @zmq_getsockopt ZMQ_IMMEDIATE@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_IMMEDIATE>.
 immediate :: Socket a -> IO Bool
 immediate s = (== 1) <$> getInt32Option B.immediate s
 
--- | Cf. @zmq_getsockopt ZMQ_IDENTITY@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_IDENTITY>.
 identity :: Socket a -> IO SB.ByteString
 identity s = getByteStringOpt s B.identity
 
--- | Cf. @zmq_getsockopt ZMQ_AFFINITY@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_AFFINITY>.
 affinity :: Socket a -> IO Word64
 affinity s = getIntOpt s B.affinity 0
 
--- | Cf. @zmq_getsockopt ZMQ_MAXMSGSIZE@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_MAXMSGSIZE>.
 maxMessageSize :: Socket a -> IO Int64
 maxMessageSize s = getIntOpt s B.maxMessageSize 0
 
--- | Cf. @zmq_getsockopt ZMQ_IPV4ONLY@
 ipv4Only :: Socket a -> IO Bool
 ipv4Only s = (== 1) <$> getInt32Option B.ipv4Only s
+{-# DEPRECATED ipv4Only "Use ipv6" #-}
 
--- | Cf. @zmq_getsockopt ZMQ_IPV6@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_IPV6>.
 ipv6 :: Socket a -> IO Bool
 ipv6 s = (== 1) <$> getInt32Option B.ipv6 s
 
--- | Cf. @zmq_getsockopt ZMQ_BACKLOG@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_BACKLOG>.
 backlog :: Socket a -> IO Int
 backlog = getInt32Option B.backlog
 
--- | Cf. @zmq_getsockopt ZMQ_DELAY_ATTACH_ON_CONNECT@
 delayAttachOnConnect :: Socket a -> IO Bool
 delayAttachOnConnect s = (== 1) <$> getInt32Option B.delayAttachOnConnect s
+{-# DEPRECATED delayAttachOnConnect "Use immediate" #-}
 
--- | Cf. @zmq_getsockopt ZMQ_LINGER@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_LINGER>.
 linger :: Socket a -> IO Int
 linger = getInt32Option B.linger
 
--- | Cf. @zmq_getsockopt ZMQ_LAST_ENDPOINT@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_LAST_ENDPOINT>.
 lastEndpoint :: Socket a -> IO String
 lastEndpoint s = getStrOpt s B.lastEndpoint
 
--- | Cf. @zmq_getsockopt ZMQ_RATE@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RATE>.
 rate :: Socket a -> IO Int
 rate = getInt32Option B.rate
 
--- | Cf. @zmq_getsockopt ZMQ_RCVBUF@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RCVBUF>.
 receiveBuffer :: Socket a -> IO Int
 receiveBuffer = getInt32Option B.receiveBuf
 
--- | Cf. @zmq_getsockopt ZMQ_RECONNECT_IVL@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RECONNECT_IVL>.
 reconnectInterval :: Socket a -> IO Int
 reconnectInterval = getInt32Option B.reconnectIVL
 
--- | Cf. @zmq_getsockopt ZMQ_RECONNECT_IVL_MAX@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RECONNECT_IVL_MAX>.
 reconnectIntervalMax :: Socket a -> IO Int
 reconnectIntervalMax = getInt32Option B.reconnectIVLMax
 
--- | Cf. @zmq_getsockopt ZMQ_RECOVERY_IVL@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RECOVERY_IVL>.
 recoveryInterval :: Socket a -> IO Int
 recoveryInterval = getInt32Option B.recoveryIVL
 
--- | Cf. @zmq_getsockopt ZMQ_SNDBUF@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_SNDBUF>.
 sendBuffer :: Socket a -> IO Int
 sendBuffer = getInt32Option B.sendBuf
 
--- | Cf. @zmq_getsockopt ZMQ_MULTICAST_HOPS@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_MULTICAST_HOPS>.
 mcastHops :: Socket a -> IO Int
 mcastHops = getInt32Option B.mcastHops
 
--- | Cf. @zmq_getsockopt ZMQ_RCVHWM@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RCVHWM>.
 receiveHighWM :: Socket a -> IO Int
 receiveHighWM = getInt32Option B.receiveHighWM
 
--- | Cf. @zmq_getsockopt ZMQ_RCVTIMEO@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_RCVTIMEO>.
 receiveTimeout :: Socket a -> IO Int
 receiveTimeout = getInt32Option B.receiveTimeout
 
--- | Cf. @zmq_getsockopt ZMQ_SNDTIMEO@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_SNDTIMEO>.
 sendTimeout :: Socket a -> IO Int
 sendTimeout = getInt32Option B.sendTimeout
 
--- | Cf. @zmq_getsockopt ZMQ_SNDHWM@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_SNDHWM>.
 sendHighWM :: Socket a -> IO Int
 sendHighWM = getInt32Option B.sendHighWM
 
--- | Cf. @zmq_getsockopt ZMQ_TCP_KEEPALIVE@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_TCP_KEEPALIVE>.
 tcpKeepAlive :: Socket a -> IO Switch
-tcpKeepAlive s = getInt32Option B.tcpKeepAlive s >>= convert . toSwitch
-  where
-    convert Nothing  = throwError "Invalid value for ZMQ_TCP_KEEPALIVE"
-    convert (Just i) = return i
+tcpKeepAlive = fmap (toSwitch "Invalid ZMQ_TCP_KEEPALIVE")
+             . getInt32Option B.tcpKeepAlive
 
--- | Cf. @zmq_getsockopt ZMQ_TCP_KEEPALIVE_CNT@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_TCP_KEEPALIVE_CNT>.
 tcpKeepAliveCount :: Socket a -> IO Int
 tcpKeepAliveCount = getInt32Option B.tcpKeepAliveCount
 
--- | Cf. @zmq_getsockopt ZMQ_TCP_KEEPALIVE_IDLE@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_TCP_KEEPALIVE_IDLE>.
 tcpKeepAliveIdle :: Socket a -> IO Int
 tcpKeepAliveIdle = getInt32Option B.tcpKeepAliveIdle
 
--- | Cf. @zmq_getsockopt ZMQ_TCP_KEEPALIVE_INTVL@
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_TCP_KEEPALIVE_INTVL>.
 tcpKeepAliveInterval :: Socket a -> IO Int
 tcpKeepAliveInterval = getInt32Option B.tcpKeepAliveInterval
 
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_MECHANISM>.
+mechanism :: Socket a -> IO SecurityMechanism
+mechanism = fmap (fromMechanism "Invalid ZMQ_MECHANISM")
+          . getInt32Option B.mechanism
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_PLAIN_SERVER>.
+plainServer :: Socket a -> IO Bool
+plainServer = fmap (== 1) . getInt32Option B.plainServer
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_PLAIN_USERNAME>.
+plainUserName :: Socket a -> IO SB.ByteString
+plainUserName s = getByteStringOpt s B.plainUserName
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_PLAIN_PASSWORD>.
+plainPassword :: Socket a -> IO SB.ByteString
+plainPassword s = getByteStringOpt s B.plainPassword
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_ZAP_DOMAIN>.
+zapDomain :: Socket a -> IO SB.ByteString
+zapDomain s = getByteStringOpt s B.zapDomain
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_CURVE_PUBLICKEY>.
+curvePublicKey :: KeyFormat f -> Socket a -> IO SB.ByteString
+curvePublicKey f s = getKey f s B.curvePublicKey
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_CURVE_SERVERKEY>.
+curveServerKey :: KeyFormat f -> Socket a -> IO SB.ByteString
+curveServerKey f s = getKey f s B.curveServerKey
+
+-- | <http://api.zeromq.org/4-0:zmq-getsockopt zmq_getsockopt ZMQ_CURVE_SECRETKEY>.
+curveSecretKey :: KeyFormat f -> Socket a -> IO SB.ByteString
+curveSecretKey f s = getKey f s B.curveSecretKey
+
 -- Write
 
--- | Cf. @zmq_ctx_set ZMQ_IO_THREADS@
+-- | <http://api.zeromq.org/4-0:zmq-ctx-set zmq_ctx_get ZMQ_IO_THREADS>.
 setIoThreads :: Word -> Context -> IO ()
 setIoThreads n = setCtxIntOption "ioThreads" _ioThreads n
 
--- | Cf. @zmq_ctx_set ZMQ_MAX_SOCKETS@
+-- | <http://api.zeromq.org/4-0:zmq-ctx-set zmq_ctx_get ZMQ_MAX_SOCKETS>.
 setMaxSockets :: Word -> Context -> IO ()
 setMaxSockets n = setCtxIntOption "maxSockets" _maxSockets n
 
--- | Cf. @zmq_getsockopt ZMQ_CONFLATE@
+-- | Restrict the outgoing and incoming socket buffers to a single message.
 setConflate :: Conflatable a => Bool -> Socket a -> IO ()
 setConflate x s = setIntOpt s B.conflate (bool2cint x)
 
--- | Cf. @zmq_getsockopt ZMQ_IMMEDIATE@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_IMMEDIATE>.
 setImmediate :: Bool -> Socket a -> IO ()
 setImmediate x s = setIntOpt s B.immediate (bool2cint x)
 
--- | Cf. @zmq_setsockopt ZMQ_IDENTITY@
-setIdentity :: Restricted N1 N254 SB.ByteString -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_IDENTITY>.
+setIdentity :: Restricted (N1, N254) SB.ByteString -> Socket a -> IO ()
 setIdentity x s = setByteStringOpt s B.identity (rvalue x)
 
--- | Cf. @zmq_setsockopt ZMQ_AFFINITY@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_AFFINITY>.
 setAffinity :: Word64 -> Socket a -> IO ()
 setAffinity x s = setIntOpt s B.affinity x
 
--- | Cf. @zmq_setsockopt ZMQ_DELAY_ATTACH_ON_CONNECT@
 setDelayAttachOnConnect :: Bool -> Socket a -> IO ()
 setDelayAttachOnConnect x s = setIntOpt s B.delayAttachOnConnect (bool2cint x)
+{-# DEPRECATED setDelayAttachOnConnect "Use setImmediate" #-}
 
--- | Cf. @zmq_setsockopt ZMQ_MAXMSGSIZE@
-setMaxMessageSize :: Integral i => Restricted Nneg1 Int64 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_MAXMSGSIZE>.
+setMaxMessageSize :: Integral i => Restricted (Nneg1, Int64) i -> Socket a -> IO ()
 setMaxMessageSize x s = setIntOpt s B.maxMessageSize ((fromIntegral . rvalue $ x) :: Int64)
 
--- | Cf. @zmq_setsockopt ZMQ_IPV4ONLY@
 setIpv4Only :: Bool -> Socket a -> IO ()
 setIpv4Only x s = setIntOpt s B.ipv4Only (bool2cint x)
+{-# DEPRECATED setIpv4Only "Use setIpv6" #-}
 
--- | Cf. @zmq_setsockopt ZMQ_IPV6@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_IPV6>.
 setIpv6 :: Bool -> Socket a -> IO ()
 setIpv6 x s = setIntOpt s B.ipv6 (bool2cint x)
 
--- | Cf. @zmq_setsockopt ZMQ_LINGER@
-setLinger :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_PLAIN_SERVER>.
+setPlainServer :: Bool -> Socket a -> IO ()
+setPlainServer x s = setIntOpt s B.plainServer (bool2cint x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_CURVE_SERVER>.
+setCurveServer :: Bool -> Socket a -> IO ()
+setCurveServer x s = setIntOpt s B.curveServer (bool2cint x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_PLAIN_USERNAME>.
+setPlainUserName :: Restricted (N1, N254) SB.ByteString -> Socket a -> IO ()
+setPlainUserName x s = setByteStringOpt s B.plainUserName (rvalue x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_PLAIN_USERNAME>.
+setPlainPassword :: Restricted (N1, N254) SB.ByteString -> Socket a -> IO ()
+setPlainPassword x s = setByteStringOpt s B.plainPassword (rvalue x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_LINGER>.
+setLinger :: Integral i => Restricted (Nneg1, Int32) i -> Socket a -> IO ()
 setLinger = setInt32OptFromRestricted B.linger
 
--- | Cf. @zmq_setsockopt ZMQ_RCVTIMEO@
-setReceiveTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RCVTIMEO>.
+setReceiveTimeout :: Integral i => Restricted (Nneg1, Int32) i -> Socket a -> IO ()
 setReceiveTimeout = setInt32OptFromRestricted B.receiveTimeout
 
--- | Cf. @zmq_setsockopt ZMQ_ROUTER_MANDATORY@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_ROUTER_MANDATORY>.
 setRouterMandatory :: Bool -> Socket Router -> IO ()
 setRouterMandatory x s = setIntOpt s B.routerMandatory (bool2cint x)
 
--- | Cf. @zmq_setsockopt ZMQ_SNDTIMEO@
-setSendTimeout :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_SNDTIMEO>.
+setSendTimeout :: Integral i => Restricted (Nneg1, Int32) i -> Socket a -> IO ()
 setSendTimeout = setInt32OptFromRestricted B.sendTimeout
 
--- | Cf. @zmq_setsockopt ZMQ_RATE@
-setRate :: Integral i => Restricted N1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RATE>.
+setRate :: Integral i => Restricted (N1, Int32) i -> Socket a -> IO ()
 setRate = setInt32OptFromRestricted B.rate
 
--- | Cf. @zmq_setsockopt ZMQ_MULTICAST_HOPS@
-setMcastHops :: Integral i => Restricted N1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_MULTICAST_HOPS>.
+setMcastHops :: Integral i => Restricted (N1, Int32) i -> Socket a -> IO ()
 setMcastHops = setInt32OptFromRestricted B.mcastHops
 
--- | Cf. @zmq_setsockopt ZMQ_BACKLOG@
-setBacklog :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_BACKLOG>.
+setBacklog :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setBacklog = setInt32OptFromRestricted B.backlog
 
--- | Cf. @zmq_setsockopt ZMQ_RCVBUF@
-setReceiveBuffer :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_CURVE_PUBLICKEY>.
+setCurvePublicKey :: KeyFormat f -> Restricted f SB.ByteString -> Socket a -> IO ()
+setCurvePublicKey _ k s = setByteStringOpt s B.curvePublicKey (rvalue k)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_CURVE_SECRETKEY>.
+setCurveSecretKey :: KeyFormat f -> Restricted f SB.ByteString -> Socket a -> IO ()
+setCurveSecretKey _ k s = setByteStringOpt s B.curveSecretKey (rvalue k)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_CURVE_SERVERKEY>.
+setCurveServerKey :: KeyFormat f -> Restricted f SB.ByteString -> Socket a -> IO ()
+setCurveServerKey _ k s = setByteStringOpt s B.curveServerKey (rvalue k)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_PROBE_ROUTER>.
+setProbeRouter :: SendProbe a => Bool -> Socket a -> IO ()
+setProbeRouter x s = setIntOpt s B.probeRouter (bool2cint x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RCVBUF>.
+setReceiveBuffer :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setReceiveBuffer = setInt32OptFromRestricted B.receiveBuf
 
--- | Cf. @zmq_setsockopt ZMQ_RECONNECT_IVL@
-setReconnectInterval :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RECONNECT_IVL>.
+setReconnectInterval :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setReconnectInterval = setInt32OptFromRestricted B.reconnectIVL
 
--- | Cf. @zmq_setsockopt ZMQ_RECONNECT_IVL_MAX@
-setReconnectIntervalMax :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RECONNECT_IVL_MAX>.
+setReconnectIntervalMax :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setReconnectIntervalMax = setInt32OptFromRestricted B.reconnectIVLMax
 
--- | Cf. @zmq_setsockopt ZMQ_SNDBUF@
-setSendBuffer :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_REQ_CORRELATE>.
+setReqCorrelate :: Bool -> Socket Req -> IO ()
+setReqCorrelate x s = setIntOpt s B.reqCorrelate (bool2cint x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_REQ_RELAXED>.
+setReqRelaxed :: Bool -> Socket Req -> IO ()
+setReqRelaxed x s = setIntOpt s B.reqRelaxed (bool2cint x)
+
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_SNDBUF>.
+setSendBuffer :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setSendBuffer = setInt32OptFromRestricted B.sendBuf
 
--- | Cf. @zmq_setsockopt ZMQ_RECOVERY_IVL@
-setRecoveryInterval :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RECOVERY_IVL>.
+setRecoveryInterval :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setRecoveryInterval = setInt32OptFromRestricted B.recoveryIVL
 
--- | Cf. @zmq_setsockopt ZMQ_RCVHWM@
-setReceiveHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_RCVHWM>.
+setReceiveHighWM :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setReceiveHighWM = setInt32OptFromRestricted B.receiveHighWM
 
--- | Cf. @zmq_setsockopt ZMQ_SNDHWM@
-setSendHighWM :: Integral i => Restricted N0 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_SNDHWM>.
+setSendHighWM :: Integral i => Restricted (N0, Int32) i -> Socket a -> IO ()
 setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 
--- | Cf. @zmq_setsockopt ZMQ_TCP_ACCEPT_FILTER@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_ACCEPT_FILTER>.
 setTcpAcceptFilter :: Maybe SB.ByteString -> Socket a -> IO ()
 setTcpAcceptFilter Nothing sock = onSocket "setTcpAcceptFilter" sock $ \s ->
     throwIfMinus1Retry_ "setStrOpt" $
         c_zmq_setsockopt s (optVal tcpAcceptFilter) nullPtr 0
 setTcpAcceptFilter (Just dat) sock = setByteStringOpt sock tcpAcceptFilter dat
 
--- | Cf. @zmq_setsockopt ZMQ_TCP_KEEPALIVE@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_KEEPALIVE>.
 setTcpKeepAlive :: Switch -> Socket a -> IO ()
 setTcpKeepAlive x s = setIntOpt s B.tcpKeepAlive (fromSwitch x :: CInt)
 
--- | Cf. @zmq_setsockopt ZMQ_TCP_KEEPALIVE_CNT@
-setTcpKeepAliveCount :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_KEEPALIVE_CNT>.
+setTcpKeepAliveCount :: Integral i => Restricted (Nneg1, Int32) i -> Socket a -> IO ()
 setTcpKeepAliveCount = setInt32OptFromRestricted B.tcpKeepAliveCount
 
--- | Cf. @zmq_setsockopt ZMQ_TCP_KEEPALIVE_IDLE@
-setTcpKeepAliveIdle :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_KEEPALIVE_IDLE>.
+setTcpKeepAliveIdle :: Integral i => Restricted (Nneg1, Int32) i -> Socket a -> IO ()
 setTcpKeepAliveIdle = setInt32OptFromRestricted B.tcpKeepAliveIdle
 
--- | Cf. @zmq_setsockopt ZMQ_TCP_KEEPALIVE_INTVL@
-setTcpKeepAliveInterval :: Integral i => Restricted Nneg1 Int32 i -> Socket a -> IO ()
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_KEEPALIVE_INTVL>.
+setTcpKeepAliveInterval :: Integral i => Restricted (Nneg1, Int32) i -> Socket a -> IO ()
 setTcpKeepAliveInterval = setInt32OptFromRestricted B.tcpKeepAliveInterval
 
--- | Cf. @zmq_setsockopt ZMQ_XPUB_VERBOSE@
+-- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_XPUB_VERBOSE>.
 setXPubVerbose :: Bool -> Socket XPub -> IO ()
 setXPubVerbose x s = setIntOpt s B.xpubVerbose (bool2cint x)
 
--- | Bind the socket to the given address (cf. zmq_bind)
+-- | Bind the socket to the given address
+-- (cf. <http://api.zeromq.org/4-0:zmq-bind zmq_bind>).
 bind :: Socket a -> String -> IO ()
 bind sock str = onSocket "bind" sock $
     throwIfMinus1Retry_ "bind" . withCString str . c_zmq_bind
 
--- | Unbind the socket from the given address (cf. zmq_unbind)
+-- | Unbind the socket from the given address
+-- (cf. <http://api.zeromq.org/4-0:zmq-unbind zmq_unbind>).
 unbind :: Socket a -> String -> IO ()
 unbind sock str = onSocket "unbind" sock $
     throwIfMinus1Retry_ "unbind" . withCString str . c_zmq_unbind
 
--- | Connect the socket to the given address (cf. zmq_connect).
+-- | Connect the socket to the given address
+-- (cf. <http://api.zeromq.org/4-0:zmq-connect zmq_connect>).
 connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
     throwIfMinus1Retry_ "connect" . withCString str . c_zmq_connect
 
--- | Send the given 'SB.ByteString' over the socket (cf. zmq_sendmsg).
+-- | Send the given 'SB.ByteString' over the socket
+-- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
 --
 -- /Note/: This function always calls @zmq_sendmsg@ in a non-blocking way,
 -- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
@@ -747,7 +783,9 @@ send sock fls val = bracket (messageOf val) messageClose $ \m ->
     retry "send" (waitWrite sock) $
           c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 
--- | Send the given 'LB.ByteString' over the socket (cf. zmq_sendmsg).
+-- | Send the given 'LB.ByteString' over the socket
+-- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
+--
 -- This is operationally identical to @send socket (Strict.concat
 -- (Lazy.toChunks lbs)) flags@ but may be more efficient.
 --
@@ -764,13 +802,14 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
 -- | Send a multi-part message.
 -- This function applies the 'SendMore' 'Flag' between all message parts.
 -- 0MQ guarantees atomic delivery of a multi-part message
--- (cf. zmq_sendmsg for details).
+-- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
 sendMulti :: Sender a => Socket a -> NonEmpty SB.ByteString -> IO ()
 sendMulti sock msgs = do
     mapM_ (send sock [SendMore]) (S.init msgs)
     send sock [] (S.last msgs)
 
--- | Receive a 'ByteString' from socket (cf. zmq_recvmsg).
+-- | Receive a 'ByteString' from socket
+-- (cf. <http://api.zeromq.org/4-0:zmq-recvmsg zmq_recvmsg>).
 --
 -- /Note/: This function always calls @zmq_recvmsg@ in a non-blocking way,
 -- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
@@ -806,7 +845,9 @@ socketMonitor es addr soc = onSocket "socketMonitor" soc $ \s ->
         throwIfMinus1_ "zmq_socket_monitor" $
             c_zmq_socket_monitor s a (events2cint es)
 
--- | Monitor socket events.
+-- | Monitor socket events
+-- (cf. <http://api.zeromq.org/4-0:zmq-socket-monitor zmq_socket_monitor>).
+--
 -- This function returns a function which can be invoked to retrieve
 -- the next socket event, potentially blocking until the next one becomes
 -- available. When applied to 'False', monitoring will terminate, i.e.
@@ -831,6 +872,7 @@ monitor es ctx sock = do
 
 -- | Polls for events on the given 'Poll' descriptors. Returns a list of
 -- events per descriptor which have occured.
+-- (cf. <http://api.zeromq.org/4-0:zmq-poll zmq_poll>)
 poll :: (SocketLike s, MonadIO m) => Timeout -> [Poll s m] -> m [[Event]]
 poll _    [] = return []
 poll to desc = do
@@ -897,7 +939,8 @@ waitRead = wait' threadWaitRead pollIn
 waitWrite :: Socket a -> IO ()
 waitWrite = wait' threadWaitWrite pollOut
 
--- | Starts built-in 0MQ proxy.
+-- | Starts built-in 0MQ proxy
+-- (cf. <http://api.zeromq.org/4-0:zmq-proxy zmq_proxy>)
 --
 -- Proxy connects front to back socket
 --

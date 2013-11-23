@@ -1,16 +1,21 @@
+{-# LANGUAGE GADTs              #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
 module System.ZMQ4.Internal
-    ( Context    (..)
-    , Socket     (..)
-    , SocketRepr (..)
-    , SocketType (..)
-    , SocketLike (..)
-    , Message    (..)
-    , Flag       (..)
+    ( Context           (..)
+    , Socket            (..)
+    , SocketRepr        (..)
+    , SocketType        (..)
+    , SocketLike        (..)
+    , Message           (..)
+    , Flag              (..)
     , Timeout
     , Size
-    , Switch     (..)
-    , EventType  (..)
-    , EventMsg   (..)
+    , Switch            (..)
+    , EventType         (..)
+    , EventMsg          (..)
+    , SecurityMechanism (..)
+    , KeyFormat         (..)
 
     , messageOf
     , messageOfLazy
@@ -28,6 +33,9 @@ module System.ZMQ4.Internal
     , getByteStringOpt
     , setByteStringOpt
 
+    , z85Encode
+    , z85Decode
+
     , toZMQFlag
     , combine
     , combineFlags
@@ -41,26 +49,32 @@ module System.ZMQ4.Internal
     , events2cint
     , eventMessage
 
+    , toMechanism
+    , fromMechanism
+
+    , getKey
     ) where
 
 import Control.Applicative
-import Control.Monad (foldM_, when)
+import Control.Monad (foldM_, when, void)
+import Control.Monad.IO.Class
 import Control.Exception
 import Data.IORef (IORef, mkWeakIORef, readIORef, atomicModifyIORef)
 
-import Foreign hiding (throwIfNull)
+import Foreign hiding (throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CSize)
 
-import qualified Data.ByteString as SB
-import qualified Data.ByteString.Lazy as LB
-import qualified Data.ByteString.Unsafe as UB
 import Data.IORef (newIORef)
 import Data.Restricted
 
 import System.Posix.Types (Fd(..))
 import System.ZMQ4.Base
 import System.ZMQ4.Error
+
+import qualified Data.ByteString        as SB
+import qualified Data.ByteString.Lazy   as LB
+import qualified Data.ByteString.Unsafe as UB
 
 type Timeout = Int64
 type Size    = Word
@@ -108,6 +122,19 @@ data EventMsg =
   | Disconnected   !SB.ByteString !Fd
   | MonitorStopped !SB.ByteString !Int
   deriving (Eq, Show)
+
+data SecurityMechanism
+  = Null
+  | Plain
+  | Curve
+  deriving (Eq, Show)
+
+data KeyFormat a where
+  BinaryFormat :: KeyFormat Div4
+  TextFormat   :: KeyFormat Div5
+
+deriving instance Eq   (KeyFormat a)
+deriving instance Show (KeyFormat a)
 
 -- | A 0MQ context representation.
 newtype Context = Context { _ctx :: ZMQCtx }
@@ -238,7 +265,7 @@ getByteStringOpt = getCStrOpt SB.packCStringLen
 getInt32Option :: ZMQOption -> Socket a -> IO Int
 getInt32Option o s = fromIntegral <$> getIntOpt s o (0 :: CInt)
 
-setInt32OptFromRestricted :: Integral i => ZMQOption -> Restricted l u i -> Socket b -> IO ()
+setInt32OptFromRestricted :: Integral i => ZMQOption -> Restricted r i -> Socket b -> IO ()
 setInt32OptFromRestricted o x s = setIntOpt s o ((fromIntegral . rvalue $ x) :: CInt)
 
 ctxIntOption :: Integral i => String -> ZMQCtxOption -> Context -> IO i
@@ -248,6 +275,31 @@ ctxIntOption name opt ctx = fromIntegral <$>
 setCtxIntOption :: Integral i => String -> ZMQCtxOption -> i -> Context -> IO ()
 setCtxIntOption name opt val ctx = throwIfMinus1_ name $
     c_zmq_ctx_set (_ctx ctx) (ctxOptVal opt) (fromIntegral val)
+
+z85Encode :: (MonadIO m) => Restricted Div4 SB.ByteString -> m SB.ByteString
+z85Encode b = liftIO $ UB.unsafeUseAsCStringLen (rvalue b) $ \(c, s) ->
+    allocaBytes ((s * 5) `div` 4 + 1) $ \w -> do
+        void . throwIfNull "z85Encode" $
+            c_zmq_z85_encode w (castPtr c) (fromIntegral s)
+        SB.packCString w
+
+z85Decode :: (MonadIO m) => Restricted Div5 SB.ByteString -> m SB.ByteString
+z85Decode b = liftIO $ SB.useAsCStringLen (rvalue b) $ \(c, s) -> do
+    let size = (s * 4) `div` 5
+    allocaBytes size $ \w -> do
+        void . throwIfNull "z85Decode" $
+            c_zmq_z85_decode (castPtr w) (castPtr c)
+        SB.packCStringLen (w, size)
+
+getKey :: KeyFormat f -> Socket a -> ZMQOption -> IO SB.ByteString
+getKey kf sock (ZMQOption o) = onSocket "getKey" sock $ \s -> do
+    let len = case kf of
+            BinaryFormat -> 32
+            TextFormat   -> 41
+    with len $ \lenptr -> allocaBytes len $ \w -> do
+        throwIfMinus1Retry_ "getKey" $
+            c_zmq_getsockopt s (fromIntegral o) (castPtr w) (castPtr lenptr)
+        SB.packCString w
 
 toZMQFlag :: Flag -> ZMQFlag
 toZMQFlag DontWait = dontWait
@@ -263,11 +315,11 @@ bool2cint :: Bool -> CInt
 bool2cint True  = 1
 bool2cint False = 0
 
-toSwitch :: Integral a => a -> Maybe Switch
-toSwitch (-1) = Just Default
-toSwitch  0   = Just Off
-toSwitch  1   = Just On
-toSwitch _    = Nothing
+toSwitch :: (Show a, Integral a) => String -> a -> Switch
+toSwitch _ (-1) = Default
+toSwitch _   0  = Off
+toSwitch _   1  = On
+toSwitch m   n  = error $ m ++ ": " ++ show n
 
 fromSwitch :: Integral a => Switch -> a
 fromSwitch Default = -1
@@ -287,6 +339,18 @@ toZMQEventType ClosedEvent         = closed
 toZMQEventType CloseFailedEvent    = closeFailed
 toZMQEventType DisconnectedEvent   = disconnected
 toZMQEventType MonitorStoppedEvent = monitorStopped
+
+toMechanism :: SecurityMechanism -> ZMQSecMechanism
+toMechanism Null  = secNull
+toMechanism Plain = secPlain
+toMechanism Curve = secCurve
+
+fromMechanism :: String -> Int -> SecurityMechanism
+fromMechanism s m
+    | m == secMechanism secNull  = Null
+    | m == secMechanism secPlain = Plain
+    | m == secMechanism secCurve = Curve
+    | otherwise                  = error $ s ++ ": " ++ show m
 
 events2cint :: [EventType] -> CInt
 events2cint = fromIntegral . foldr ((.|.) . eventTypeVal . toZMQEventType) 0

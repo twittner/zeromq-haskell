@@ -14,13 +14,21 @@ import Control.Applicative
     #error *** INVALID 0MQ VERSION (must be 4.x) ***
 #endif
 
-newtype ZMQMsg = ZMQMsg { content :: Ptr () } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Message
+
+newtype ZMQMsg = ZMQMsg
+  { content :: Ptr ()
+  } deriving (Eq, Ord)
 
 instance Storable ZMQMsg where
     alignment _        = #{alignment zmq_msg_t}
     sizeOf    _        = #{size zmq_msg_t}
     peek p             = ZMQMsg <$> #{peek zmq_msg_t, _} p
     poke p (ZMQMsg c)  = #{poke zmq_msg_t, _} p c
+
+-----------------------------------------------------------------------------
+-- Poll
 
 data ZMQPoll = ZMQPoll
     { pSocket  :: {-# UNPACK #-} !ZMQSocket
@@ -51,7 +59,12 @@ type ZMQPollPtr = Ptr ZMQPoll
 
 #let alignment t = "%lu", (unsigned long)offsetof(struct {char x__; t (y__); }, y__)
 
-newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Socket Types
+
+newtype ZMQSocketType = ZMQSocketType
+  { typeVal :: CInt
+  } deriving (Eq, Ord)
 
 #{enum ZMQSocketType, ZMQSocketType
   , pair     = ZMQ_PAIR
@@ -68,7 +81,12 @@ newtype ZMQSocketType = ZMQSocketType { typeVal :: CInt } deriving (Eq, Ord)
   , stream   = ZMQ_STREAM
 }
 
-newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Socket Options
+
+newtype ZMQOption = ZMQOption
+  { optVal :: CInt
+  } deriving (Eq, Ord)
 
 #{enum ZMQOption, ZMQOption
   , affinity             = ZMQ_AFFINITY
@@ -122,14 +140,24 @@ newtype ZMQOption = ZMQOption { optVal :: CInt } deriving (Eq, Ord)
   , zapDomain            = ZMQ_ZAP_DOMAIN
 }
 
-newtype ZMQCtxOption = ZMQCtxOption { ctxOptVal :: CInt } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Context Options
+
+newtype ZMQCtxOption = ZMQCtxOption
+  { ctxOptVal :: CInt
+  } deriving (Eq, Ord)
 
 #{enum ZMQCtxOption, ZMQCtxOption
   , _ioThreads = ZMQ_IO_THREADS
   , _maxSockets = ZMQ_MAX_SOCKETS
 }
 
-newtype ZMQEventType = ZMQEventType { eventTypeVal :: Word16 } deriving (Eq, Ord, Show)
+-----------------------------------------------------------------------------
+-- Event Type
+
+newtype ZMQEventType = ZMQEventType
+  { eventTypeVal :: Word16
+  } deriving (Eq, Ord, Show)
 
 #{enum ZMQEventType, ZMQEventType
   , connected      = ZMQ_EVENT_CONNECTED
@@ -146,11 +174,13 @@ newtype ZMQEventType = ZMQEventType { eventTypeVal :: Word16 } deriving (Eq, Ord
   , monitorStopped = ZMQ_EVENT_MONITOR_STOPPED
 }
 
+-----------------------------------------------------------------------------
+-- Event
 
 data ZMQEvent = ZMQEvent
-    { zeEvent :: {-# UNPACK #-} !ZMQEventType
-    , zeValue :: {-# UNPACK #-} !Int32
-    }
+  { zeEvent :: {-# UNPACK #-} !ZMQEventType
+  , zeValue :: {-# UNPACK #-} !Int32
+  }
 
 instance Storable ZMQEvent where
     alignment _ = #{alignment zmq_event_t}
@@ -162,26 +192,57 @@ instance Storable ZMQEvent where
         #{poke zmq_event_t, event} e a
         #{poke zmq_event_t, value} e b
 
-newtype ZMQMsgOption = ZMQMsgOption { msgOptVal :: CInt } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Security Mechanism
+
+newtype ZMQSecMechanism = ZMQSecMechanism
+  { secMechanism :: Int
+  } deriving (Eq, Ord, Show)
+
+#{enum ZMQSecMechanism, ZMQSecMechanism
+  , secNull  = ZMQ_NULL
+  , secPlain = ZMQ_PLAIN
+  , secCurve = ZMQ_CURVE
+}
+
+-----------------------------------------------------------------------------
+-- Message Options
+
+newtype ZMQMsgOption = ZMQMsgOption
+  { msgOptVal :: CInt
+  } deriving (Eq, Ord)
 
 #{enum ZMQMsgOption, ZMQMsgOption
   , more = ZMQ_MORE
 }
 
-newtype ZMQFlag = ZMQFlag { flagVal :: CInt } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Flags
+
+newtype ZMQFlag = ZMQFlag
+  { flagVal :: CInt
+  } deriving (Eq, Ord)
 
 #{enum ZMQFlag, ZMQFlag
   , dontWait = ZMQ_DONTWAIT
   , sndMore  = ZMQ_SNDMORE
 }
 
-newtype ZMQPollEvent = ZMQPollEvent { pollVal :: CShort } deriving (Eq, Ord)
+-----------------------------------------------------------------------------
+-- Poll Events
+
+newtype ZMQPollEvent = ZMQPollEvent
+  { pollVal :: CShort
+  } deriving (Eq, Ord)
 
 #{enum ZMQPollEvent, ZMQPollEvent,
     pollIn    = ZMQ_POLLIN,
     pollOut   = ZMQ_POLLOUT,
     pollerr   = ZMQ_POLLERR
 }
+
+-----------------------------------------------------------------------------
+-- function declarations
 
 -- general initialization
 
@@ -283,3 +344,12 @@ foreign import ccall safe "zmq.h zmq_proxy"
 
 foreign import ccall safe "zmq.h zmq_poll"
     c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
+
+-- Z85 encode/decode
+
+foreign import ccall unsafe "zmq.h zmq_z85_encode"
+    c_zmq_z85_encode :: CString -> Ptr Word8 -> CSize -> IO CString
+
+foreign import ccall unsafe "zmq.h zmq_z85_decode"
+    c_zmq_z85_decode :: Ptr Word8 -> CString -> IO (Ptr Word8)
+

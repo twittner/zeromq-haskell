@@ -25,11 +25,12 @@ extra-source-files:
 description:
     The 0MQ lightweight messaging kernel is a library which extends
     the standard socket interfaces with features traditionally provided
-    by specialised messaging middleware products. 0MQ sockets provide
-    an abstraction of asynchronous message queues, multiple messaging
-    patterns, message filtering (subscriptions), seamless access to
-    multiple transport protocols and more.
-
+    by specialised messaging middleware products.
+    .
+    0MQ sockets provide an abstraction of asynchronous message queues,
+    multiple messaging patterns, message filtering (subscriptions),
+    seamless access to multiple transport protocols and more.
+    .
     This library provides the Haskell language binding to 0MQ >= 4.x
 
 source-repository head
