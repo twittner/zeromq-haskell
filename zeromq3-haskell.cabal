@@ -59,6 +59,7 @@ test-suite zeromq-haskell-tests
     other-modules:    Test.Tools
     build-depends:    zeromq3-haskell
                     , base >= 3 && < 5
+                    , async
                     , containers
                     , bytestring
                     , transformers

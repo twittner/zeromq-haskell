@@ -229,7 +229,10 @@ foreign import ccall unsafe "zmq.h zmq_recvmsg"
 foreign import ccall unsafe "zmq.h zmq_socket_monitor"
     c_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
 
--- error messages
+-- errors
+
+foreign import ccall unsafe "zmq.h zmq_errno"
+    c_zmq_errno :: IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_strerror"
     c_zmq_strerror :: CInt -> IO CString

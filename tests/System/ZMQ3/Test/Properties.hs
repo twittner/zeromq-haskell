@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module System.ZMQ3.Test.Properties where
 
 import Test.QuickCheck
@@ -8,12 +9,12 @@ import Test.QuickCheck.Monadic
 import Test.Tools
 
 import Control.Applicative
+import Control.Concurrent.Async (wait)
 import Data.Int
 import Data.Word
 import Data.Restricted
 import Data.Maybe (fromJust)
 import Data.ByteString (ByteString)
-import Control.Concurrent
 import System.ZMQ3.Monadic
 import System.Posix.Types (Fd(..))
 import qualified Data.ByteString as SB
@@ -104,12 +105,11 @@ prop_send_receive a b msg = monadicIO $ do
     msg' <- run $ runZMQ $ do
         sender   <- socket a
         receiver <- socket b
-        sync     <- liftIO newEmptyMVar
         bind receiver "inproc://endpoint"
-        async $ receive receiver >>= liftIO . putMVar sync
+        x <- async $ receive receiver
         connect sender "inproc://endpoint"
         send sender [] msg
-        liftIO $ takeMVar sync
+        liftIO $ wait x
     assert (msg == msg')
 
 prop_pub_sub :: (SocketType a, Subscriber b, SocketType b, Sender a, Receiver b) => a -> b -> ByteString -> Property
