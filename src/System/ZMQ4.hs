@@ -198,6 +198,7 @@ module System.ZMQ4
 
     -- * Utils
   , proxy
+  , curveKeyPair
   ) where
 
 import Prelude hiding (init)
@@ -955,3 +956,12 @@ proxy front back capture =
         throwIfMinus1Retry_ "c_zmq_proxy" $ c_zmq_proxy f b c
   where
     c = maybe nullPtr (_socket . _socketRepr) capture
+
+curveKeyPair :: IO (Restricted Div5 SB.ByteString, Restricted Div5 SB.ByteString)
+curveKeyPair =
+    allocaBytes 41 $ \cstr1 ->
+    allocaBytes 41 $ \cstr2 -> do
+        throwIfMinus1_ "c_zmq_curve_keypair" $ c_zmq_curve_keypair cstr1 cstr2
+        public  <- restrict <$> SB.packCString cstr1
+        private <- restrict <$> SB.packCString cstr2
+        return (public, private)
