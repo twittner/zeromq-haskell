@@ -175,6 +175,7 @@ module System.ZMQ4.Monadic
   , waitWrite
   , I.z85Encode
   , I.z85Decode
+  , Z.curveKeyPair
   ) where
 
 import Control.Applicative
