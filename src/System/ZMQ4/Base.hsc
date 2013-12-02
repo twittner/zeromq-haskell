@@ -353,3 +353,8 @@ foreign import ccall unsafe "zmq.h zmq_z85_encode"
 foreign import ccall unsafe "zmq.h zmq_z85_decode"
     c_zmq_z85_decode :: Ptr Word8 -> CString -> IO (Ptr Word8)
 
+-- curve crypto
+
+foreign import ccall unsafe "zmq.h zmq_curve_keypair"
+    c_zmq_curve_keypair :: CString -> CString -> IO CInt
+
