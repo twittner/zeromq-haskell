@@ -957,18 +957,10 @@ proxy front back capture =
   where
     c = maybe nullPtr (_socket . _socketRepr) capture
 
-
 -- | Generate a new curve key pair.
---
--- @
--- runZMQ $ do
---     s <- socket Req
---     (public, private) <- liftIO $ curveKeyPair
---     setCurvePublicKey TextFormat public s
---     setCurvePublicKey TextFormat private s
--- @
-curveKeyPair :: IO (Restricted Div5 SB.ByteString, Restricted Div5 SB.ByteString)
-curveKeyPair =
+-- (cf. <http://api.zeromq.org/4-0:zmq-curve-keypair zmq_curve_keypair>)
+curveKeyPair :: MonadIO m => m (Restricted Div5 SB.ByteString, Restricted Div5 SB.ByteString)
+curveKeyPair = liftIO $
     allocaBytes 41 $ \cstr1 ->
     allocaBytes 41 $ \cstr2 -> do
         throwIfMinus1_ "c_zmq_curve_keypair" $ c_zmq_curve_keypair cstr1 cstr2
@@ -977,3 +969,4 @@ curveKeyPair =
         maybe (fail errmsg) return ((,) <$> public <*> private)
       where
         errmsg = "curveKeyPair: invalid key-lengths produced"
+
