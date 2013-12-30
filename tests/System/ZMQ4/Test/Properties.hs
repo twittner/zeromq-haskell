@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module System.ZMQ4.Test.Properties where
 
 import Test.QuickCheck
@@ -70,8 +71,8 @@ prop_set_get_socket_option t opt = monadicIO $ do
     r <- run $ runZMQ $ do
         s <- socket t
         case opt of
-            Identity val        -> (== (rvalue val)) <$> (setIdentity val s >> identity s)
-            Ipv4Only val        -> (== val)          <$> (setIpv4Only val s >> ipv4Only s)
+            Identity val        -> (== (rvalue val))  <$> (setIdentity val s >> identity s)
+            Ipv4Only val        -> (== val)           <$> (setIpv4Only val s >> ipv4Only s)
             Affinity val        -> (ieq val)          <$> (setAffinity val s >> affinity s)
             Backlog val         -> (ieq (rvalue val)) <$> (setBacklog val s >> backlog s)
             Linger val          -> (ieq (rvalue val)) <$> (setLinger val s >> linger s)
@@ -134,22 +135,22 @@ data GetOpt =
 
 data SetOpt =
     Affinity        Word64
-  | Backlog         (Restricted N0 Int32 Int)
-  | Identity        (Restricted N1 N254 ByteString)
+  | Backlog         (Restricted (N0, Int32) Int)
+  | Identity        (Restricted (N1, N254) ByteString)
   | Ipv4Only        Bool
-  | Linger          (Restricted Nneg1 Int32 Int)
-  | MaxMessageSize  (Restricted Nneg1 Int64 Int64)
-  | McastHops       (Restricted N1 Int32 Int)
-  | Rate            (Restricted N1 Int32 Int)
-  | ReceiveBuf      (Restricted N0 Int32 Int)
-  | ReceiveHighWM   (Restricted N0 Int32 Int)
-  | ReceiveTimeout  (Restricted Nneg1 Int32 Int)
-  | ReconnectIVL    (Restricted N0 Int32 Int)
-  | ReconnectIVLMax (Restricted N0 Int32 Int)
-  | RecoveryIVL     (Restricted N0 Int32 Int)
-  | SendBuf         (Restricted N0 Int32 Int)
-  | SendHighWM      (Restricted N0 Int32 Int)
-  | SendTimeout     (Restricted Nneg1 Int32 Int)
+  | Linger          (Restricted (Nneg1, Int32) Int)
+  | MaxMessageSize  (Restricted (Nneg1, Int64) Int64)
+  | McastHops       (Restricted (N1, Int32) Int)
+  | Rate            (Restricted (N1, Int32) Int)
+  | ReceiveBuf      (Restricted (N0, Int32) Int)
+  | ReceiveHighWM   (Restricted (N0, Int32) Int)
+  | ReceiveTimeout  (Restricted (Nneg1, Int32) Int)
+  | ReconnectIVL    (Restricted (N0, Int32) Int)
+  | ReconnectIVLMax (Restricted (N0, Int32) Int)
+  | RecoveryIVL     (Restricted (N0, Int32) Int)
+  | SendBuf         (Restricted (N0, Int32) Int)
+  | SendHighWM      (Restricted (N0, Int32) Int)
+  | SendTimeout     (Restricted (Nneg1, Int32) Int)
   deriving Show
 
 instance Arbitrary GetOpt where
@@ -180,14 +181,14 @@ instance Arbitrary SetOpt where
       , Identity . fromJust . toRestricted <$> arbitrary `suchThat` (\s -> SB.length s > 0 && SB.length s < 255)
       ]
 
-toR1 :: Int32 -> Restricted N1 Int32 Int
+toR1 :: Int32 -> Restricted (N1, Int32) Int
 toR1 = fromJust . toRestricted . fromIntegral
 
-toR0 :: Int32 -> Restricted N0 Int32 Int
+toR0 :: Int32 -> Restricted (N0, Int32) Int
 toR0 = fromJust . toRestricted . fromIntegral
 
-toRneg1 :: Int32 -> Restricted Nneg1 Int32 Int
+toRneg1 :: Int32 -> Restricted (Nneg1, Int32) Int
 toRneg1 = fromJust . toRestricted . fromIntegral
 
-toRneg1' :: Int64 -> Restricted Nneg1 Int64 Int64
+toRneg1' :: Int64 -> Restricted (Nneg1, Int64) Int64
 toRneg1' = fromJust . toRestricted . fromIntegral
