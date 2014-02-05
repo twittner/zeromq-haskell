@@ -69,6 +69,7 @@ module System.ZMQ4.Monadic
   , bind
   , unbind
   , connect
+  , disconnect
   , send
   , send'
   , sendMulti
@@ -322,6 +323,9 @@ unbind s = liftIO . Z.unbind (_unsocket s)
 
 connect :: Socket z t -> String -> ZMQ z ()
 connect s = liftIO . Z.connect (_unsocket s)
+
+disconnect :: Socket z t -> String -> ZMQ z ()
+disconnect s = liftIO . Z.disconnect (_unsocket s)
 
 send :: Z.Sender t => Socket z t -> [Z.Flag] -> ByteString -> ZMQ z ()
 send s f = liftIO . Z.send (_unsocket s) f

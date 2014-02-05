@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module System.ZMQ4.Test.Properties where
@@ -46,7 +47,12 @@ tests = do
           , ("set;get socket option (Pull)",   property $ prop_set_get_socket_option Pull)
           , ("set;get socket option (Push)",   property $ prop_set_get_socket_option Push)
           , ("(un-)subscribe",                 property $ prop_subscribe Sub)
-          ])
+          ] ++
+          [ ("connect disconnect ", property $ prop_connect_disconnect x) | 
+            x <- [ (AnySocket Rep, AnySocket Req)
+                 , (AnySocket Router, AnySocket Req)
+                 , (AnySocket Pull, AnySocket Push)]]
+          )
 
       quickBatch' ("0MQ Messages"
         , [ ("msg send == msg received (Req/Rep)",   property $ prop_send_receive Req Rep)
@@ -124,6 +130,16 @@ prop_pub_sub a b msg = monadicIO $ do
         receive sub
     assert (msg == msg')
 
+
+prop_connect_disconnect :: (AnySocket, AnySocket) -> Property
+prop_connect_disconnect (AnySocket t0, AnySocket t) = monadicIO $ run $
+    runZMQ $ do
+        s0 <- socket t0
+        bind s0 "inproc://endpoint"
+        s <- socket t
+        connect s "inproc://endpoint"
+        disconnect s "inproc://endpoint"
+
 instance Arbitrary ByteString where
     arbitrary = CB.pack . filter (/= '\0') <$> arbitrary
 
@@ -192,3 +208,5 @@ toRneg1 = fromJust . toRestricted . fromIntegral
 
 toRneg1' :: Int64 -> Restricted (Nneg1, Int64) Int64
 toRneg1' = fromJust . toRestricted . fromIntegral
+
+data AnySocket = forall a. SocketType a => AnySocket { getSocket :: a }

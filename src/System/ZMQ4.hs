@@ -75,6 +75,7 @@ module System.ZMQ4
   , bind
   , unbind
   , connect
+  , disconnect
   , send
   , send'
   , sendMulti
@@ -770,6 +771,12 @@ unbind sock str = onSocket "unbind" sock $
 connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
     throwIfMinus1Retry_ "connect" . withCString str . c_zmq_connect
+
+-- | Disconnect the socket from the given endpoint
+-- (cf. <http://api.zeromq.org/4-0:zmq-disconnect zmq_disconnect>).
+disconnect :: Socket a -> String -> IO ()
+disconnect sock str = onSocket "disconnect" sock $
+    throwIfMinus1Retry_ "disconnect" . withCString str . c_zmq_disconnect
 
 -- | Send the given 'SB.ByteString' over the socket
 -- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
