@@ -318,6 +318,9 @@ foreign import ccall unsafe "zmq.h zmq_unbind"
 foreign import ccall unsafe "zmq.h zmq_connect"
     c_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
+foreign import ccall unsafe "zmq.h zmq_disconnect"
+    c_zmq_disconnect :: ZMQSocket -> CString -> IO CInt
+
 foreign import ccall unsafe "zmq.h zmq_sendmsg"
     c_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
