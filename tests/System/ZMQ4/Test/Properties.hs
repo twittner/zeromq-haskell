@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs                #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module System.ZMQ4.Test.Properties where
@@ -48,7 +48,7 @@ tests = do
           , ("set;get socket option (Push)",   property $ prop_set_get_socket_option Push)
           , ("(un-)subscribe",                 property $ prop_subscribe Sub)
           ] ++
-          [ ("connect disconnect ", property $ prop_connect_disconnect x) | 
+          [ ("connect disconnect ", property $ prop_connect_disconnect x) |
             x <- [ (AnySocket Rep, AnySocket Req)
                  , (AnySocket Router, AnySocket Req)
                  , (AnySocket Pull, AnySocket Push)]]
@@ -209,4 +209,6 @@ toRneg1 = fromJust . toRestricted . fromIntegral
 toRneg1' :: Int64 -> Restricted (Nneg1, Int64) Int64
 toRneg1' = fromJust . toRestricted . fromIntegral
 
-data AnySocket = forall a. SocketType a => AnySocket { getSocket :: a }
+data AnySocket where
+    AnySocket :: SocketType a => a -> AnySocket
+
