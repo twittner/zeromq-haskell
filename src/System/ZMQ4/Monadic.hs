@@ -185,7 +185,6 @@ import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.IO.Class
 import Control.Monad.Catch
-import Control.Monad.CatchIO
 import Data.Int
 import Data.IORef
 import Data.List.NonEmpty (NonEmpty)
@@ -197,7 +196,6 @@ import System.Posix.Types (Fd)
 import qualified Control.Concurrent.Async as A
 import qualified Control.Exception        as E
 import qualified Control.Monad.Catch      as C
-import qualified Control.Monad.CatchIO    as M
 import qualified Data.ByteString.Lazy     as Lazy
 import qualified System.ZMQ4              as Z
 import qualified System.ZMQ4.Internal     as I
@@ -242,11 +240,6 @@ instance MonadCatch (ZMQ z) where
         C.uninterruptibleMask $ \restore ->
             let f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
             in runReaderT (_unzmq (a $ f)) env
-
-instance MonadCatchIO (ZMQ z) where
-    catch (ZMQ m) f = ZMQ $ m `M.catch` (_unzmq . f)
-    block (ZMQ m)   = ZMQ $ block m
-    unblock (ZMQ m) = ZMQ $ unblock m
 
 instance Functor (ZMQ z) where
     fmap = liftM
