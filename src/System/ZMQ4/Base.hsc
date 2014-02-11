@@ -246,96 +246,96 @@ newtype ZMQPollEvent = ZMQPollEvent
 
 -- general initialization
 
-foreign import ccall unsafe "zmq.h zmq_version"
+foreign import ccall safe "zmq.h zmq_version"
     c_zmq_version :: Ptr CInt -> Ptr CInt -> Ptr CInt -> IO ()
 
-foreign import ccall unsafe "zmq.h zmq_ctx_new"
+foreign import ccall safe "zmq.h zmq_ctx_new"
     c_zmq_ctx_new :: IO ZMQCtx
 
-foreign import ccall unsafe "zmq.h zmq_ctx_shutdown"
+foreign import ccall safe "zmq.h zmq_ctx_shutdown"
     c_zmq_ctx_shutdown :: ZMQCtx -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_ctx_term"
+foreign import ccall safe "zmq.h zmq_ctx_term"
     c_zmq_ctx_term :: ZMQCtx -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_ctx_get"
+foreign import ccall safe "zmq.h zmq_ctx_get"
     c_zmq_ctx_get :: ZMQCtx -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_ctx_set"
+foreign import ccall safe "zmq.h zmq_ctx_set"
     c_zmq_ctx_set :: ZMQCtx -> CInt -> CInt -> IO CInt
 
 -- zmq_msg_t related
 
-foreign import ccall unsafe "zmq.h zmq_msg_init"
+foreign import ccall safe "zmq.h zmq_msg_init"
     c_zmq_msg_init :: ZMQMsgPtr -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_msg_init_size"
+foreign import ccall safe "zmq.h zmq_msg_init_size"
     c_zmq_msg_init_size :: ZMQMsgPtr -> CSize -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_msg_close"
+foreign import ccall safe "zmq.h zmq_msg_close"
     c_zmq_msg_close :: ZMQMsgPtr -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_msg_data"
+foreign import ccall safe "zmq.h zmq_msg_data"
     c_zmq_msg_data :: ZMQMsgPtr -> IO (Ptr a)
 
-foreign import ccall unsafe "zmq.h zmq_msg_size"
+foreign import ccall safe "zmq.h zmq_msg_size"
     c_zmq_msg_size :: ZMQMsgPtr -> IO CSize
 
-foreign import ccall unsafe "zmq.h zmq_msg_get"
+foreign import ccall safe "zmq.h zmq_msg_get"
     c_zmq_msg_get :: ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_msg_set"
+foreign import ccall safe "zmq.h zmq_msg_set"
     c_zmq_msg_set :: ZMQMsgPtr -> CInt -> CInt -> IO CInt
 
 -- socket
 
-foreign import ccall unsafe "zmq.h zmq_socket"
+foreign import ccall safe "zmq.h zmq_socket"
     c_zmq_socket :: ZMQCtx -> CInt -> IO ZMQSocket
 
-foreign import ccall unsafe "zmq.h zmq_close"
+foreign import ccall safe "zmq.h zmq_close"
     c_zmq_close :: ZMQSocket -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_setsockopt"
+foreign import ccall safe "zmq.h zmq_setsockopt"
     c_zmq_setsockopt :: ZMQSocket
                      -> CInt   -- option
                      -> Ptr () -- option value
                      -> CSize  -- option value size
                      -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_getsockopt"
+foreign import ccall safe "zmq.h zmq_getsockopt"
     c_zmq_getsockopt :: ZMQSocket
                      -> CInt       -- option
                      -> Ptr ()     -- option value
                      -> Ptr CSize  -- option value size ptr
                      -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_bind"
+foreign import ccall safe "zmq.h zmq_bind"
     c_zmq_bind :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_unbind"
+foreign import ccall safe "zmq.h zmq_unbind"
     c_zmq_unbind :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_connect"
+foreign import ccall safe "zmq.h zmq_connect"
     c_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_disconnect"
+foreign import ccall safe "zmq.h zmq_disconnect"
     c_zmq_disconnect :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_sendmsg"
+foreign import ccall safe "zmq.h zmq_sendmsg"
     c_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_recvmsg"
+foreign import ccall safe "zmq.h zmq_recvmsg"
     c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_socket_monitor"
+foreign import ccall safe "zmq.h zmq_socket_monitor"
     c_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
 
 -- errors
 
-foreign import ccall unsafe "zmq.h zmq_errno"
+foreign import ccall safe "zmq.h zmq_errno"
     c_zmq_errno :: IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_strerror"
+foreign import ccall safe "zmq.h zmq_strerror"
     c_zmq_strerror :: CInt -> IO CString
 
 -- proxy
@@ -350,14 +350,14 @@ foreign import ccall safe "zmq.h zmq_poll"
 
 -- Z85 encode/decode
 
-foreign import ccall unsafe "zmq.h zmq_z85_encode"
+foreign import ccall safe "zmq.h zmq_z85_encode"
     c_zmq_z85_encode :: CString -> Ptr Word8 -> CSize -> IO CString
 
-foreign import ccall unsafe "zmq.h zmq_z85_decode"
+foreign import ccall safe "zmq.h zmq_z85_decode"
     c_zmq_z85_decode :: Ptr Word8 -> CString -> IO (Ptr Word8)
 
 -- curve crypto
 
-foreign import ccall unsafe "zmq.h zmq_curve_keypair"
+foreign import ccall safe "zmq.h zmq_curve_keypair"
     c_zmq_curve_keypair :: CString -> CString -> IO CInt
 
