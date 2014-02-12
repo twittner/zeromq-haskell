@@ -57,7 +57,6 @@ library
         , bytestring
         , containers
         , exceptions                >= 0.3
-        , MonadCatchIO-transformers
         , semigroups                >= 0.8
         , transformers              >= 0.3
 
