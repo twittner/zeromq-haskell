@@ -1,5 +1,5 @@
 name:               zeromq3-haskell
-version:            0.5.1
+version:            0.5.2
 synopsis:           Bindings to ZeroMQ 3.x
 category:           System, FFI
 license:            MIT
@@ -36,7 +36,6 @@ library
     other-modules:        System.ZMQ3.Base
                         , System.ZMQ3.Internal
                         , System.ZMQ3.Error
-    includes:             zmq.h
     ghc-options:          -Wall -O2
     extensions:           CPP
                         , ForeignFunctionInterface
@@ -47,10 +46,11 @@ library
                         , semigroups
                         , transformers
                         , MonadCatchIO-transformers
+
+    pkgconfig-depends:  libzmq >= 3.2 && < 4.0
+
     if os(freebsd)
-        extra-libraries:  zmq, pthread
-    else
-        extra-libraries:  zmq
+        extra-libraries:  pthread
 
 test-suite zeromq-haskell-tests
     type:             exitcode-stdio-1.0
