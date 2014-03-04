@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP   #-}
 {-# LANGUAGE GADTs #-}
 
 -- |
@@ -826,11 +827,17 @@ sendMulti sock msgs = do
 receive :: Receiver a => Socket a -> IO (SB.ByteString)
 receive sock = bracket messageInit messageClose $ \m ->
   onSocket "receive" sock $ \s -> do
-    retry "receive" (waitRead sock) $
+    retry "receive" (wr sock) $
           c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
+  where 
+#ifdef mingw32_HOST_OS
+    wr s = return ()
+#else
+    wr s = waitRead s
+#endif   
 
 -- | Receive a multi-part message.
 -- This function collects all message parts send via 'sendMulti'.
