@@ -60,7 +60,10 @@ library
         , semigroups                >= 0.8
         , transformers              >= 0.3
 
-    pkgconfig-depends: libzmq >= 4.0 && < 5.0
+    if os(windows)
+        extra-libraries: zmq
+    else
+        pkgconfig-depends: libzmq >= 4.0 && < 5.0
 
     if os(freebsd)
         extra-libraries: pthread

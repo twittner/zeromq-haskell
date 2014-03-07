@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP   #-}
 {-# LANGUAGE GADTs #-}
 
 -- |
@@ -926,6 +927,9 @@ retry :: String -> IO () -> IO CInt -> IO ()
 retry msg wait act = throwIfMinus1RetryMayBlock_ msg act wait
 
 wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
+#ifdef mingw32_HOST_OS
+wait' _ _ _ = return ()
+#else
 wait' w f s = do
     fd <- getIntOpt s B.filedesc 0
     w (Fd fd)
@@ -934,6 +938,7 @@ wait' w f s = do
         wait' w f s
   where
     testev e = e .&. fromIntegral (pollVal f) /= 0
+#endif
 
 -- | Wait until data is available for reading from the given Socket.
 -- After this function returns, a call to 'receive' will essentially be

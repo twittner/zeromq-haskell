@@ -321,11 +321,19 @@ foreign import ccall unsafe "zmq.h zmq_connect"
 foreign import ccall unsafe "zmq.h zmq_disconnect"
     c_zmq_disconnect :: ZMQSocket -> CString -> IO CInt
 
+#ifdef mingw32_HOST_OS
+foreign import ccall safe "zmq.h zmq_sendmsg"
+    c_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+
+foreign import ccall safe "zmq.h zmq_recvmsg"
+    c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+#else
 foreign import ccall unsafe "zmq.h zmq_sendmsg"
     c_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
 foreign import ccall unsafe "zmq.h zmq_recvmsg"
     c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+#endif
 
 foreign import ccall unsafe "zmq.h zmq_socket_monitor"
     c_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
