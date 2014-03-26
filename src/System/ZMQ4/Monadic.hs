@@ -227,8 +227,10 @@ instance Monad (ZMQ z) where
 instance MonadIO (ZMQ z) where
     liftIO m = ZMQ $! liftIO m
 
+instance MonadThrow (ZMQ z) where
+    throwM = ZMQ . C.throwM
+
 instance MonadCatch (ZMQ z) where
-    throwM          = ZMQ . C.throwM
     catch (ZMQ m) f = ZMQ $ m `C.catch` (_unzmq . f)
 
     mask a = ZMQ . ReaderT $ \env ->
