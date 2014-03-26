@@ -72,16 +72,12 @@ test-suite zeromq-haskell-tests
     type:             exitcode-stdio-1.0
     hs-source-dirs:   tests
     main-is:          tests.hs
-    other-modules:    Test.Tools
-    ghc-options:      -Wall -threaded -rtsopts
+    ghc-options:      -Wall -threaded
     build-depends:
           zeromq4-haskell
-        , ansi-terminal             >= 0.6
-        , async                     == 2.0.*
-        , base                      >= 3 && < 5
+        , async            == 2.0.*
+        , base             >= 3 && < 5
         , bytestring
-        , checkers                  >= 0.3
-        , containers
-        , MonadCatchIO-transformers
-        , QuickCheck                >= 2.6
-        , transformers
+        , QuickCheck       >= 2.6
+        , tasty            >= 0.8
+        , tasty-quickcheck >= 0.8

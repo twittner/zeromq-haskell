@@ -6,8 +6,9 @@
 module System.ZMQ4.Test.Properties where
 
 import Test.QuickCheck
-import Test.QuickCheck.Monadic
-import Test.Tools
+import Test.QuickCheck.Monadic (monadicIO, run)
+import Test.Tasty
+import Test.Tasty.QuickCheck
 
 import Control.Applicative
 import Control.Concurrent.Async (wait)
@@ -18,50 +19,51 @@ import Data.Maybe (fromJust)
 import Data.ByteString (ByteString)
 import System.ZMQ4.Monadic
 import System.Posix.Types (Fd(..))
-import qualified Data.ByteString as SB
-import qualified Data.ByteString.Char8 as CB
 
-tests :: IO ()
-tests = do
-      quickBatch' ("0MQ Socket Properties"
-        , [ ("get socket option (Pair)",       property $ prop_get_socket_option Pair)
-          , ("get socket option (Pub)",        property $ prop_get_socket_option Pub)
-          , ("get socket option (Sub)",        property $ prop_get_socket_option Sub)
-          , ("get socket option (XPub)",       property $ prop_get_socket_option XPub)
-          , ("get socket option (XSub)",       property $ prop_get_socket_option XSub)
-          , ("get socket option (Req)",        property $ prop_get_socket_option Req)
-          , ("get socket option (Rep)",        property $ prop_get_socket_option Rep)
-          , ("get socket option (Dealer)",     property $ prop_get_socket_option Dealer)
-          , ("get socket option (Router)",     property $ prop_get_socket_option Router)
-          , ("get socket option (Pull)",       property $ prop_get_socket_option Pull)
-          , ("get socket option (Push)",       property $ prop_get_socket_option Push)
-          , ("set;get socket option (Pair)",   property $ prop_set_get_socket_option Pair)
-          , ("set;get socket option (Pub)",    property $ prop_set_get_socket_option Pub)
-          , ("set;get socket option (Sub)",    property $ prop_set_get_socket_option Sub)
-          , ("set;get socket option (XPub)",   property $ prop_set_get_socket_option XPub)
-          , ("set;get socket option (XSub)",   property $ prop_set_get_socket_option XSub)
-          , ("set;get socket option (Req)",    property $ prop_set_get_socket_option Req)
-          , ("set;get socket option (Rep)",    property $ prop_set_get_socket_option Rep)
-          , ("set;get socket option (Dealer)", property $ prop_set_get_socket_option Dealer)
-          , ("set;get socket option (Router)", property $ prop_set_get_socket_option Router)
-          , ("set;get socket option (Pull)",   property $ prop_set_get_socket_option Pull)
-          , ("set;get socket option (Push)",   property $ prop_set_get_socket_option Push)
-          , ("(un-)subscribe",                 property $ prop_subscribe Sub)
-          ] ++
-          [ ("connect disconnect ", property $ prop_connect_disconnect x) |
-            x <- [ (AnySocket Rep, AnySocket Req)
-                 , (AnySocket Router, AnySocket Req)
-                 , (AnySocket Pull, AnySocket Push)]]
-          )
+import qualified Data.ByteString         as SB
+import qualified Data.ByteString.Char8   as CB
+import qualified Test.QuickCheck.Monadic as QM
 
-      quickBatch' ("0MQ Messages"
-        , [ ("msg send == msg received (Req/Rep)",   property $ prop_send_receive Req Rep)
-          , ("msg send == msg received (Push/Pull)", property $ prop_send_receive Push Pull)
-          , ("msg send == msg received (Pair/Pair)", property $ prop_send_receive Pair Pair)
-
-          -- , ("publish/subscribe", property $ prop_pub_sub Pub Sub)
-          -- (disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270])
-          ])
+tests :: TestTree
+tests = testGroup "0MQ Socket Properties"
+    [ testProperty "get socket option (Pair)"       (prop_get_socket_option Pair)
+    , testProperty "get socket option (Pub)"        (prop_get_socket_option Pub)
+    , testProperty "get socket option (Sub)"        (prop_get_socket_option Sub)
+    , testProperty "get socket option (XPub)"       (prop_get_socket_option XPub)
+    , testProperty "get socket option (XSub)"       (prop_get_socket_option XSub)
+    , testProperty "get socket option (Req)"        (prop_get_socket_option Req)
+    , testProperty "get socket option (Rep)"        (prop_get_socket_option Rep)
+    , testProperty "get socket option (Dealer)"     (prop_get_socket_option Dealer)
+    , testProperty "get socket option (Router)"     (prop_get_socket_option Router)
+    , testProperty "get socket option (Pull)"       (prop_get_socket_option Pull)
+    , testProperty "get socket option (Push)"       (prop_get_socket_option Push)
+    , testProperty "set;get socket option (Pair)"   (prop_set_get_socket_option Pair)
+    , testProperty "set;get socket option (Pub)"    (prop_set_get_socket_option Pub)
+    , testProperty "set;get socket option (Sub)"    (prop_set_get_socket_option Sub)
+    , testProperty "set;get socket option (XPub)"   (prop_set_get_socket_option XPub)
+    , testProperty "set;get socket option (XSub)"   (prop_set_get_socket_option XSub)
+    , testProperty "set;get socket option (Req)"    (prop_set_get_socket_option Req)
+    , testProperty "set;get socket option (Rep)"    (prop_set_get_socket_option Rep)
+    , testProperty "set;get socket option (Dealer)" (prop_set_get_socket_option Dealer)
+    , testProperty "set;get socket option (Router)" (prop_set_get_socket_option Router)
+    , testProperty "set;get socket option (Pull)"   (prop_set_get_socket_option Pull)
+    , testProperty "set;get socket option (Push)"   (prop_set_get_socket_option Push)
+    , testProperty "(un-)subscribe"                 (prop_subscribe Sub)
+    , testGroup    "connect disconnect"
+        [ testProperty "" (prop_connect_disconnect x)
+            | x <- [ (AnySocket Rep, AnySocket Req)
+                   , (AnySocket Router, AnySocket Req)
+                   , (AnySocket Pull, AnySocket Push)
+                   ]
+        ]
+    , testGroup "0MQ Messages"
+        [ testProperty "msg send == msg received (Req/Rep)"   (prop_send_receive Req Rep)
+        , testProperty "msg send == msg received (Push/Pull)" (prop_send_receive Push Pull)
+        , testProperty "msg send == msg received (Pair/Pair)" (prop_send_receive Pair Pair)
+        -- , testProperty "publish/subscribe"                    (prop_pub_sub Pub Sub)
+        -- (disabled due to LIBZMQ-270 [https://zeromq.jira.com/browse/LIBZMQ-270])
+        ]
+    ]
 
 prop_get_socket_option :: SocketType t => t -> GetOpt -> Property
 prop_get_socket_option t opt = monadicIO $ run $ do
@@ -94,7 +96,7 @@ prop_set_get_socket_option t opt = monadicIO $ do
             ReceiveTimeout val  -> (ieq (rvalue val)) <$> (setReceiveTimeout val s >> receiveTimeout s)
             SendHighWM val      -> (ieq (rvalue val)) <$> (setSendHighWM val s >> sendHighWM s)
             SendTimeout val     -> (ieq (rvalue val)) <$> (setSendTimeout val s >> sendTimeout s)
-    assert r
+    QM.assert r
   where
     ieq :: (Integral i, Integral k) => i -> k -> Bool
     ieq i k  = (fromIntegral i :: Int) == (fromIntegral k :: Int)
@@ -116,7 +118,7 @@ prop_send_receive a b msg = monadicIO $ do
         connect sender "inproc://endpoint"
         send sender [] msg
         liftIO $ wait x
-    assert (msg == msg')
+    QM.assert (msg == msg')
 
 prop_pub_sub :: (SocketType a, Subscriber b, SocketType b, Sender a, Receiver b) => a -> b -> ByteString -> Property
 prop_pub_sub a b msg = monadicIO $ do
@@ -128,7 +130,7 @@ prop_pub_sub a b msg = monadicIO $ do
         connect pub "inproc://endpoint"
         send pub [] msg
         receive sub
-    assert (msg == msg')
+    QM.assert (msg == msg')
 
 
 prop_connect_disconnect :: (AnySocket, AnySocket) -> Property
