@@ -1,5 +1,5 @@
 name:               zeromq4-haskell
-version:            0.4
+version:            0.4.1
 synopsis:           Bindings to ZeroMQ 4.x
 category:           System, FFI
 license:            MIT
@@ -38,7 +38,7 @@ source-repository head
     location:         https://github.com/twittner/zeromq-haskell
 
 library
-    hs-source-dirs:       src
+    hs-source-dirs:    src
     exposed-modules:
         System.ZMQ4
         System.ZMQ4.Monadic
@@ -49,16 +49,16 @@ library
         System.ZMQ4.Internal
         System.ZMQ4.Error
 
-    ghc-options:          -Wall -O2 -fwarn-tabs -funbox-strict-fields
+    ghc-options:       -Wall -O2 -fwarn-tabs -funbox-strict-fields
 
     build-depends:
-          base >= 3 && < 5
-        , async                     == 2.0.*
+          base         >= 3 && < 5
+        , async        == 2.0.*
         , bytestring
         , containers
-        , exceptions                == 0.4.*
-        , semigroups                >= 0.8
-        , transformers              >= 0.3
+        , exceptions   >= 0.4
+        , semigroups   >= 0.8
+        , transformers >= 0.3
 
     if os(windows)
         extra-libraries: zmq
@@ -75,7 +75,7 @@ test-suite zeromq-haskell-tests
     ghc-options:      -Wall -threaded
     build-depends:
           zeromq4-haskell
-        , async            == 2.0.*
+        , async
         , base             >= 3 && < 5
         , bytestring
         , QuickCheck       >= 2.6
