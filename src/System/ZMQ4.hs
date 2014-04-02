@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP   #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- |
 -- Module      : System.ZMQ4
@@ -212,6 +214,7 @@ import Data.List (intersect, foldl')
 import Data.List.NonEmpty (NonEmpty)
 import Data.Restricted
 import Data.Traversable (forM)
+import Data.Typeable
 import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
@@ -227,45 +230,46 @@ import qualified Prelude              as P
 import qualified System.ZMQ4.Base     as B
 
 import GHC.Conc (threadWaitRead, threadWaitWrite)
+import GHC.Generics(Generic)
 
 -----------------------------------------------------------------------------
 -- Socket Types
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PAIR>
-data Pair = Pair
+data Pair = Pair deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PUB>
-data Pub = Pub
+data Pub = Pub deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_SUB>
-data Sub = Sub
+data Sub = Sub deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_XPUB>
-data XPub = XPub
+data XPub = XPub deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_XSUB>
-data XSub = XSub
+data XSub = XSub deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_REQ>
-data Req = Req
+data Req = Req deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_REP>
-data Rep = Rep
+data Rep = Rep deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_DEALER>
-data Dealer = Dealer
+data Dealer = Dealer deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_ROUTER>
-data Router = Router
+data Router = Router deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PULL>
-data Pull = Pull
+data Pull = Pull deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_PUSH>
-data Push = Push
+data Push = Push deriving (Eq, Typeable, Generic)
 
 -- | <http://api.zeromq.org/4-0:zmq-socket ZMQ_STREAM>
-data Stream = Stream
+data Stream = Stream deriving (Eq, Typeable, Generic)
 
 type XReq = Dealer
 {-# DEPRECATED XReq "Use Dealer" #-}
