@@ -79,6 +79,7 @@ module System.ZMQ4.Monadic
   , unsubscribe
   , proxy
   , monitor
+  , socketMonitor
   , Z.poll
 
   -- * Socket Options (Read)
@@ -348,6 +349,9 @@ proxy a b c = liftIO $ Z.proxy (_unsocket a) (_unsocket b) (_unsocket <$> c)
 
 monitor :: [Z.EventType] -> Socket z t -> ZMQ z (Bool -> IO (Maybe Z.EventMsg))
 monitor es s = onContext $ \ctx -> Z.monitor es ctx (_unsocket s)
+
+socketMonitor :: [Z.EventType] -> String -> Socket z t -> ZMQ z ()
+socketMonitor es addr s = liftIO $ Z.socketMonitor es addr (_unsocket s)
 
 -- * Socket Options (Read)
 
