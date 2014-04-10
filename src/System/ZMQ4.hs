@@ -796,7 +796,7 @@ send sock fls val = bracket (messageOf val) messageClose $ \m ->
   onSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
 #ifdef mingw32_HOST_OS
-          c_zmq_sendmsg s (msgPtr m) fls
+          c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
 #else
           c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 #endif
@@ -816,7 +816,7 @@ send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
   onSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
 #ifdef mingw32_HOST_OS
-          c_zmq_sendmsg s (msgPtr m) fls
+          c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
 #else
           c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 #endif
