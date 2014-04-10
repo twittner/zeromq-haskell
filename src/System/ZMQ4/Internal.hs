@@ -257,7 +257,7 @@ getCStrOpt peekA sock (ZMQOption o) = onSocket "getCStrOpt" sock $ \s ->
         peek sPtr >>= \len -> peekA (bPtr, fromIntegral len)
 
 getStrOpt :: Socket a -> ZMQOption -> IO String
-getStrOpt = getCStrOpt peekCStringLen
+getStrOpt = getCStrOpt (\(p,_) -> peekCString p)
 
 getByteStringOpt :: Socket a -> ZMQOption -> IO SB.ByteString
 getByteStringOpt = getCStrOpt SB.packCStringLen

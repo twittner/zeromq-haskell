@@ -49,6 +49,7 @@ tests = testGroup "0MQ Socket Properties"
     , testProperty "set;get socket option (Pull)"   (prop_set_get_socket_option Pull)
     , testProperty "set;get socket option (Push)"   (prop_set_get_socket_option Push)
     , testProperty "(un-)subscribe"                 (prop_subscribe Sub)
+    , testProperty "last_enpoint"                   (prop_last_endpoint)
     , testGroup    "connect disconnect"
         [ testProperty "" (prop_connect_disconnect x)
             | x <- [ (AnySocket Rep, AnySocket Req)
@@ -100,6 +101,15 @@ prop_set_get_socket_option t opt = monadicIO $ do
   where
     ieq :: (Integral i, Integral k) => i -> k -> Bool
     ieq i k  = (fromIntegral i :: Int) == (fromIntegral k :: Int)
+
+prop_last_endpoint :: Int -> Property
+prop_last_endpoint _ = monadicIO $ do
+    a' <- run $ runZMQ $ do
+        s <- socket Rep
+        bind s a
+        lastEndpoint s
+    QM.assert $ a == a'
+  where a = "tcp://127.0.0.1:43821"
 
 prop_subscribe :: (Subscriber a, SocketType a) => a -> ByteString -> Property
 prop_subscribe t subs = monadicIO $ run $
