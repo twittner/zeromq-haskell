@@ -17,7 +17,7 @@ module System.ZMQ4.Monadic
   ( -- * Type Definitions
     ZMQ
   , Socket
-  , Z.Flag              (SendMore)
+  , Z.Flag              (..)
   , Z.Switch            (..)
   , Z.Timeout
   , Z.Event             (..)

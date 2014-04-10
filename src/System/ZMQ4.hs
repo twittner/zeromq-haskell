@@ -62,7 +62,7 @@ module System.ZMQ4
   , Size
   , Context
   , Socket
-  , Flag              (SendMore)
+  , Flag              (..)
   , Switch            (..)
   , Timeout
   , Event             (..)
@@ -795,7 +795,11 @@ send :: Sender a => Socket a -> [Flag] -> SB.ByteString -> IO ()
 send sock fls val = bracket (messageOf val) messageClose $ \m ->
   onSocket "send" sock $ \s ->
     retry "send" (waitWrite sock) $
+#ifdef mingw32_HOST_OS
+          c_zmq_sendmsg s (msgPtr m) fls
+#else
           c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+#endif
 
 -- | Send the given 'LB.ByteString' over the socket
 -- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
@@ -811,7 +815,11 @@ send' :: Sender a => Socket a -> [Flag] -> LB.ByteString -> IO ()
 send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
   onSocket "send'" sock $ \s ->
     retry "send'" (waitWrite sock) $
+#ifdef mingw32_HOST_OS
+          c_zmq_sendmsg s (msgPtr m) fls
+#else
           c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+#endif
 
 -- | Send a multi-part message.
 -- This function applies the 'SendMore' 'Flag' between all message parts.
@@ -833,7 +841,11 @@ receive :: Receiver a => Socket a -> IO (SB.ByteString)
 receive sock = bracket messageInit messageClose $ \m ->
   onSocket "receive" sock $ \s -> do
     retry "receive" (waitRead sock) $
+#ifdef mingw32_HOST_OS
+          c_zmq_recvmsg s (msgPtr m) 0
+#else
           c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+#endif
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
     SB.packCStringLen (data_ptr, fromIntegral size)
@@ -878,7 +890,12 @@ monitor es ctx sock = do
   where
     next soc m False = messageClose m `finally` close soc >> return Nothing
     next soc m True  = onSocket "recv" soc $ \s -> do
-        retry "recv" (waitRead soc) $ c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+        retry "recv" (waitRead soc) $
+#ifdef mingw32_HOST_OS
+            c_zmq_recvmsg s (msgPtr m) 0
+#else
+            c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+#endif
         ptr <- c_zmq_msg_data (msgPtr m)
         evt <- peek ptr
         str <- receive soc

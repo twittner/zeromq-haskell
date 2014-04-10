@@ -1,5 +1,5 @@
 name:               zeromq4-haskell
-version:            0.4.1
+version:            0.5
 synopsis:           Bindings to ZeroMQ 4.x
 category:           System, FFI
 license:            MIT

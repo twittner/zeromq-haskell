@@ -81,7 +81,7 @@ type Size    = Word
 
 -- | Flags to apply on send operations (cf. man zmq_send)
 data Flag =
-    DontWait -- ^ ZMQ_DONTWAIT
+    DontWait -- ^ ZMQ_DONTWAIT (Only relevant on Windows.)
   | SendMore -- ^ ZMQ_SNDMORE
   deriving (Eq, Ord, Show)
 
