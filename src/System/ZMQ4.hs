@@ -86,6 +86,7 @@ module System.ZMQ4
   , receiveMulti
   , version
   , monitor
+  , socketMonitor
   , poll
 
   , System.ZMQ4.subscribe
