@@ -80,4 +80,5 @@ test-suite zeromq-haskell-tests
         , bytestring
         , QuickCheck       >= 2.6
         , tasty            >= 0.8
+        , tasty-hunit      >= 0.8
         , tasty-quickcheck >= 0.8

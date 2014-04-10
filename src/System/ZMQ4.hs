@@ -1,7 +1,7 @@
-{-# LANGUAGE CPP   #-}
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE CPP                #-}
+{-# LANGUAGE GADTs              #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric      #-}
 
 -- |
 -- Module      : System.ZMQ4
