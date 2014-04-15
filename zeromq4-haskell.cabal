@@ -43,12 +43,10 @@ library
     exposed-modules:
         System.ZMQ4
         System.ZMQ4.Monadic
-        Data.Restricted
-
-    other-modules:
         System.ZMQ4.Base
         System.ZMQ4.Internal
         System.ZMQ4.Error
+        Data.Restricted
 
     ghc-options:       -Wall -O2 -fwarn-tabs -funbox-strict-fields
 
