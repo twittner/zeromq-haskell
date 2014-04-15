@@ -209,7 +209,7 @@ module System.ZMQ4
 import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
-import Control.Monad (unless)
+import Control.Monad (unless, void)
 import Control.Monad.IO.Class
 import Data.List (intersect, foldl')
 import Data.List.NonEmpty (NonEmpty)
@@ -230,7 +230,12 @@ import qualified Data.List.NonEmpty   as S
 import qualified Prelude              as P
 import qualified System.ZMQ4.Base     as B
 
+#ifdef mingw32_HOST_OS
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar
+#else
 import GHC.Conc (threadWaitRead, threadWaitWrite)
+#endif
 import GHC.Generics(Generic)
 
 -----------------------------------------------------------------------------
@@ -948,10 +953,36 @@ toEvents e = foldl' (\es f -> f e es) [] tests
 retry :: String -> IO () -> IO CInt -> IO ()
 retry msg wait act = throwIfMinus1RetryMayBlock_ msg act wait
 
-wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 #ifdef mingw32_HOST_OS
-wait' _ _ _ = return ()
+-- Windows doesn't have threadWaitRead and friends family of functions because no
+-- usable scheduler was implemented. That's why we have to use this dirty hack that
+-- allows us to both block waiting and still be interrupted by an async exception.
+--
+-- Please note that async exception will just leave an action we've been waiting for
+-- running at background.
+--
+-- This requires building with a -threaded option.
+win32ThreadBlockHack :: IO a -> IO a
+win32ThreadBlockHack act = 
+  do
+    var <- (newEmptyMVar :: IO (MVar (Either SomeException a)))
+    void . forkIO $ try act >>= putMVar var
+    res <- takeMVar var
+    case res of
+      Left  e -> throwIO e
+      Right r -> return r
+
+wait' :: Event -> ZMQPollEvent -> Socket a -> IO ()
+wait' ev pe s = 
+  do
+    void $ win32ThreadBlockHack $ poll 10000 [Sock s [ev] Nothing]
+    evs <- getInt32Option B.events s
+    unless (testev evs) $
+        wait' ev pe s
+  where
+    testev e = e .&. fromIntegral (pollVal pe) /= 0
 #else
+wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
 wait' w f s = do
     fd <- getIntOpt s B.filedesc 0
     w (Fd fd)
@@ -966,13 +997,21 @@ wait' w f s = do
 -- After this function returns, a call to 'receive' will essentially be
 -- non-blocking.
 waitRead :: Socket a -> IO ()
+#ifdef mingw32_HOST_OS
+waitRead = wait' In pollIn
+#else
 waitRead = wait' threadWaitRead pollIn
+#endif
 
 -- | Wait until data can be written to the given Socket.
 -- After this function returns, a call to 'send' will essentially be
 -- non-blocking.
 waitWrite :: Socket a -> IO ()
+#ifdef mingw32_HOST_OS
+waitWrite = wait' Out pollOut
+#else
 waitWrite = wait' threadWaitWrite pollOut
+#endif
 
 -- | Starts built-in 0MQ proxy
 -- (cf. <http://api.zeromq.org/4-0:zmq-proxy zmq_proxy>)
