@@ -234,6 +234,7 @@ instance MonadThrow (ZMQ z) where
 instance MonadCatch (ZMQ z) where
     catch (ZMQ m) f = ZMQ $ m `C.catch` (_unzmq . f)
 
+instance MonadMask (ZMQ z) where
     mask a = ZMQ . ReaderT $ \env ->
         C.mask $ \restore ->
             let f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)

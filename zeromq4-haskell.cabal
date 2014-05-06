@@ -57,7 +57,7 @@ library
         , async        == 2.0.*
         , bytestring
         , containers
-        , exceptions   >= 0.4
+        , exceptions   >= 0.6
         , semigroups   >= 0.8
         , transformers >= 0.3
 
