@@ -61,6 +61,9 @@ library
         , semigroups   >= 0.8
         , transformers >= 0.3
 
+    if impl(ghc < 7.6)
+        build-depends: ghc-prim
+
     if os(windows)
         extra-libraries: zmq
     else
