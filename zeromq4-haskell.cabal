@@ -62,7 +62,7 @@ library
         , transformers >= 0.3
 
     if impl(ghc < 7.6)
-        build-depends: ghc-prim
+        build-depends: ghc-prim == 0.3.*
 
     if os(windows)
         extra-libraries: zmq
