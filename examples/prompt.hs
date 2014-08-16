@@ -7,7 +7,6 @@ import System.IO
 import System.Exit
 import System.Environment
 import System.ZMQ4.Monadic
-import qualified Data.ByteString.UTF8 as SB
 
 main :: IO ()
 main = do
@@ -21,5 +20,5 @@ main = do
         pub <- socket Pub
         bind pub addr
         forever $ do
-            line <- liftIO $ SB.fromString <$> getLine
+            line <- liftIO $ fromString <$> getLine
             send pub [] (name <> line)
