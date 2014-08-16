@@ -230,7 +230,7 @@ import qualified Data.List.NonEmpty   as S
 import qualified Prelude              as P
 import qualified System.ZMQ4.Base     as B
 
-import GHC.Conc (threadWaitRead, threadWaitWrite)
+import GHC.Conc (threadWaitRead)
 import GHC.Generics(Generic)
 
 -----------------------------------------------------------------------------
@@ -948,31 +948,31 @@ toEvents e = foldl' (\es f -> f e es) [] tests
 retry :: String -> IO () -> IO CInt -> IO ()
 retry msg wait act = throwIfMinus1RetryMayBlock_ msg act wait
 
-wait' :: (Fd -> IO ()) -> ZMQPollEvent -> Socket a -> IO ()
+wait' :: ZMQPollEvent -> Socket a -> IO ()
 #ifdef mingw32_HOST_OS
-wait' _ _ _ = return ()
+wait' _ _ = return ()
 #else
-wait' w f s = do
-    fd <- getIntOpt s B.filedesc 0
-    w (Fd fd)
-    evs <- getInt32Option B.events s
-    unless (testev evs) $
-        wait' w f s
+wait' p s = do
+    e <- getInt32Option B.events s
+    unless (testev e) $ do
+        fd <- getIntOpt s B.filedesc 0
+        threadWaitRead (Fd fd)
+        wait' p s
   where
-    testev e = e .&. fromIntegral (pollVal f) /= 0
+    testev e = e .&. fromIntegral (pollVal p) /= 0
 #endif
 
 -- | Wait until data is available for reading from the given Socket.
 -- After this function returns, a call to 'receive' will essentially be
 -- non-blocking.
 waitRead :: Socket a -> IO ()
-waitRead = wait' threadWaitRead pollIn
+waitRead = wait' pollIn
 
 -- | Wait until data can be written to the given Socket.
 -- After this function returns, a call to 'send' will essentially be
 -- non-blocking.
 waitWrite :: Socket a -> IO ()
-waitWrite = wait' threadWaitWrite pollOut
+waitWrite = wait' pollOut
 
 -- | Starts built-in 0MQ proxy
 -- (cf. <http://api.zeromq.org/4-0:zmq-proxy zmq_proxy>)
