@@ -792,14 +792,15 @@ disconnect sock str = onSocket "disconnect" sock $
 -- by default. Still 'send' is blocking the thread as long as the message
 -- can not be queued on the socket using GHC's 'threadWaitWrite'.
 send :: Sender a => Socket a -> [Flag] -> SB.ByteString -> IO ()
-send sock fls val = bracket (messageOf val) messageClose $ \m ->
-  onSocket "send" sock $ \s ->
-    retry "send" (waitWrite sock) $
+send sock fls val = bracketOnError (messageOf val) messageClose $ \m -> do
+    onSocket "send" sock $ \s ->
+        retry "send" (waitWrite sock) $
 #ifdef mingw32_HOST_OS
-          c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
+            c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
 #else
-          c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+            c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 #endif
+    messageFree m
 
 -- | Send the given 'LB.ByteString' over the socket
 -- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
@@ -812,14 +813,15 @@ send sock fls val = bracket (messageOf val) messageClose $ \m ->
 -- by default. Still 'send'' is blocking the thread as long as the message
 -- can not be queued on the socket using GHC's 'threadWaitWrite'.
 send' :: Sender a => Socket a -> [Flag] -> LB.ByteString -> IO ()
-send' sock fls val = bracket (messageOfLazy val) messageClose $ \m ->
-  onSocket "send'" sock $ \s ->
-    retry "send'" (waitWrite sock) $
+send' sock fls val = bracketOnError (messageOfLazy val) messageClose $ \m -> do
+    onSocket "send'" sock $ \s ->
+        retry "send'" (waitWrite sock) $
 #ifdef mingw32_HOST_OS
-          c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
+            c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
 #else
-          c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+            c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 #endif
+    messageFree m
 
 -- | Send a multi-part message.
 -- This function applies the 'SendMore' 'Flag' between all message parts.
@@ -979,7 +981,7 @@ waitWrite = wait' pollOut
 --
 -- Proxy connects front to back socket
 --
--- Before calling proxy all sockets should be binded
+-- Before calling proxy all sockets should be bound
 --
 -- If the capture socket is not Nothing, the proxy  shall send all
 -- messages, received on both frontend and backend, to the capture socket.
