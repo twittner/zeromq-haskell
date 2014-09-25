@@ -20,6 +20,7 @@ module System.ZMQ4.Internal
     , messageOf
     , messageOfLazy
     , messageClose
+    , messageFree
     , messageInit
     , messageInitSize
     , setIntOpt
@@ -207,6 +208,9 @@ messageClose :: Message -> IO ()
 messageClose (Message ptr) = do
     throwIfMinus1_ "messageClose" $ c_zmq_msg_close ptr
     free ptr
+
+messageFree :: Message -> IO ()
+messageFree (Message ptr) = free ptr
 
 messageInit :: IO Message
 messageInit = do
