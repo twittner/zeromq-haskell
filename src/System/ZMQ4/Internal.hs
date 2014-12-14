@@ -1,6 +1,8 @@
 {-# LANGUAGE GADTs              #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
+-- | /Warning/: This is an internal module and subject
+-- to change without notice.
 module System.ZMQ4.Internal
     ( Context           (..)
     , Socket            (..)
@@ -70,8 +72,8 @@ import Data.IORef (newIORef)
 import Data.Restricted
 
 import System.Posix.Types (Fd(..))
-import System.ZMQ4.Base
-import System.ZMQ4.Error
+import System.ZMQ4.Internal.Base
+import System.ZMQ4.Internal.Error
 
 import qualified Data.ByteString        as SB
 import qualified Data.ByteString.Lazy   as LB

@@ -1,7 +1,9 @@
 {-# LANGUAGE CPP                      #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module System.ZMQ4.Base where
+-- | /Warning/: This is an internal module and subject
+-- to change without notice.
+module System.ZMQ4.Internal.Base where
 
 import Foreign
 import Foreign.C.Types

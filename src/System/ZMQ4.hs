@@ -220,15 +220,15 @@ import Foreign hiding (throwIf, throwIf_, throwIfNull, void)
 import Foreign.C.String
 import Foreign.C.Types (CInt, CShort)
 import System.Posix.Types (Fd(..))
-import System.ZMQ4.Base
 import System.ZMQ4.Internal
-import System.ZMQ4.Error
+import System.ZMQ4.Internal.Base
+import System.ZMQ4.Internal.Error
 
-import qualified Data.ByteString      as SB
-import qualified Data.ByteString.Lazy as LB
-import qualified Data.List.NonEmpty   as S
-import qualified Prelude              as P
-import qualified System.ZMQ4.Base     as B
+import qualified Data.ByteString           as SB
+import qualified Data.ByteString.Lazy      as LB
+import qualified Data.List.NonEmpty        as S
+import qualified Prelude                   as P
+import qualified System.ZMQ4.Internal.Base as B
 
 import GHC.Conc (threadWaitRead)
 import GHC.Generics(Generic)

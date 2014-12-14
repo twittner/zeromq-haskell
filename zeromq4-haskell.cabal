@@ -40,17 +40,15 @@ source-repository head
 
 library
     hs-source-dirs:    src
+    ghc-options:       -Wall -O2 -fwarn-tabs -funbox-strict-fields
+
     exposed-modules:
+        Data.Restricted
         System.ZMQ4
         System.ZMQ4.Monadic
-        Data.Restricted
-
-    other-modules:
-        System.ZMQ4.Base
         System.ZMQ4.Internal
-        System.ZMQ4.Error
-
-    ghc-options:       -Wall -O2 -fwarn-tabs -funbox-strict-fields
+        System.ZMQ4.Internal.Base
+        System.ZMQ4.Internal.Error
 
     build-depends:
           base         >= 3 && < 5
