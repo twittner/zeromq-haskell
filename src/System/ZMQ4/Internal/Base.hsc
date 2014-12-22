@@ -1,5 +1,6 @@
-{-# LANGUAGE CPP                      #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE ForeignFunctionInterface   #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- | /Warning/: This is an internal module and subject
 -- to change without notice.
@@ -159,7 +160,7 @@ newtype ZMQCtxOption = ZMQCtxOption
 
 newtype ZMQEventType = ZMQEventType
   { eventTypeVal :: Word16
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Ord, Show, Storable)
 
 #{enum ZMQEventType, ZMQEventType
   , connected      = ZMQ_EVENT_CONNECTED
@@ -184,6 +185,7 @@ data ZMQEvent = ZMQEvent
   , zeValue :: {-# UNPACK #-} !Int32
   }
 
+#if ZMQ_VERSION < 40100
 instance Storable ZMQEvent where
     alignment _ = #{alignment zmq_event_t}
     sizeOf    _ = #{size zmq_event_t}
@@ -193,6 +195,18 @@ instance Storable ZMQEvent where
     poke e (ZMQEvent (ZMQEventType a) b) = do
         #{poke zmq_event_t, event} e a
         #{poke zmq_event_t, value} e b
+#endif
+
+peekZMQEvent :: ZMQMsgPtr -> IO ZMQEvent
+peekZMQEvent m = do
+    p <- c_zmq_msg_data m
+#if ZMQ_VERSION < 40100
+    peek p
+#else
+    e <- peek p
+    v <- peek (p `plusPtr` 2)
+    return (ZMQEvent e v)
+#endif
 
 -----------------------------------------------------------------------------
 -- Security Mechanism

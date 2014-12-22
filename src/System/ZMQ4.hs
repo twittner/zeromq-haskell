@@ -898,8 +898,7 @@ monitor es ctx sock = do
 #else
             c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
 #endif
-        ptr <- c_zmq_msg_data (msgPtr m)
-        evt <- peek ptr
+        evt <- peekZMQEvent (msgPtr m)
         str <- receive soc
         return . Just $ eventMessage str evt
 
