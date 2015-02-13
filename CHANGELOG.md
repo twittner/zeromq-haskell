@@ -1,3 +1,9 @@
+0.6.3
+-----------------------------------------------------------------------------
+- Make internal modules available.
+- Typeable instance for `Context`.
+- Update dependencies.
+
 0.6.2
 -----------------------------------------------------------------------------
 - Bug fixes: #56 (we no longer call zmq_msg_close after successfull sends)
