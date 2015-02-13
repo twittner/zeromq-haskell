@@ -1,6 +1,9 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs              #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
+-- | /Warning/: This is an internal module and subject
+-- to change without notice.
 module System.ZMQ4.Internal
     ( Context           (..)
     , Socket            (..)
@@ -68,10 +71,11 @@ import Foreign.C.Types (CInt, CSize)
 
 import Data.IORef (newIORef)
 import Data.Restricted
+import Data.Typeable
 
 import System.Posix.Types (Fd(..))
-import System.ZMQ4.Base
-import System.ZMQ4.Error
+import System.ZMQ4.Internal.Base
+import System.ZMQ4.Internal.Error
 
 import qualified Data.ByteString        as SB
 import qualified Data.ByteString.Lazy   as LB
@@ -139,6 +143,8 @@ deriving instance Show (KeyFormat a)
 
 -- | A 0MQ context representation.
 newtype Context = Context { _ctx :: ZMQCtx }
+
+deriving instance Typeable Context
 
 -- | A 0MQ Socket.
 newtype Socket a = Socket

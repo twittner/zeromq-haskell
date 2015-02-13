@@ -1,12 +1,12 @@
 name:               zeromq4-haskell
-version:            0.6.2
+version:            0.6.3
 synopsis:           Bindings to ZeroMQ 4.x
 category:           System, FFI
 license:            MIT
 license-file:       LICENSE
 author:             Toralf Wittner
 maintainer:         Toralf Wittner <tw@dtex.org>
-copyright:          (c) 2010 - 2014 zeromq-haskell authors
+copyright:          (c) 2010 - 2015 zeromq-haskell authors
 homepage:           http://github.com/twittner/zeromq-haskell/
 stability:          experimental
 tested-With:        GHC == 7.6.3
@@ -40,24 +40,22 @@ source-repository head
 
 library
     hs-source-dirs:    src
+    ghc-options:       -Wall -O2 -fwarn-tabs -funbox-strict-fields
+
     exposed-modules:
+        Data.Restricted
         System.ZMQ4
         System.ZMQ4.Monadic
-        Data.Restricted
-
-    other-modules:
-        System.ZMQ4.Base
         System.ZMQ4.Internal
-        System.ZMQ4.Error
-
-    ghc-options:       -Wall -O2 -fwarn-tabs -funbox-strict-fields
+        System.ZMQ4.Internal.Base
+        System.ZMQ4.Internal.Error
 
     build-depends:
           base         >= 3 && < 5
         , async        == 2.0.*
         , bytestring
         , containers
-        , exceptions   == 0.6.*
+        , exceptions   >= 0.6 && < 1.0
         , semigroups   >= 0.8
         , transformers >= 0.3
 

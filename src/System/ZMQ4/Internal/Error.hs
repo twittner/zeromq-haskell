@@ -1,11 +1,14 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
--- We use our own functions for throwing exceptions in order to get
+-- | We use our own functions for throwing exceptions in order to get
 -- the actual error message via 'zmq_strerror'. 0MQ defines additional
 -- error numbers besides those defined by the operating system, so
 -- 'zmq_strerror' should be used in preference to 'strerror' which is
 -- used by the standard throw* functions in 'Foreign.C.Error'.
-module System.ZMQ4.Error where
+--
+-- /Warning/: This is an internal module and subject
+-- to change without notice.
+module System.ZMQ4.Internal.Error where
 
 import Control.Applicative
 import Control.Monad
@@ -18,7 +21,7 @@ import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt)
 
-import System.ZMQ4.Base
+import System.ZMQ4.Internal.Base
 
 -- | ZMQError encapsulates information about errors, which occur
 -- when using the native 0MQ API, such as error number and message.
