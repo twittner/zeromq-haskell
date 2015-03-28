@@ -72,6 +72,7 @@ import Foreign.C.Types (CInt, CSize)
 import Data.IORef (newIORef)
 import Data.Restricted
 import Data.Typeable
+import Prelude
 
 import System.Posix.Types (Fd(..))
 import System.ZMQ4.Internal.Base

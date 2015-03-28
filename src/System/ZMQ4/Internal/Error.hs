@@ -20,6 +20,7 @@ import Foreign hiding (throwIf, throwIf_, void)
 import Foreign.C.Error
 import Foreign.C.String
 import Foreign.C.Types (CInt)
+import Prelude
 
 import System.ZMQ4.Internal.Base
 
