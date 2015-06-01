@@ -736,8 +736,8 @@ setSendHighWM = setInt32OptFromRestricted B.sendHighWM
 -- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_ACCEPT_FILTER>.
 setTcpAcceptFilter :: Maybe SB.ByteString -> Socket a -> IO ()
 setTcpAcceptFilter Nothing sock = onSocket "setTcpAcceptFilter" sock $ \s ->
-    throwIfMinus1Retry_ "setStrOpt" $
-        c_zmq_setsockopt s (optVal tcpAcceptFilter) nullPtr 0
+    throwIfMinus1_ "setStrOpt" $
+        c_hs_zmq_setsockopt s (optVal tcpAcceptFilter) nullPtr 0
 setTcpAcceptFilter (Just dat) sock = setByteStringOpt sock tcpAcceptFilter dat
 
 -- | <http://api.zeromq.org/4-0:zmq-setsockopt zmq_setsockopt ZMQ_TCP_KEEPALIVE>.
@@ -764,25 +764,25 @@ setXPubVerbose x s = setIntOpt s B.xpubVerbose (bool2cint x)
 -- (cf. <http://api.zeromq.org/4-0:zmq-bind zmq_bind>).
 bind :: Socket a -> String -> IO ()
 bind sock str = onSocket "bind" sock $
-    throwIfMinus1Retry_ "bind" . withCString str . c_zmq_bind
+    throwIfMinus1_ "bind" . withCString str . c_hs_zmq_bind
 
 -- | Unbind the socket from the given address
 -- (cf. <http://api.zeromq.org/4-0:zmq-unbind zmq_unbind>).
 unbind :: Socket a -> String -> IO ()
 unbind sock str = onSocket "unbind" sock $
-    throwIfMinus1Retry_ "unbind" . withCString str . c_zmq_unbind
+    throwIfMinus1_ "unbind" . withCString str . c_hs_zmq_unbind
 
 -- | Connect the socket to the given address
 -- (cf. <http://api.zeromq.org/4-0:zmq-connect zmq_connect>).
 connect :: Socket a -> String -> IO ()
 connect sock str = onSocket "connect" sock $
-    throwIfMinus1Retry_ "connect" . withCString str . c_zmq_connect
+    throwIfMinus1_ "connect" . withCString str . c_hs_zmq_connect
 
 -- | Disconnect the socket from the given endpoint
 -- (cf. <http://api.zeromq.org/4-0:zmq-disconnect zmq_disconnect>).
 disconnect :: Socket a -> String -> IO ()
 disconnect sock str = onSocket "disconnect" sock $
-    throwIfMinus1Retry_ "disconnect" . withCString str . c_zmq_disconnect
+    throwIfMinus1_ "disconnect" . withCString str . c_hs_zmq_disconnect
 
 -- | Send the given 'SB.ByteString' over the socket
 -- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
@@ -798,7 +798,7 @@ send sock fls val = bracketOnError (messageOf val) messageClose $ \m -> do
 #ifdef mingw32_HOST_OS
             c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
 #else
-            c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+            c_hs_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 #endif
     messageFree m
 
@@ -819,7 +819,7 @@ send' sock fls val = bracketOnError (messageOfLazy val) messageClose $ \m -> do
 #ifdef mingw32_HOST_OS
             c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
 #else
-            c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+            c_hs_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
 #endif
     messageFree m
 
@@ -846,7 +846,7 @@ receive sock = bracket messageInit messageClose $ \m ->
 #ifdef mingw32_HOST_OS
           c_zmq_recvmsg s (msgPtr m) 0
 #else
-          c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+          c_hs_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
 #endif
     data_ptr <- c_zmq_msg_data (msgPtr m)
     size     <- c_zmq_msg_size (msgPtr m)
@@ -871,7 +871,7 @@ socketMonitor :: [EventType] -> String -> Socket a -> IO ()
 socketMonitor es addr soc = onSocket "socketMonitor" soc $ \s ->
     withCString addr $ \a ->
         throwIfMinus1_ "zmq_socket_monitor" $
-            c_zmq_socket_monitor s a (events2cint es)
+            c_hs_zmq_socket_monitor s a (events2cint es)
 
 -- | Monitor socket events
 -- (cf. <http://api.zeromq.org/4-0:zmq-socket-monitor zmq_socket_monitor>).
@@ -896,7 +896,7 @@ monitor es ctx sock = do
 #ifdef mingw32_HOST_OS
             c_zmq_recvmsg s (msgPtr m) 0
 #else
-            c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+            c_hs_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
 #endif
         evt <- peekZMQEvent (msgPtr m)
         str <- receive soc
@@ -911,8 +911,8 @@ poll to desc = do
     let len = length desc
     let ps  = map toZMQPoll desc
     ps' <- liftIO $ withArray ps $ \ptr -> do
-        throwIfMinus1Retry_ "poll" $
-            c_zmq_poll ptr (fromIntegral len) (fromIntegral to)
+        throwIfMinus1_ "poll" $
+            c_hs_zmq_poll ptr (fromIntegral len) (fromIntegral to)
         peekArray len ptr
     mapM fromZMQPoll (zip desc ps')
   where
@@ -988,7 +988,7 @@ proxy :: Socket a -> Socket b -> Maybe (Socket c) -> IO ()
 proxy front back capture =
     onSocket "proxy-front" front $ \f ->
     onSocket "proxy-back"  back  $ \b ->
-        throwIfMinus1Retry_ "c_zmq_proxy" $ c_zmq_proxy f b c
+        c_hs_zmq_proxy f b c >> return ()
   where
     c = maybe nullPtr (_socket . _socketRepr) capture
 

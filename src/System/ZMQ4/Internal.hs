@@ -234,37 +234,37 @@ messageInitSize s = do
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
-    throwIfMinus1Retry_ "setIntOpt" $ with i $ \ptr ->
-        c_zmq_setsockopt s (fromIntegral o)
-                           (castPtr ptr)
-                           (fromIntegral . sizeOf $ i)
+    throwIfMinus1_ "setIntOpt" $ with i $ \ptr ->
+        c_hs_zmq_setsockopt s (fromIntegral o)
+                              (castPtr ptr)
+                              (fromIntegral . sizeOf $ i)
 
 setCStrOpt :: ZMQSocket -> ZMQOption -> CStringLen -> IO CInt
-setCStrOpt s (ZMQOption o) (cstr, len) =
-    c_zmq_setsockopt s (fromIntegral o) (castPtr cstr) (fromIntegral len)
+setCStrOpt s (ZMQOption o) (cstr, len) = throwIfMinus1 "setCStrOpt" $
+    c_hs_zmq_setsockopt s (fromIntegral o) (castPtr cstr) (fromIntegral len)
 
 setByteStringOpt :: Socket a -> ZMQOption -> SB.ByteString -> IO ()
 setByteStringOpt sock opt str = onSocket "setByteStringOpt" sock $ \s ->
-    throwIfMinus1Retry_ "setByteStringOpt" . UB.unsafeUseAsCStringLen str $ setCStrOpt s opt
+    UB.unsafeUseAsCStringLen str (setCStrOpt s opt) >> return ()
 
 setStrOpt :: Socket a -> ZMQOption -> String -> IO ()
 setStrOpt sock opt str = onSocket "setStrOpt" sock $ \s ->
-    throwIfMinus1Retry_ "setStrOpt" . withCStringLen str $ setCStrOpt s opt
+    withCStringLen str (setCStrOpt s opt) >> return ()
 
 getIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO b
 getIntOpt sock (ZMQOption o) i = onSocket "getIntOpt" sock $ \s -> do
     bracket (new i) free $ \iptr ->
         bracket (new (fromIntegral . sizeOf $ i :: CSize)) free $ \jptr -> do
-            throwIfMinus1Retry_ "getIntOpt" $
-                c_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
+            throwIfMinus1_ "getIntOpt" $
+                c_hs_zmq_getsockopt s (fromIntegral o) (castPtr iptr) jptr
             peek iptr
 
 getCStrOpt :: (CStringLen -> IO s) -> Socket a -> ZMQOption -> IO s
 getCStrOpt peekA sock (ZMQOption o) = onSocket "getCStrOpt" sock $ \s ->
     bracket (mallocBytes 255) free $ \bPtr ->
     bracket (new (255 :: CSize)) free $ \sPtr -> do
-        throwIfMinus1Retry_ "getCStrOpt" $
-            c_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
+        throwIfMinus1_ "getCStrOpt" $
+            c_hs_zmq_getsockopt s (fromIntegral o) (castPtr bPtr) sPtr
         peek sPtr >>= \len -> peekA (bPtr, fromIntegral len)
 
 getStrOpt :: Socket a -> ZMQOption -> IO String
@@ -308,8 +308,8 @@ getKey kf sock (ZMQOption o) = onSocket "getKey" sock $ \s -> do
             BinaryFormat -> 32
             TextFormat   -> 41
     with len $ \lenptr -> allocaBytes len $ \w -> do
-        throwIfMinus1Retry_ "getKey" $
-            c_zmq_getsockopt s (fromIntegral o) (castPtr w) (castPtr lenptr)
+        throwIfMinus1_ "getKey" $
+            c_hs_zmq_getsockopt s (fromIntegral o) (castPtr w) (castPtr lenptr)
         SB.packCString w
 
 toZMQFlag :: Flag -> ZMQFlag

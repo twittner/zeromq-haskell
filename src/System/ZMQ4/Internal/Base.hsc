@@ -13,6 +13,7 @@ import Control.Applicative
 import Prelude
 
 #include <zmq.h>
+#include <zmq_wrapper.h>
 
 #if ZMQ_VERSION_MAJOR != 4
     #error *** INVALID 0MQ VERSION (must be 4.x) ***
@@ -312,31 +313,31 @@ foreign import ccall unsafe "zmq.h zmq_socket"
 foreign import ccall unsafe "zmq.h zmq_close"
     c_zmq_close :: ZMQSocket -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_setsockopt"
-    c_zmq_setsockopt :: ZMQSocket
-                     -> CInt   -- option
-                     -> Ptr () -- option value
-                     -> CSize  -- option value size
-                     -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_setsockopt"
+    c_hs_zmq_setsockopt :: ZMQSocket
+                        -> CInt   -- option
+                        -> Ptr () -- option value
+                        -> CSize  -- option value size
+                        -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_getsockopt"
-    c_zmq_getsockopt :: ZMQSocket
-                     -> CInt       -- option
-                     -> Ptr ()     -- option value
-                     -> Ptr CSize  -- option value size ptr
-                     -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_getsockopt"
+    c_hs_zmq_getsockopt :: ZMQSocket
+                        -> CInt       -- option
+                        -> Ptr ()     -- option value
+                        -> Ptr CSize  -- option value size ptr
+                        -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_bind"
-    c_zmq_bind :: ZMQSocket -> CString -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_bind"
+    c_hs_zmq_bind :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_unbind"
-    c_zmq_unbind :: ZMQSocket -> CString -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_unbind"
+    c_hs_zmq_unbind :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_connect"
-    c_zmq_connect :: ZMQSocket -> CString -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_connect"
+    c_hs_zmq_connect :: ZMQSocket -> CString -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_disconnect"
-    c_zmq_disconnect :: ZMQSocket -> CString -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_disconnect"
+    c_hs_zmq_disconnect :: ZMQSocket -> CString -> IO CInt
 
 #ifdef mingw32_HOST_OS
 foreign import ccall safe "zmq.h zmq_sendmsg"
@@ -345,15 +346,15 @@ foreign import ccall safe "zmq.h zmq_sendmsg"
 foreign import ccall safe "zmq.h zmq_recvmsg"
     c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 #else
-foreign import ccall unsafe "zmq.h zmq_sendmsg"
-    c_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_sendmsg"
+    c_hs_zmq_sendmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 
-foreign import ccall unsafe "zmq.h zmq_recvmsg"
-    c_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_recvmsg"
+    c_hs_zmq_recvmsg :: ZMQSocket -> ZMQMsgPtr -> CInt -> IO CInt
 #endif
 
-foreign import ccall unsafe "zmq.h zmq_socket_monitor"
-    c_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
+foreign import ccall unsafe "zmq_wrapper.h hs_zmq_socket_monitor"
+    c_hs_zmq_socket_monitor :: ZMQSocket -> CString -> CInt -> IO CInt
 
 -- errors
 
@@ -365,13 +366,13 @@ foreign import ccall unsafe "zmq.h zmq_strerror"
 
 -- proxy
 
-foreign import ccall safe "zmq.h zmq_proxy"
-    c_zmq_proxy :: ZMQSocket -> ZMQSocket -> ZMQSocket -> IO CInt
+foreign import ccall safe "zmq_wrapper.h hs_zmq_proxy"
+    c_hs_zmq_proxy :: ZMQSocket -> ZMQSocket -> ZMQSocket -> IO CInt
 
 -- poll
 
-foreign import ccall safe "zmq.h zmq_poll"
-    c_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
+foreign import ccall safe "zmq_wrapper.h hs_zmq_poll"
+    c_hs_zmq_poll :: ZMQPollPtr -> CInt -> CLong -> IO CInt
 
 -- Z85 encode/decode
 
