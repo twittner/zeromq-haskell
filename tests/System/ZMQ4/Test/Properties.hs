@@ -120,7 +120,7 @@ prop_subscribe t subs = monadicIO $ run $
         subscribe s subs
         unsubscribe s subs
 
-prop_send_receive :: (SocketType a, SocketType b, Receiver b, Sender a) => a -> b -> ByteString -> Property
+prop_send_receive :: (SocketType a, SocketType b, Receiver b, Sender a) => a -> b -> Message -> Property
 prop_send_receive a b msg = monadicIO $ do
     msg' <- run $ runZMQ $ do
         sender   <- socket a
@@ -128,11 +128,11 @@ prop_send_receive a b msg = monadicIO $ do
         bind receiver "inproc://endpoint"
         x <- async $ receive receiver
         connect sender "inproc://endpoint"
-        send sender [] msg
+        send sender msg
         liftIO $ wait x
     QM.assert (msg == msg')
 
-prop_pub_sub :: (SocketType a, Subscriber b, SocketType b, Sender a, Receiver b) => a -> b -> ByteString -> Property
+prop_pub_sub :: (SocketType a, Subscriber b, SocketType b, Sender a, Receiver b) => a -> b -> Message -> Property
 prop_pub_sub a b msg = monadicIO $ do
     msg' <- run $ runZMQ $ do
         pub <- socket a
@@ -140,7 +140,7 @@ prop_pub_sub a b msg = monadicIO $ do
         subscribe sub ""
         bind sub "inproc://endpoint"
         connect pub "inproc://endpoint"
-        send pub [] msg
+        send pub msg
         receive sub
     QM.assert (msg == msg')
 
@@ -226,3 +226,7 @@ toRneg1' = fromJust . toRestricted . fromIntegral
 data AnySocket where
     AnySocket :: SocketType a => a -> AnySocket
 
+-- Orphan instance, only generate non-empty messages
+instance Arbitrary Message where
+    arbitrary = Message <$> ((:) <$> arbitrary <*> arbitrary)
+    shrink = map Message . filter (\xs -> xs /= []) . shrink . messageFrames

@@ -6,6 +6,7 @@
 -- to change without notice.
 module System.ZMQ4.Internal.Base where
 
+import Data.Bits
 import Foreign
 import Foreign.C.Types
 import Foreign.C.String
@@ -239,6 +240,20 @@ newtype ZMQMsgOption = ZMQMsgOption
 newtype ZMQFlag = ZMQFlag
   { flagVal :: CInt
   } deriving (Eq, Ord)
+
+instance Bits ZMQFlag where
+    ZMQFlag x .&. ZMQFlag y   = ZMQFlag (x .&. y)
+    ZMQFlag x .|. ZMQFlag y   = ZMQFlag (x .|. y)
+    ZMQFlag x `xor` ZMQFlag y = ZMQFlag (x `xor` y)
+    complement (ZMQFlag x)    = ZMQFlag (complement x)
+    ZMQFlag x `shift` n       = ZMQFlag (x `shift` n)
+    ZMQFlag x `rotate` n      = ZMQFlag (x `rotate` n)
+    bitSize (ZMQFlag x)       = bitSize x
+    bitSizeMaybe (ZMQFlag x)  = bitSizeMaybe x
+    isSigned (ZMQFlag x)      = isSigned x
+    ZMQFlag x `testBit` n     = x `testBit` n
+    bit                       = ZMQFlag . bit
+    popCount (ZMQFlag x)      = popCount x
 
 #{enum ZMQFlag, ZMQFlag
   , dontWait = ZMQ_DONTWAIT

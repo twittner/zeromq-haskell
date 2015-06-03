@@ -1,27 +1,29 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GADTs              #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies       #-}
 
 -- | /Warning/: This is an internal module and subject
 -- to change without notice.
 module System.ZMQ4.Internal
     ( Context           (..)
+    , EventMsg          (..)
+    , EventType         (..)
+    , Flag              (..)
+    , Frame
+    , KeyFormat         (..)
+    , Message           (..)
+    , SecurityMechanism (..)
+    , Size
     , Socket            (..)
+    , SocketLike        (..)
     , SocketRepr        (..)
     , SocketType        (..)
-    , SocketLike        (..)
-    , Message           (..)
-    , Flag              (..)
-    , Timeout
-    , Size
     , Switch            (..)
-    , EventType         (..)
-    , EventMsg          (..)
-    , SecurityMechanism (..)
-    , KeyFormat         (..)
+    , Timeout
+    , ZMQMessage        (..)
 
     , messageOf
-    , messageOfLazy
     , messageClose
     , messageFree
     , messageInit
@@ -60,10 +62,11 @@ module System.ZMQ4.Internal
     ) where
 
 import Control.Applicative
-import Control.Monad (foldM_, when, void)
+import Control.Monad (when, void)
 import Control.Monad.IO.Class
 import Control.Exception
 import Data.IORef (IORef, mkWeakIORef, readIORef, atomicModifyIORef)
+import GHC.Exts (IsList(..))
 
 import Foreign hiding (throwIfNull, void)
 import Foreign.C.String
@@ -79,7 +82,6 @@ import System.ZMQ4.Internal.Base
 import System.ZMQ4.Internal.Error
 
 import qualified Data.ByteString        as SB
-import qualified Data.ByteString.Lazy   as LB
 import qualified Data.ByteString.Unsafe as UB
 
 type Timeout = Int64
@@ -166,8 +168,20 @@ class SocketLike s where
 instance SocketLike Socket where
     toSocket = id
 
+-- | A single message frame.
+type Frame = SB.ByteString
+
+-- | A 0MQ message, represented as a list of 'Frame's.
+newtype Message = Message { messageFrames :: [Frame] }
+  deriving (Eq, Ord, Read, Show)
+
+instance IsList Message where
+    type Item Message = Frame
+    toList = messageFrames
+    fromList = Message
+
 -- A 0MQ Message representation.
-newtype Message = Message { msgPtr :: ZMQMsgPtr }
+newtype ZMQMessage = ZMQMessage { msgPtr :: ZMQMsgPtr }
 
 -- internal helpers:
 
@@ -192,45 +206,33 @@ closeSock (SocketRepr s status) = do
   alive <- atomicModifyIORef status (\b -> (False, b))
   when alive $ throwIfMinus1_ "close" . c_zmq_close $ s
 
-messageOf :: SB.ByteString -> IO Message
+messageOf :: SB.ByteString -> IO ZMQMessage
 messageOf b = UB.unsafeUseAsCStringLen b $ \(cstr, len) -> do
     msg <- messageInitSize (fromIntegral len)
     data_ptr <- c_zmq_msg_data (msgPtr msg)
     copyBytes data_ptr cstr len
     return msg
 
-messageOfLazy :: LB.ByteString -> IO Message
-messageOfLazy lbs = do
-    msg <- messageInitSize (fromIntegral len)
-    data_ptr <- c_zmq_msg_data (msgPtr msg)
-    let fn offset bs = UB.unsafeUseAsCStringLen bs $ \(cstr, str_len) -> do
-        copyBytes (data_ptr `plusPtr` offset) cstr str_len
-        return (offset + str_len)
-    foldM_ fn 0 (LB.toChunks lbs)
-    return msg
- where
-    len = LB.length lbs
-
-messageClose :: Message -> IO ()
-messageClose (Message ptr) = do
+messageClose :: ZMQMessage -> IO ()
+messageClose (ZMQMessage ptr) = do
     throwIfMinus1_ "messageClose" $ c_zmq_msg_close ptr
     free ptr
 
-messageFree :: Message -> IO ()
-messageFree (Message ptr) = free ptr
+messageFree :: ZMQMessage -> IO ()
+messageFree (ZMQMessage ptr) = free ptr
 
-messageInit :: IO Message
+messageInit :: IO ZMQMessage
 messageInit = do
     ptr <- new (ZMQMsg nullPtr)
     throwIfMinus1_ "messageInit" $ c_zmq_msg_init ptr
-    return (Message ptr)
+    return (ZMQMessage ptr)
 
-messageInitSize :: Size -> IO Message
+messageInitSize :: Size -> IO ZMQMessage
 messageInitSize s = do
     ptr <- new (ZMQMsg nullPtr)
     throwIfMinus1_ "messageInitSize" $
         c_zmq_msg_init_size ptr (fromIntegral s)
-    return (Message ptr)
+    return (ZMQMessage ptr)
 
 setIntOpt :: (Storable b, Integral b) => Socket a -> ZMQOption -> b -> IO ()
 setIntOpt sock (ZMQOption o) i = onSocket "setIntOpt" sock $ \s ->
