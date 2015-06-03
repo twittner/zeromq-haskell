@@ -17,6 +17,8 @@ module System.ZMQ4.Monadic
   ( -- * Type Definitions
     ZMQ
   , Socket
+  , Z.Frame
+  , Z.Message           (..)
   , Z.Flag              (..)
   , Z.Switch            (..)
   , Z.Timeout
@@ -71,10 +73,7 @@ module System.ZMQ4.Monadic
   , connect
   , disconnect
   , send
-  , send'
-  , sendMulti
   , receive
-  , receiveMulti
   , subscribe
   , unsubscribe
   , proxy
@@ -188,7 +187,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Catch
 import Data.Int
 import Data.IORef
-import Data.List.NonEmpty (NonEmpty)
 import Data.Restricted
 import Data.Word
 import Data.ByteString (ByteString)
@@ -198,7 +196,6 @@ import Prelude
 import qualified Control.Concurrent.Async as A
 import qualified Control.Exception        as E
 import qualified Control.Monad.Catch      as C
-import qualified Data.ByteString.Lazy     as Lazy
 import qualified System.ZMQ4              as Z
 import qualified System.ZMQ4.Internal     as I
 
@@ -325,20 +322,11 @@ connect s = liftIO . Z.connect (_unsocket s)
 disconnect :: Socket z t -> String -> ZMQ z ()
 disconnect s = liftIO . Z.disconnect (_unsocket s)
 
-send :: Z.Sender t => Socket z t -> [Z.Flag] -> ByteString -> ZMQ z ()
-send s f = liftIO . Z.send (_unsocket s) f
+send :: Z.Sender t => Socket z t -> I.Message -> ZMQ z ()
+send s = liftIO . Z.send (_unsocket s)
 
-send' :: Z.Sender t => Socket z t -> [Z.Flag] -> Lazy.ByteString -> ZMQ z ()
-send' s f = liftIO . Z.send' (_unsocket s) f
-
-sendMulti :: Z.Sender t => Socket z t -> NonEmpty ByteString -> ZMQ z ()
-sendMulti s = liftIO . Z.sendMulti (_unsocket s)
-
-receive :: Z.Receiver t => Socket z t -> ZMQ z ByteString
+receive :: Z.Receiver t => Socket z t -> ZMQ z I.Message
 receive = liftIO . Z.receive . _unsocket
-
-receiveMulti :: Z.Receiver t => Socket z t -> ZMQ z [ByteString]
-receiveMulti = liftIO . Z.receiveMulti . _unsocket
 
 subscribe :: Z.Subscriber t => Socket z t -> ByteString -> ZMQ z ()
 subscribe s = liftIO . Z.subscribe (_unsocket s)

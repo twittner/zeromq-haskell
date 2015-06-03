@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP                #-}
-{-# LANGUAGE GADTs              #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE GADTs              #-}
+{-# LANGUAGE LambdaCase         #-}
 
 -- |
 -- Module      : System.ZMQ4
@@ -62,6 +63,8 @@ module System.ZMQ4
   , Size
   , Context
   , Socket
+  , Frame
+  , Message           (..)
   , Flag              (..)
   , Switch            (..)
   , Timeout
@@ -80,10 +83,7 @@ module System.ZMQ4
   , connect
   , disconnect
   , send
-  , send'
-  , sendMulti
   , receive
-  , receiveMulti
   , version
   , monitor
   , socketMonitor
@@ -211,7 +211,6 @@ import Control.Exception
 import Control.Monad (unless)
 import Control.Monad.IO.Class
 import Data.List (intersect, foldl')
-import Data.List.NonEmpty (NonEmpty)
 import Data.Restricted
 import Data.Traversable (forM)
 import Data.Typeable
@@ -225,8 +224,6 @@ import System.ZMQ4.Internal.Error
 import Prelude hiding (init)
 
 import qualified Data.ByteString           as SB
-import qualified Data.ByteString.Lazy      as LB
-import qualified Data.List.NonEmpty        as S
 import qualified Prelude                   as P
 import qualified System.ZMQ4.Internal.Base as B
 
@@ -784,85 +781,70 @@ disconnect :: Socket a -> String -> IO ()
 disconnect sock str = onSocket "disconnect" sock $
     throwIfMinus1Retry_ "disconnect" . withCString str . c_zmq_disconnect
 
--- | Send the given 'SB.ByteString' over the socket
+-- | Send the given 'Message' over the socket
 -- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
 --
 -- /Note/: This function always calls @zmq_sendmsg@ in a non-blocking way,
--- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
--- by default. Still 'send' is blocking the thread as long as the message
--- can not be queued on the socket using GHC's 'threadWaitWrite'.
-send :: Sender a => Socket a -> [Flag] -> SB.ByteString -> IO ()
-send sock fls val = bracketOnError (messageOf val) messageClose $ \m -> do
-    onSocket "send" sock $ \s ->
-        retry "send" (waitWrite sock) $
+-- i.e. the @ZMQ_DONTWAIT@ flag is used by default. Still 'send' is
+-- blocking the thread as long as the message can not be queued on the
+-- socket using GHC's 'threadWaitWrite'.
+send :: Sender a => Socket a -> Message -> IO ()
+send sock = go . messageFrames
+  where
 #ifdef mingw32_HOST_OS
-            c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
+    go :: [Frame] -> IO ()
+    go [] = return ()
+    go [x] = sendFrame x 0
+    go (x:xs) = do
+        sendFrame x sndMore
+        go xs
 #else
-            c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
+    go :: [Frame] -> IO ()
+    go [] = return ()
+    go [x] = sendFrame x dontWait
+    go (x:xs) = do
+        sendFrame x (sndMore .|. dontWait)
+        go xs
 #endif
-    messageFree m
 
--- | Send the given 'LB.ByteString' over the socket
--- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
---
--- This is operationally identical to @send socket (Strict.concat
--- (Lazy.toChunks lbs)) flags@ but may be more efficient.
---
--- /Note/: This function always calls @zmq_sendmsg@ in a non-blocking way,
--- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
--- by default. Still 'send'' is blocking the thread as long as the message
--- can not be queued on the socket using GHC's 'threadWaitWrite'.
-send' :: Sender a => Socket a -> [Flag] -> LB.ByteString -> IO ()
-send' sock fls val = bracketOnError (messageOfLazy val) messageClose $ \m -> do
-    onSocket "send'" sock $ \s ->
-        retry "send'" (waitWrite sock) $
-#ifdef mingw32_HOST_OS
-            c_zmq_sendmsg s (msgPtr m) (combineFlags fls)
-#else
-            c_zmq_sendmsg s (msgPtr m) (combineFlags (DontWait : fls))
-#endif
-    messageFree m
+    sendFrame :: Frame -> ZMQFlag -> IO ()
+    sendFrame val fl =
+        bracketOnError (messageOf val) messageClose $ \m -> do
+            onSocket "send" sock $ \s ->
+                retry "send" (waitWrite sock) $
+                    c_zmq_sendmsg s (msgPtr m) (flagVal fl)
+            messageFree m
 
--- | Send a multi-part message.
--- This function applies the 'SendMore' 'Flag' between all message parts.
--- 0MQ guarantees atomic delivery of a multi-part message
--- (cf. <http://api.zeromq.org/4-0:zmq-sendmsg zmq_sendmsg>).
-sendMulti :: Sender a => Socket a -> NonEmpty SB.ByteString -> IO ()
-sendMulti sock msgs = do
-    mapM_ (send sock [SendMore]) (S.init msgs)
-    send sock [] (S.last msgs)
-
--- | Receive a 'ByteString' from socket
+-- | Receive a 'Message' from socket
 -- (cf. <http://api.zeromq.org/4-0:zmq-recvmsg zmq_recvmsg>).
 --
 -- /Note/: This function always calls @zmq_recvmsg@ in a non-blocking way,
--- i.e. there is no need to provide the @ZMQ_DONTWAIT@ flag as this is used
--- by default. Still 'receive' is blocking the thread as long as no data
--- is available using GHC's 'threadWaitRead'.
-receive :: Receiver a => Socket a -> IO (SB.ByteString)
-receive sock = bracket messageInit messageClose $ \m ->
-  onSocket "receive" sock $ \s -> do
-    retry "receive" (waitRead sock) $
-#ifdef mingw32_HOST_OS
-          c_zmq_recvmsg s (msgPtr m) 0
-#else
-          c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
-#endif
-    data_ptr <- c_zmq_msg_data (msgPtr m)
-    size     <- c_zmq_msg_size (msgPtr m)
-    SB.packCStringLen (data_ptr, fromIntegral size)
-
--- | Receive a multi-part message.
--- This function collects all message parts send via 'sendMulti'.
-receiveMulti :: Receiver a => Socket a -> IO [SB.ByteString]
-receiveMulti sock = recvall []
+-- i.e. the @ZMQ_DONTWAIT@ flag is used by default. Still 'receive' is
+-- blocking the thread as long as no data is available using GHC's
+-- 'threadWaitRead'.
+receive :: Receiver a => Socket a -> IO Message
+receive sock = Message <$> go []
   where
-    recvall acc = do
-        msg <- receive sock
-        moreToReceive sock >>= next (msg:acc)
+    go :: [Frame] -> IO [Frame]
+    go acc = do
+        msg <- receiveFrame sock
+        moreToReceive sock >>= \case
+            True  -> go (msg:acc)
+            False -> return $ reverse (msg:acc)
 
-    next acc True  = recvall acc
-    next acc False = return (reverse acc)
+receiveFrame :: Receiver a => Socket a -> IO Frame
+receiveFrame sock =
+    bracket messageInit messageClose $ \m ->
+      onSocket "receive" sock $ \s -> do
+        retry "receive" (waitRead sock) $
+#ifdef mingw32_HOST_OS
+              c_zmq_recvmsg s (msgPtr m) 0
+#else
+              c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
+#endif
+        data_ptr <- c_zmq_msg_data (msgPtr m)
+        size     <- c_zmq_msg_size (msgPtr m)
+        SB.packCStringLen (data_ptr, fromIntegral size)
 
 -- | Setup socket monitoring, i.e. a 'Pair' socket which
 -- sends monitoring events about the given 'Socket' to the
@@ -890,6 +872,7 @@ monitor es ctx sock = do
     connect s addr
     next s <$> messageInit
   where
+    next :: Socket Pair -> ZMQMessage -> Bool -> IO (Maybe EventMsg)
     next soc m False = messageClose m `finally` close soc >> return Nothing
     next soc m True  = onSocket "recv" soc $ \s -> do
         retry "recv" (waitRead soc) $
@@ -899,7 +882,7 @@ monitor es ctx sock = do
             c_zmq_recvmsg s (msgPtr m) (flagVal dontWait)
 #endif
         evt <- peekZMQEvent (msgPtr m)
-        str <- receive soc
+        str <- receiveFrame soc
         return . Just $ eventMessage str evt
 
 -- | Polls for events on the given 'Poll' descriptors. Returns a list of
