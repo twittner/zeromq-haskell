@@ -1,5 +1,5 @@
 name:               zeromq4-haskell
-version:            0.6.3
+version:            0.6.4
 synopsis:           Bindings to ZeroMQ 4.x
 category:           System, FFI
 license:            MIT
@@ -52,7 +52,7 @@ library
 
     build-depends:
           base         >= 3 && < 5
-        , async        == 2.0.*
+        , async        >= 2.0 && < 3.0
         , bytestring
         , containers
         , exceptions   >= 0.6 && < 1.0
