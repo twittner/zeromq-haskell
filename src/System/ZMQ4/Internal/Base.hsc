@@ -10,6 +10,7 @@ import Foreign
 import Foreign.C.Types
 import Foreign.C.String
 import Control.Applicative
+import Prelude
 
 #include <zmq.h>
 

@@ -193,6 +193,7 @@ import Data.Restricted
 import Data.Word
 import Data.ByteString (ByteString)
 import System.Posix.Types (Fd)
+import Prelude
 
 import qualified Control.Concurrent.Async as A
 import qualified Control.Exception        as E

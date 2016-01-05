@@ -20,6 +20,7 @@ import Data.Maybe (fromJust)
 import Data.ByteString (ByteString)
 import System.ZMQ4.Monadic
 import System.Posix.Types (Fd(..))
+import Prelude
 
 import qualified Data.ByteString         as SB
 import qualified Data.ByteString.Char8   as CB

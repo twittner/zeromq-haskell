@@ -206,7 +206,6 @@ module System.ZMQ4
   , curveKeyPair
   ) where
 
-import Prelude hiding (init)
 import Control.Applicative
 import Control.Exception
 import Control.Monad (unless)
@@ -223,6 +222,7 @@ import System.Posix.Types (Fd(..))
 import System.ZMQ4.Internal
 import System.ZMQ4.Internal.Base
 import System.ZMQ4.Internal.Error
+import Prelude hiding (init)
 
 import qualified Data.ByteString           as SB
 import qualified Data.ByteString.Lazy      as LB
