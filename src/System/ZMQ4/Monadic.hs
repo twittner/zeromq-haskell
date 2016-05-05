@@ -1,4 +1,7 @@
 {-# LANGUAGE RankNTypes                         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving         #-}
+{-# LANGUAGE MultiParamTypeClasses              #-}
+{-# LANGUAGE TypeFamilies                       #-}
 {-# OPTIONS_GHC -fno-warn-warnings-deprecations #-}
 
 -- |
@@ -183,9 +186,11 @@ module System.ZMQ4.Monadic
 import Control.Applicative
 import Control.Concurrent.Async (Async)
 import Control.Monad
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
+import Control.Monad.Base (MonadBase(..))
 import Control.Monad.Catch
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Control (MonadBaseControl(..))
+import Control.Monad.Trans.Reader
 import Data.Int
 import Data.IORef
 import Data.List.NonEmpty (NonEmpty)
@@ -214,6 +219,7 @@ data ZMQEnv = ZMQEnv
 -- unintented use of 'Socket's outside their scope. Cf. the paper
 -- of John Launchbury and Simon Peyton Jones /Lazy Functional State Threads/.
 newtype ZMQ z a = ZMQ { _unzmq :: ReaderT ZMQEnv IO a }
+    deriving (MonadBase IO)
 
 -- | The ZMQ socket, parameterised by 'SocketType' and belonging to
 -- a particular 'ZMQ' thread.
@@ -229,6 +235,11 @@ instance Monad (ZMQ z) where
 instance MonadIO (ZMQ z) where
     liftIO m = ZMQ $! liftIO m
 
+instance MonadBaseControl IO (ZMQ z) where
+    type StM (ZMQ z) a = a
+    liftBaseWith = \f -> ZMQ $ liftBaseWith $ \q -> f (q . _unzmq)
+    restoreM = ZMQ . restoreM
+
 instance MonadThrow (ZMQ z) where
     throwM = ZMQ . C.throwM
 
@@ -238,12 +249,14 @@ instance MonadCatch (ZMQ z) where
 instance MonadMask (ZMQ z) where
     mask a = ZMQ . ReaderT $ \env ->
         C.mask $ \restore ->
-            let f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
+            let f :: forall r a . ZMQ r a -> ZMQ r a
+                f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
             in runReaderT (_unzmq (a $ f)) env
 
     uninterruptibleMask a = ZMQ . ReaderT $ \env ->
         C.uninterruptibleMask $ \restore ->
-            let f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
+            let f :: forall r a . ZMQ r a -> ZMQ r a
+                f (ZMQ (ReaderT b)) = ZMQ $ ReaderT (restore . b)
             in runReaderT (_unzmq (a $ f)) env
 
 instance Functor (ZMQ z) where

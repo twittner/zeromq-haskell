@@ -58,6 +58,8 @@ library
         , exceptions   >= 0.6 && < 1.0
         , semigroups   >= 0.8
         , transformers >= 0.3
+        , monad-control
+        , transformers-base
 
     if impl(ghc < 7.6)
         build-depends: ghc-prim == 0.3.*
