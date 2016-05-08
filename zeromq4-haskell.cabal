@@ -1,5 +1,5 @@
 name:               zeromq4-haskell
-version:            0.6.4
+version:            0.6.5
 synopsis:           Bindings to ZeroMQ 4.x
 category:           System, FFI
 license:            MIT
@@ -7,9 +7,9 @@ license-file:       LICENSE
 author:             Toralf Wittner
 maintainer:         Toralf Wittner <tw@dtex.org>
 copyright:          (c) 2010 - 2015 zeromq-haskell authors
-homepage:           http://github.com/twittner/zeromq-haskell/
+homepage:           https://gitlab.com/twittner/zeromq-haskell/
 stability:          experimental
-tested-With:        GHC == 7.6.3
+tested-With:        GHC == 7.10.3
 cabal-version:      >= 1.8
 build-type:         Simple
 extra-source-files:
@@ -36,7 +36,7 @@ description:
 
 source-repository head
     type:             git
-    location:         https://github.com/twittner/zeromq-haskell
+    location:         https://gitlab.com/twittner/zeromq-haskell
 
 library
     hs-source-dirs:    src
@@ -51,13 +51,15 @@ library
         System.ZMQ4.Internal.Error
 
     build-depends:
-          base         >= 3 && < 5
-        , async        >= 2.0 && < 3.0
-        , bytestring
-        , containers
-        , exceptions   >= 0.6 && < 1.0
-        , semigroups   >= 0.8
-        , transformers >= 0.3
+          base              >= 3    && < 5
+        , async             >= 2.0  && < 3.0
+        , bytestring        >= 0.10
+        , containers        >= 0.5
+        , exceptions        >= 0.6  && < 1.0
+        , semigroups        >= 0.8
+        , transformers      >= 0.3
+        , monad-control     >= 1.0
+        , transformers-base >= 0.4
 
     if impl(ghc < 7.6)
         build-depends: ghc-prim == 0.3.*
