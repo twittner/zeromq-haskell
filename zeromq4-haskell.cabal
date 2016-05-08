@@ -51,15 +51,15 @@ library
         System.ZMQ4.Internal.Error
 
     build-depends:
-          base         >= 3 && < 5
-        , async        >= 2.0 && < 3.0
-        , bytestring
-        , containers
-        , exceptions   >= 0.6 && < 1.0
-        , semigroups   >= 0.8
-        , transformers >= 0.3
-        , monad-control
-        , transformers-base
+          base              >= 3    && < 5
+        , async             >= 2.0  && < 3.0
+        , bytestring        >= 0.10
+        , containers        >= 0.5
+        , exceptions        >= 0.6  && < 1.0
+        , semigroups        >= 0.8
+        , transformers      >= 0.3
+        , monad-control     >= 1.0
+        , transformers-base >= 0.4
 
     if impl(ghc < 7.6)
         build-depends: ghc-prim == 0.3.*
