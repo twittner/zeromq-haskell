@@ -1,6 +1,6 @@
 before_script:
   - apt-get update
-  - apt-get install -y libstdc++-4.9-dev g++ libzmq3-dev
+  - apt-get install -y libstdc++-4.9-dev g++ libzmq3-dev pkg-config
   - cabal update
 
 test:7.10:
